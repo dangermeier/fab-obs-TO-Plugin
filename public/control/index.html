@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#2456c7">
+  <title>FAB Lebenspunkte</title>
+  <link rel="stylesheet" href="/shared/overlay.css">
+  <style>
+    /* Touch first: no double-tap zoom, no pull-to-refresh, no text selection. */
+    html, body {
+      height: 100%;
+      overscroll-behavior: none;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      font-size: 16px;
+      overflow: hidden;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    }
+    button, .tap { touch-action: manipulation; }
+
+    /* ── header ─────────────────────────────────────────────────────────── */
+    header {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 16px;
+      border-top: 4px solid var(--accent);
+      border-bottom: 1px solid var(--line);
+      background: var(--bg-raised);
+    }
+    .h-title { font-family: var(--font-head); font-weight: 600; font-size: 19px; color: var(--text); }
+    .h-sub   { flex: 1; font-size: 13px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .live { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
+    .live .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--win); }
+    .live.off .dot { background: var(--danger); }
+    .live.off { color: var(--danger); }
+
+    /* ── the two player panels ──────────────────────────────────────────── */
+    main { flex: 1; display: flex; min-height: 0; }
+
+    .panel {
+      flex: 1 1 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      min-width: 0;
+    }
+    .panel + .panel { border-left: 1px solid var(--line); }
+
+    .seat {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    .who { display: flex; align-items: center; gap: 10px; max-width: 100%; min-width: 0; }
+    .who .txt { min-width: 0; }
+    .who .nm  { font-size: 16px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .who .hr  { font-size: 13px; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Primary targets: full-width, thumb-sized, impossible to miss. */
+    .big {
+      width: 100%;
+      max-width: 320px;
+      flex: 1 1 0;
+      min-height: 60px;
+      border: 1px solid var(--accent);
+      border-radius: 3px;
+      background: var(--accent);
+      color: #fff;
+      font-family: var(--font-head);
+      font-size: 32px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .big:active { background: var(--accent-deep); transform: scale(0.985); }
+    .big.minus {
+      border-color: var(--danger);
+      background: var(--bg-raised);
+      color: var(--danger);
+    }
+    .big.minus:active { background: var(--danger); color: #fff; }
+
+    .lifeval {
+      font-family: var(--font-head);
+      font-size: clamp(52px, 13vh, 104px);
+      font-weight: 700;
+      line-height: 1;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      cursor: pointer;
+      padding: 0 12px;
+    }
+    .lifeval.pending { opacity: 0.55; }
+
+    .quick { display: flex; gap: 8px; width: 100%; max-width: 320px; }
+    .quick button {
+      flex: 1;
+      min-height: 48px;
+      border: 1px solid var(--line-strong);
+      border-radius: 3px;
+      background: var(--bg-raised);
+      color: var(--danger);
+      font-family: var(--font-head);
+      font-size: 18px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .quick button:active { background: var(--danger); color: #fff; border-color: var(--danger); }
+
+    /* ── full-window takeover once the match is confirmed over ──────────── */
+    .ended {
+      position: fixed;
+      inset: 0;
+      z-index: 350;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 24px;
+      background: var(--accent);
+      color: #fff;
+      animation: ended-pulse 3s ease-in-out infinite;
+    }
+    .ended[hidden] { display: none; }
+
+    @keyframes ended-pulse {
+      0%, 100% { background: var(--accent); }
+      50%      { background: var(--accent-deep); }
+    }
+
+    .ended-inner { display: flex; flex-direction: column; align-items: center; gap: 14px; max-width: 640px; }
+    .ended-title {
+      font-family: var(--font-head);
+      font-size: clamp(40px, 9.5vw, 84px);
+      font-weight: 700;
+      line-height: 1.02;
+      color: #fff;
+    }
+    .ended-sub { font-size: clamp(17px, 3vw, 24px); color: rgba(255,255,255,0.92); line-height: 1.4; }
+
+    /* Parked in the corner and deliberately small: the finger was just in the
+       middle of the screen answering "Ja", so nothing dismissable belongs there. */
+    .ended-dismiss {
+      position: absolute;
+      right:  calc(18px + env(safe-area-inset-right));
+      bottom: calc(18px + env(safe-area-inset-bottom));
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 5px;
+    }
+    .ended-note { font-size: 11px; color: rgba(255,255,255,0.6); }
+    .ended .act {
+      flex: 0 0 auto;
+      min-height: 38px;
+      padding: 0 16px;
+      font-size: 13px;
+      background: transparent;
+      border-color: rgba(255,255,255,0.55);
+      color: #fff;
+    }
+    .ended .act:active { background: rgba(255,255,255,0.2); }
+
+    /* Question dialog — deliberately just the question and two answers. */
+    .end-q {
+      font-size: 21px;
+      color: var(--text);
+      text-align: center;
+      line-height: 1.4;
+      margin-bottom: 22px;
+    }
+
+    /* Fullscreen toggle in the header */
+    .icon-btn {
+      flex-shrink: 0;
+      width: 40px; height: 40px;
+      display: flex; align-items: center; justify-content: center;
+      border: 1px solid var(--line-strong);
+      border-radius: 3px;
+      background: transparent;
+      color: var(--accent);
+      cursor: pointer;
+      padding: 0;
+    }
+    .icon-btn:active { background: var(--accent); color: #fff; }
+    .icon-btn svg { width: 19px; height: 19px; fill: currentColor; }
+    .icon-btn .exit { display: none; }
+    body.fs .icon-btn .enter { display: none; }
+    body.fs .icon-btn .exit  { display: block; }
+
+    /* ── action bar ─────────────────────────────────────────────────────── */
+    footer {
+      flex-shrink: 0;
+      display: flex;
+      gap: 8px;
+      padding: 10px 14px;
+      border-top: 1px solid var(--line);
+      background: var(--bg-raised);
+    }
+    .act {
+      flex: 1;
+      min-height: 52px;
+      border: 1px solid var(--line-strong);
+      border-radius: 3px;
+      background: var(--bg-raised);
+      color: var(--text);
+      font-size: 14px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .act:active { background: var(--bg-sunken); }
+    .act:disabled { opacity: 0.35; }
+    .act.accent { border-color: var(--accent); background: var(--accent); color: #fff; font-weight: 600; }
+    .act.accent:active { background: var(--accent-deep); }
+
+    /* ── sheets (match picker, PIN) ─────────────────────────────────────── */
+    .sheet {
+      position: fixed; inset: 0;
+      background: rgba(20, 24, 31, 0.55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 300;
+      -webkit-backdrop-filter: blur(3px);
+      backdrop-filter: blur(3px);
+    }
+    .sheet.open { display: flex; }
+    /* The PIN gate must sit above the end-of-match takeover. */
+    #sheet-pin { z-index: 400; }
+    .sheet-box {
+      width: 100%;
+      max-width: 520px;
+      max-height: 100%;
+      overflow-y: auto;
+      background: var(--bg-raised);
+      border: 1px solid var(--line-strong);
+      border-top: 4px solid var(--accent);
+      border-radius: 3px;
+      padding: 22px;
+      box-shadow: 0 12px 40px rgba(20, 24, 31, 0.28);
+    }
+    .sheet-box h2 {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--accent); margin-bottom: 16px; font-weight: 600;
+    }
+    label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 5px; }
+    .field { margin-bottom: 14px; }
+    select, input[type=text], input[type=number] {
+      width: 100%;
+      min-height: 46px;
+      padding: 8px 10px;
+      background: var(--bg);
+      border: 1px solid var(--line-strong);
+      border-radius: 3px;
+      color: var(--text);
+      font-size: 16px;   /* 16px keeps iOS from zooming on focus */
+      font-family: inherit;
+    }
+    .row2 { display: flex; gap: 10px; }
+    .row2 > * { flex: 1; }
+    .check { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--text); margin-bottom: 14px; }
+    .check input { width: 22px; height: 22px; accent-color: var(--accent); }
+    details { margin-top: 6px; border-top: 1px solid var(--line); padding-top: 12px; }
+    summary { font-size: 13px; color: var(--accent); cursor: pointer; padding: 6px 0; }
+    .hint { font-size: 12px; color: var(--text-dim); line-height: 1.5; margin-bottom: 12px; }
+    .err  { font-size: 13px; color: var(--danger); margin-bottom: 10px; min-height: 18px; }
+
+    /* PIN keypad */
+    .pin-dots { display: flex; justify-content: center; gap: 12px; margin: 18px 0 22px; }
+    .pin-dots i {
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 1px solid var(--accent); background: transparent;
+    }
+    .pin-dots i.on { background: var(--accent); }
+    .keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .keys button {
+      min-height: 62px;
+      border: 1px solid var(--line-strong);
+      border-radius: 3px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-head);
+      font-size: 26px;
+      cursor: pointer;
+    }
+    .keys button:active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .keys button.ok { border-color: var(--accent); background: var(--accent); color: #fff; font-size: 17px; }
+
+    .toast {
+      position: fixed;
+      left: 50%; bottom: 84px;
+      transform: translateX(-50%);
+      background: var(--danger);
+      border: 1px solid var(--danger);
+      color: #fff;
+      padding: 9px 16px;
+      border-radius: 3px;
+      font-size: 13px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s;
+      z-index: 400;
+      max-width: 90vw;
+      text-align: center;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="h-title">Lebenspunkte</div>
+  <div class="h-sub" id="sub">–</div>
+  <div class="live off" id="live"><span class="dot"></span><span id="live-txt">Verbinde…</span></div>
+  <button class="icon-btn" id="btn-fs" title="Vollbild" aria-label="Vollbild">
+    <svg class="enter" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h7v2H5v5H3V3zm11 0h7v7h-2V5h-5V3zM3 14h2v5h5v2H3v-7zm16 0h2v7h-7v-2h5v-5z"/></svg>
+    <svg class="exit"  viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h2v7H3V8h5V3zm6 0h2v5h5v2h-7V3zM3 14h7v7H8v-5H3v-2zm11 0h7v2h-5v5h-2v-7z"/></svg>
+  </button>
+</header>
+
+<main>
+  <section class="panel" id="panel-left"></section>
+  <section class="panel" id="panel-right"></section>
+</main>
+
+<div class="ended" id="ended" hidden>
+  <div class="ended-inner">
+    <div class="ended-title">Match beendet</div>
+    <div class="ended-sub">Bitte jetzt das Ergebnis in GEM melden.</div>
+  </div>
+  <div class="ended-dismiss">
+    <div class="ended-note">blendet die Rundenanzeige aus</div>
+    <button class="act" id="btn-resume">Weiter</button>
+  </div>
+</div>
+
+<footer>
+  <button class="act" id="btn-undo" disabled>↶ Rückgängig</button>
+  <button class="act" id="btn-swap">⇄ Seiten tauschen</button>
+  <button class="act accent" id="btn-match">⚙ Match</button>
+</footer>
+
+<!-- match picker -->
+<div class="sheet" id="sheet-match">
+  <div class="sheet-box">
+    <h2>Match auswählen</h2>
+    <div class="err" id="match-err"></div>
+    <div class="row2">
+      <div class="field"><label for="sel-round">Runde</label><select id="sel-round"></select></div>
+      <div class="field"><label for="sel-table">Tisch</label><select id="sel-table"></select></div>
+    </div>
+    <div class="check">
+      <input type="checkbox" id="chk-follow">
+      <label for="chk-follow" style="margin:0">Diesem Tisch jede Runde folgen</label>
+    </div>
+    <div class="hint">
+      Beim Rundenwechsel werden die Spieler neu geladen und die Lebenspunkte
+      auf die Startwerte der Helden zurückgesetzt.
+    </div>
+
+    <details id="manual-details">
+      <summary>Manuell überschreiben</summary>
+      <div class="hint">
+        Für Matches, die nicht in GEM stehen — oder wenn GEM gerade nicht erreichbar ist.
+        Leer gelassene Startleben werden aus dem Helden ermittelt.
+      </div>
+      <div class="row2">
+        <div class="field"><label>Name links</label><input type="text" id="m-n1" autocomplete="off"></div>
+        <div class="field"><label>Name rechts</label><input type="text" id="m-n2" autocomplete="off"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Held links</label><input type="text" id="m-h1" autocomplete="off"></div>
+        <div class="field"><label>Held rechts</label><input type="text" id="m-h2" autocomplete="off"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Startleben links</label><input type="number" id="m-l1" inputmode="numeric"></div>
+        <div class="field"><label>Startleben rechts</label><input type="number" id="m-l2" inputmode="numeric"></div>
+      </div>
+      <button class="act accent" id="btn-manual" style="width:100%">Manuelles Match starten</button>
+    </details>
+
+    <div class="row2" style="margin-top:16px">
+      <button class="act" id="btn-match-close">Schließen</button>
+      <button class="act accent" id="btn-match-save">Übernehmen</button>
+    </div>
+  </div>
+</div>
+
+<!-- match over? -->
+<div class="sheet" id="sheet-end">
+  <div class="sheet-box" style="max-width:420px">
+    <div class="end-q">Ist das laufende Match beendet?</div>
+    <div class="row2">
+      <button class="act" id="btn-end-no">Nein</button>
+      <button class="act accent" id="btn-end-yes">Ja</button>
+    </div>
+  </div>
+</div>
+
+<!-- PIN gate -->
+<div class="sheet" id="sheet-pin">
+  <div class="sheet-box" style="max-width:330px">
+    <h2>PIN eingeben</h2>
+    <div class="hint">Der PIN steht in der Konsole des Servers und auf der Config-Seite.</div>
+    <div class="err" id="pin-err"></div>
+    <div class="pin-dots" id="pin-dots"></div>
+    <div class="keys" id="keys"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/shared/overlay.js"></script>
+<script>
+  let server   = null;                  // last accepted server state
+  const pend   = { p1: 0, p2: 0 };      // optimistic offset not yet on the server
+  const inFly  = { p1: 0, p2: 0 };      // outstanding life requests per player
+
+  // ── networking ────────────────────────────────────────────────────────────
+  // Token handling lives in overlay.js and is shared with the config page.
+
+  const post = (path, body) => OV.post(path, body, openPin);
+
+  let toastTimer = null;
+  function toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+  }
+
+  // ── state ─────────────────────────────────────────────────────────────────
+
+  function adopt(m) {
+    if (!m) return;
+    if (server && m.rev < server.rev) return;          // out-of-order response
+
+    // A player with taps still in flight keeps the value the optimistic offset
+    // was measured against; the last response to settle installs the truth.
+    const life = Object.assign({}, m.life);
+    if (server) {
+      for (const p of ['p1', 'p2']) if (inFly[p] > 0) life[p] = server.life[p];
+    }
+    server = Object.assign({}, m, { life });
+    render();
+  }
+
+  function sides() { return server && server.swapped ? ['p2', 'p1'] : ['p1', 'p2']; }
+
+  function shownLife(p) {
+    const base = server && server.life ? server.life[p] : null;
+    if (!Number.isFinite(base)) return pend[p] ? pend[p] : null;
+    return base + pend[p];
+  }
+
+  async function sendLife(player, delta) {
+    pend[player] += delta;
+    inFly[player]++;
+    render();
+    let out = null;
+    try {
+      out = await post('/api/match/life', { player, delta });
+    } catch (err) {
+      toast(err.message);
+    } finally {
+      pend[player] -= delta;
+      inFly[player]--;
+      adopt(out && out.match);
+      render();
+    }
+  }
+
+  async function act(path, body) {
+    try { adopt((await post(path, body)).match); }
+    catch (err) { toast(err.message); }
+  }
+
+  // ── rendering ─────────────────────────────────────────────────────────────
+
+  const QUICK = [-2, -4, -5, -10];
+  const panels = { left: document.getElementById('panel-left'), right: document.getElementById('panel-right') };
+  const built  = { left: null, right: null };
+
+  function buildPanel(host, seatLabel) {
+    host.innerHTML =
+      '<div class="seat">' + seatLabel + '</div>' +
+      '<div class="who"><div class="hero"></div><div class="txt">' +
+        '<div class="nm">–</div><div class="hr">–</div></div></div>' +
+      '<button class="big plus">+1</button>' +
+      '<div class="lifeval tap">–</div>' +
+      '<button class="big minus">−1</button>' +
+      '<div class="quick">' + QUICK.map(q => '<button data-d="' + q + '">' + q + '</button>').join('') + '</div>';
+
+    return {
+      host,
+      hero:  host.querySelector('.hero'),
+      nm:    host.querySelector('.nm'),
+      hr:    host.querySelector('.hr'),
+      life:  host.querySelector('.lifeval'),
+      plus:  host.querySelector('.plus'),
+      minus: host.querySelector('.minus'),
+      quick: [...host.querySelectorAll('.quick button')],
+      lastHero: undefined,
+      player: null
+    };
+  }
+
+  // pointerdown rather than click: no 300 ms wait, and it fires on the way down
+  // which is what makes rapid tapping feel right.
+  function onTap(el, fn) {
+    el.addEventListener('pointerdown', e => { e.preventDefault(); fn(); });
+  }
+
+  function wire(p) {
+    onTap(p.plus,  () => p.player && sendLife(p.player, +1));
+    onTap(p.minus, () => p.player && sendLife(p.player, -1));
+    p.quick.forEach(b => onTap(b, () => p.player && sendLife(p.player, parseInt(b.dataset.d, 10))));
+    onTap(p.life, () => {
+      if (!p.player) return;
+      const cur = shownLife(p.player);
+      const v = prompt('Lebenspunkte setzen:', cur == null ? '' : String(cur));
+      if (v === null || v.trim() === '') return;
+      const n = parseInt(v, 10);
+      if (!Number.isFinite(n)) return toast('Keine gültige Zahl');
+      act('/api/match/life', { player: p.player, value: n });
+    });
+  }
+
+  built.left  = buildPanel(panels.left,  'LINKS');
+  built.right = buildPanel(panels.right, 'RECHTS');
+  wire(built.left);
+  wire(built.right);
+
+  function renderPanel(pan, playerKey) {
+    const p = server ? server[playerKey] : null;
+    pan.player = playerKey;
+
+    const hero = (p && p.hero) || null;
+    if (hero !== pan.lastHero) { pan.hero.innerHTML = OV.hw(hero, 44); pan.lastHero = hero; }
+
+    const rec = p && (p.wins || p.losses) ? '  ·  ' + p.wins + '–' + p.losses : '';
+    pan.nm.textContent = p ? OV.fmtName(p.name) : '–';
+    pan.hr.textContent = (hero || '—') + rec;
+
+    const v = shownLife(playerKey);
+    pan.life.textContent = v == null ? '–' : String(v);
+    pan.life.classList.toggle('pending', inFly[playerKey] > 0);
+  }
+
+  function render() {
+    const [l, r] = sides();
+    if (server) OV.setFormat(server.format);
+    renderPanel(built.left,  l);
+    renderPanel(built.right, r);
+
+    const bits = [];
+    if (server && server.roundLabel) bits.push(server.roundLabel);
+    if (server && server.table)      bits.push('Tisch ' + server.table);
+    if (server && server.manual)     bits.push('manuell');
+    document.getElementById('sub').textContent = (server && server.warning) || bits.join(' · ') || 'Kein Match gewählt';
+
+    document.getElementById('btn-undo').disabled = !(server && server.canUndo);
+    document.getElementById('ended').hidden = !(server && server.ended);
+
+    checkForZero();
+  }
+
+  // ── end of match ──────────────────────────────────────────────────────────
+
+  const sheetEnd = document.getElementById('sheet-end');
+  // Set when the operator answers "no", so the dialog does not come back on
+  // every further tap. Cleared as soon as both players are above zero again.
+  let zeroDismissed = false;
+
+  function playersAtZero() {
+    return ['p1', 'p2'].filter(k => {
+      const v = shownLife(k);
+      return Number.isFinite(v) && v <= 0;
+    });
+  }
+
+  function checkForZero() {
+    const dead = playersAtZero();
+
+    if (!dead.length) {                      // healed back up — arm it again
+      zeroDismissed = false;
+      sheetEnd.classList.remove('open');
+      return;
+    }
+    if (zeroDismissed || (server && server.ended)) return;
+    sheetEnd.classList.add('open');
+  }
+
+  onTap(document.getElementById('btn-end-no'), () => {
+    zeroDismissed = true;
+    sheetEnd.classList.remove('open');
+  });
+
+  onTap(document.getElementById('btn-end-yes'), async () => {
+    // Stays dismissed so hiding the overlay later does not re-ask while the
+    // loser is still sitting at zero.
+    zeroDismissed = true;
+    sheetEnd.classList.remove('open');
+    await act('/api/match/end', { ended: true });
+  });
+
+  onTap(document.getElementById('btn-resume'), () => act('/api/match/end', { ended: false }));
+
+  onTap(document.getElementById('btn-undo'), () => act('/api/match/undo'));
+  onTap(document.getElementById('btn-swap'), () => act('/api/match/swap'));
+
+  // ── match picker ──────────────────────────────────────────────────────────
+
+  const sheetMatch = document.getElementById('sheet-match');
+  const selRound   = document.getElementById('sel-round');
+  const selTable   = document.getElementById('sel-table');
+  const chkFollow  = document.getElementById('chk-follow');
+  let tdata = null;
+
+  function fillTables() {
+    const rn = parseInt(selRound.value, 10);
+    const round = tdata && tdata.rounds.find(r => r.round === rn);
+    const tables = round
+      ? round.pairings
+          .map(p => (typeof p.table === 'number' ? p.table : parseInt(String(p.table).replace(/\D/g, ''), 10)))
+          .filter(Number.isFinite)
+          .sort((a, b) => a - b)
+      : [];
+    const keep = parseInt(selTable.value, 10);
+    selTable.innerHTML = tables.length
+      ? tables.map(t => '<option value="' + t + '">Tisch ' + t + '</option>').join('')
+      : '<option value="">—</option>';
+    if (tables.includes(keep)) selTable.value = String(keep);
+    else if (server && tables.includes(server.table)) selTable.value = String(server.table);
+  }
+
+  async function openMatchSheet() {
+    sheetMatch.classList.add('open');
+    document.getElementById('match-err').textContent = '';
+    chkFollow.checked = !server || server.followRound !== false;
+
+    if (server) {
+      document.getElementById('m-n1').value = (server.p1 && server.p1.name) || '';
+      document.getElementById('m-n2').value = (server.p2 && server.p2.name) || '';
+      document.getElementById('m-h1').value = (server.p1 && server.p1.hero) || '';
+      document.getElementById('m-h2').value = (server.p2 && server.p2.hero) || '';
+    }
+
+    try {
+      const res = await fetch('/api/tournament');
+      if (!res.ok) throw new Error(res.status === 401 ? 'Nicht bei GEM angemeldet' : 'HTTP ' + res.status);
+      tdata = await res.json();
+      selRound.innerHTML = tdata.rounds
+        .map(r => '<option value="' + r.round + '">' + (r.elimination ? 'Top Cut · ' : '') + 'Runde ' + r.round + '</option>')
+        .join('') || '<option value="">—</option>';
+      if (server && server.round) selRound.value = String(server.round);
+      else if (tdata.rounds.length) selRound.value = String(tdata.rounds[tdata.rounds.length - 1].round);
+      fillTables();
+    } catch (err) {
+      document.getElementById('match-err').textContent =
+        err.message + ' — nutze „Manuell überschreiben".';
+      document.getElementById('manual-details').open = true;
+    }
+  }
+
+  selRound.addEventListener('change', fillTables);
+  onTap(document.getElementById('btn-match'),       openMatchSheet);
+  onTap(document.getElementById('btn-match-close'), () => sheetMatch.classList.remove('open'));
+
+  onTap(document.getElementById('btn-match-save'), async () => {
+    const table = parseInt(selTable.value, 10);
+    if (!Number.isFinite(table)) return toast('Kein Tisch gewählt');
+    try {
+      adopt((await post('/api/match/select', {
+        round: parseInt(selRound.value, 10),
+        table,
+        followRound: chkFollow.checked
+      })).match);
+      sheetMatch.classList.remove('open');
+      if (server && server.warning) toast(server.warning);
+    } catch (err) { document.getElementById('match-err').textContent = err.message; }
+  });
+
+  onTap(document.getElementById('btn-manual'), async () => {
+    const val = id => document.getElementById(id).value.trim();
+    try {
+      adopt((await post('/api/match/manual', {
+        enabled: true,
+        p1: { name: val('m-n1'), hero: val('m-h1'), startLife: val('m-l1') },
+        p2: { name: val('m-n2'), hero: val('m-h2'), startLife: val('m-l2') }
+      })).match);
+      sheetMatch.classList.remove('open');
+    } catch (err) { document.getElementById('match-err').textContent = err.message; }
+  });
+
+  // ── PIN gate ──────────────────────────────────────────────────────────────
+
+  const sheetPin = document.getElementById('sheet-pin');
+  let pinBuf = '';
+
+  function drawPin() {
+    document.getElementById('pin-dots').innerHTML =
+      Array.from({ length: Math.max(4, pinBuf.length) },
+        (_, i) => '<i class="' + (i < pinBuf.length ? 'on' : '') + '"></i>').join('');
+  }
+
+  function openPin() {
+    pinBuf = '';
+    drawPin();
+    document.getElementById('pin-err').textContent = '';
+    sheetPin.classList.add('open');
+  }
+
+  async function submitPin() {
+    if (!pinBuf) return;
+    try {
+      await OV.login(pinBuf);
+      sheetPin.classList.remove('open');
+    } catch (err) {
+      document.getElementById('pin-err').textContent = err.message;
+      pinBuf = '';
+      drawPin();
+    }
+  }
+
+  document.getElementById('keys').innerHTML =
+    ['1','2','3','4','5','6','7','8','9','⌫','0','OK']
+      .map(k => '<button data-k="' + k + '"' + (k === 'OK' ? ' class="ok"' : '') + '>' + k + '</button>')
+      .join('');
+
+  [...document.querySelectorAll('#keys button')].forEach(b => onTap(b, () => {
+    const k = b.dataset.k;
+    if (k === 'OK') return submitPin();
+    if (k === '⌫')  pinBuf = pinBuf.slice(0, -1);
+    else if (pinBuf.length < 8) pinBuf += k;
+    drawPin();
+  }));
+
+  // ── live channel ──────────────────────────────────────────────────────────
+
+  OV.initSettings(render);
+  OV.onMatch(adopt);
+  OV.onLiveState(s => {
+    const el = document.getElementById('live');
+    el.classList.toggle('off', s !== 'live');
+    document.getElementById('live-txt').textContent = s === 'live' ? 'Live' : 'Getrennt';
+  });
+
+  // ── fullscreen ────────────────────────────────────────────────────────────
+
+  const fsBtn = document.getElementById('btn-fs');
+  const docEl = document.documentElement;
+  const canFullscreen = !!(docEl.requestFullscreen || docEl.webkitRequestFullscreen);
+
+  // Older iPads have no Fullscreen API for ordinary elements — hide the button
+  // rather than offer something that silently does nothing.
+  if (!canFullscreen) fsBtn.style.display = 'none';
+
+  function fsElement() { return document.fullscreenElement || document.webkitFullscreenElement; }
+
+  function syncFsButton() {
+    const on = !!fsElement();
+    document.body.classList.toggle('fs', on);
+    fsBtn.title = on ? 'Vollbild beenden' : 'Vollbild';
+    fsBtn.setAttribute('aria-label', fsBtn.title);
+  }
+
+  // click, not pointerdown: the Fullscreen API needs a real user activation.
+  fsBtn.addEventListener('click', () => {
+    const run = fsElement()
+      ? (document.exitFullscreen || document.webkitExitFullscreen).call(document)
+      : (docEl.requestFullscreen || docEl.webkitRequestFullscreen).call(docEl);
+    // Chrome rejects if the gesture is not accepted; nothing to do but not crash.
+    if (run && run.catch) run.catch(err => toast('Vollbild nicht möglich: ' + err.message));
+  });
+
+  ['fullscreenchange', 'webkitfullscreenchange'].forEach(e =>
+    document.addEventListener(e, syncFsButton));
+  syncFsButton();
+
+  // ── tablet housekeeping ───────────────────────────────────────────────────
+
+  // Keeps the screen awake through a 50-minute round.
+  let wakeLock = null;
+  async function keepAwake() {
+    if (!('wakeLock' in navigator)) return;
+    try { wakeLock = await navigator.wakeLock.request('screen'); } catch {}
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') keepAwake();
+  });
+  keepAwake();
+
+  fetch('/api/match').then(r => r.json()).then(adopt).catch(() => {});
+  render();
+
+  // Ask for the PIN up front rather than letting the first tap fail. `unlocked`
+  // accounts for a stored token that is still valid, so a paired tablet does
+  // not get prompted again after a reload.
+  OV.getJson('/api/status')
+    .then(s => { if (s.unlocked === false) openPin(); })
+    .catch(() => {});
+</script>
+</body>
+</html>

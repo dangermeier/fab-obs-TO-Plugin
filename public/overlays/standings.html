@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FAB Standings</title>
+  <link rel="stylesheet" href="/shared/overlay.css">
+  <style>
+    .row {
+      display: flex;
+      align-items: center;
+      height: 56px;
+      padding: 0 20px;
+      gap: 12px;
+      border-bottom: 1px solid var(--line);
+      flex-shrink: 0;
+    }
+    .row:nth-child(even) { background: var(--bg-row); }
+    .row.top3            { background: var(--accent-tint); }
+
+    .rank {
+      width: 36px;
+      text-align: right;
+      font-family: var(--font-head);
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-dim);
+      flex-shrink: 0;
+      font-variant-numeric: tabular-nums;
+    }
+    .rank.gold { color: var(--accent); }
+
+    .pname {
+      flex: 1;
+      font-size: clamp(13px, 1.5vw, 17px);
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .pname.gold { color: var(--accent-deep); font-weight: 700; }
+
+    .rec {
+      flex-shrink: 0;
+      display: flex;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      min-width: 72px;
+      justify-content: flex-end;
+      font-variant-numeric: tabular-nums;
+    }
+    .wins   { color: var(--win); }
+    .losses { color: var(--text-dim); }
+
+    .empty { padding: 48px 20px; text-align: center; color: var(--text-dim); font-size: 15px; }
+  </style>
+</head>
+<body>
+<div class="overlay-frame">
+  <div class="overlay-header">
+    <div class="overlay-title" id="ttl">Loading…</div>
+    <div class="overlay-subtitle" id="sub"></div>
+  </div>
+  <div class="scroll-viewport" id="vp">
+    <div class="scroll-track" id="tr"></div>
+  </div>
+</div>
+<div id="status-badge">Loading…</div>
+
+<script src="/shared/overlay.js"></script>
+<script>
+  const REFRESH = OV.refreshMs;
+  const SPEED   = 48;
+
+  const tr = document.getElementById('tr');
+  const vp = document.getElementById('vp');
+
+  // ── scroll engine ──────────────────────────────────────────────────────────
+  let scrollY = 0, contentH = 0, measuring = false, pending = null, prevTs = null;
+
+  function setContent(html) {
+    measuring = true;
+    tr.style.transform = 'translateY(0)';
+    tr.innerHTML = html;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const h = tr.scrollHeight;
+      if (h <= vp.clientHeight) {
+        contentH = 0; scrollY = 0;
+      } else {
+        contentH = h;
+        if (scrollY >= contentH) scrollY = 0;
+        tr.innerHTML = html + html;
+      }
+      measuring = false;
+    }));
+  }
+
+  function tick(ts) {
+    requestAnimationFrame(tick);
+    if (measuring || contentH <= 0) { prevTs = ts; return; }
+    const dt = Math.min((ts - (prevTs || ts)) / 1000, 0.05);
+    prevTs = ts;
+    scrollY += SPEED * dt;
+    if (scrollY >= contentH) {
+      scrollY -= contentH;
+      if (pending) { setContent(pending); pending = null; return; }
+    }
+    tr.style.transform = `translateY(${-scrollY}px)`;
+  }
+  requestAnimationFrame(tick);
+
+  // Number of fully completed Swiss rounds — the basis for loss calculation.
+  function completedSwissRounds(tdata) {
+    return tdata.rounds.filter(r => !r.elimination && r.total > 0 && r.done >= r.total).length;
+  }
+
+  function calcStandings(tdata) {
+    const wins = {}, gids = {};
+    tdata.rounds.filter(r => !r.elimination).forEach(r => r.pairings.forEach(p => {
+      if (!p.done) return;
+      wins[p.p1] = wins[p.p1] || 0;
+      wins[p.p2] = wins[p.p2] || 0;
+      if (p.p1GemId) gids[p.p1] = p.p1GemId;
+      if (p.p2GemId) gids[p.p2] = p.p2GemId;
+      if (p.winner === 'p1') wins[p.p1]++;
+      else if (p.winner === 'p2') wins[p.p2]++;
+    }));
+    const roundsDone = completedSwissRounds(tdata);
+    const players = tdata.players.length
+      ? tdata.players
+      : Object.keys(wins).map(n => ({ name: n, gemId: gids[n] || '', hero: null }));
+    return players
+      .map(p => {
+        const w = wins[p.name] || 0;
+        return { ...p, wins: w, losses: Math.max(0, roundsDone - w) };
+      })
+      .sort((a, b) => b.wins - a.wins || a.losses - b.losses)
+      .map((p, i) => ({ ...p, rank: i + 1 }));
+  }
+
+  function buildHtml(standings) {
+    if (!standings.length) return '<div class="empty">No standings yet</div>';
+    return standings.map(p => {
+      const isTop = p.rank <= 3;
+      const hero = p.hero || null;
+      return `<div class="row${isTop ? ' top3' : ''}">
+        <div class="rank${isTop ? ' gold' : ''}">${p.rank}</div>
+        ${OV.hw(hero, 46)}
+        <span class="pname${isTop ? ' gold' : ''}">${OV.esc(OV.fmtName(p.name))}</span>
+        <div class="rec"><span class="wins">${p.wins}W</span><span class="losses">${p.losses}L</span></div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── data fetch ─────────────────────────────────────────────────────────────
+  let lastStandings = null;
+
+  function show(html) {
+    if (contentH === 0) setContent(html); else pending = html;
+  }
+
+  async function refresh() {
+    try {
+      const q = OV.query;
+      const [tdRes, hRes, sRes] = await Promise.all([
+        fetch(`/api/tournament${q}`), fetch(`/api/heroes${q}`), fetch(`/api/standings${q}`)
+      ]);
+      if (tdRes.status === 401) { OV.badge('Not logged in', true); return; }
+      if (!tdRes.ok) throw new Error(`HTTP ${tdRes.status}`);
+
+      const tdata   = await tdRes.json();
+      const heroes  = await hRes.json().catch(() => []);
+      const csvRows = await sRes.json().catch(() => []);
+      if (tdata.error) throw new Error(tdata.error);
+
+      OV.setFormat(tdata.meta?.format);
+      document.getElementById('ttl').textContent = tdata.meta?.title || 'FAB Standings';
+      document.getElementById('sub').textContent = `Standings · Round ${tdata.currentRound || '?'}`;
+
+      const byId = {}, byN = {};
+      heroes.forEach(h => {
+        if (h.gemId && h.hero) byId[h.gemId] = h.hero;
+        if (h.name  && h.hero) byN[h.name.toLowerCase()] = h.hero;
+      });
+
+      const roundsDone = completedSwissRounds(tdata);
+      const base = csvRows.length ? csvRows : calcStandings(tdata);
+      const standings = base.map((s, i) => {
+        const w = s.wins || 0;
+        return {
+          ...s,
+          rank: s.rank ?? i + 1,
+          hero: s.hero || byId[s.gemId] || byN[(s.name || '').toLowerCase()] || null,
+          losses: Math.max(0, roundsDone - w)
+        };
+      });
+
+      lastStandings = standings;
+      show(buildHtml(standings));
+      OV.badgeOk(Math.round(REFRESH / 1000));
+    } catch (err) {
+      OV.badge('Error: ' + err.message, true);
+    }
+  }
+
+  // Switching the name mode in the config UI re-renders without an OBS reload.
+  OV.initSettings(() => {
+    if (lastStandings) show(buildHtml(lastStandings));
+  }).then(refresh);
+
+  setInterval(refresh, REFRESH);
+</script>
+</body>
+</html>

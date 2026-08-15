@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FAB Round Status</title>
+  <link rel="stylesheet" href="/shared/overlay.css">
+  <style>
+    body { font-size: calc(16px * var(--scale)); }
+
+    /* The board carries the background, not the body — otherwise a hidden
+       overlay would still paint a solid rectangle over the camera feed. */
+    .board {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      border-top: 4px solid var(--accent);
+      opacity: 0;
+      transition: opacity 0.45s ease;
+      overflow: hidden;
+    }
+    .board.show { opacity: 1; }
+
+    /* ── header ──────────────────────────────────────────────────────────── */
+    .bhead {
+      flex-shrink: 0;
+      padding: 0.85em 1.4em 0.75em;
+      border-bottom: 1px solid var(--line);
+      background: var(--bg-raised);
+    }
+    .btitle {
+      display: flex;
+      align-items: baseline;
+      gap: 0.7em;
+      font-family: var(--font-head);
+      font-weight: 600;
+      font-size: 1.6em;
+      color: var(--text);
+    }
+    .bstate {
+      font-family: var(--font-body);
+      font-size: 0.45em;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    .bcount { font-size: 0.85em; color: var(--text-dim); margin-top: 0.2em; }
+    .bcount b { color: var(--text); font-variant-numeric: tabular-nums; }
+
+    .bar {
+      height: 0.25em;
+      background: var(--bg-sunken);
+      overflow: hidden;
+      margin-top: 0.55em;
+    }
+    .fill {
+      height: 100%;
+      width: 0;
+      background: var(--accent);
+      transition: width 0.6s ease;
+    }
+
+    /* ── table list ──────────────────────────────────────────────────────── */
+    .blist { flex: 1; overflow: hidden; position: relative; }
+    .btrack { position: absolute; top: 0; left: 0; right: 0; will-change: transform; }
+
+    /* Centred and width-capped: on a 1920 px source the two names would
+       otherwise sit two metres apart and stop reading as one pairing. */
+    .trow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.7em;
+      padding: 0.5em 1.4em;
+      border-bottom: 1px solid var(--line);
+    }
+    .trow:nth-child(even) { background: var(--bg-row); }
+    .trow.live { background: var(--accent-tint); }
+
+    /* When the list is shorter than the frame, spread the rows over the whole
+       height instead of leaving a large empty block underneath. */
+    .btrack.fit {
+      bottom: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .btrack.fit .trow { flex: 1 1 auto; max-height: 4.6em; }
+
+    .tno {
+      width: 3.1em;
+      flex-shrink: 0;
+      font-family: var(--font-head);
+      font-size: 0.95em;
+      font-weight: 700;
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .pl {
+      flex: 1 1 0;
+      max-width: 16em;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 0.6em;
+      font-size: 1.2em;
+    }
+    .pl.r { flex-direction: row-reverse; }
+
+    .nm {
+      min-width: 0;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .pl.r .nm { text-align: right; }
+    /* The green highlight alone says who won — no extra label needed. */
+    .pl.win  .nm { color: var(--win); font-weight: 700; }
+    .pl.lose .nm { color: var(--text-dim); }
+
+    .mid {
+      width: 5em;
+      flex-shrink: 0;
+      text-align: center;
+      font-size: 0.72em;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .mid.running { color: var(--accent); }
+    .mid.unknown { color: var(--text-dim); }
+
+    .empty { padding: 3em 1.4em; text-align: center; color: var(--text-dim); font-size: 1.1em; }
+
+    /* A hidden overlay must be fully hidden — including the status badge. */
+    #status-badge { display: none; }
+    body.visible #status-badge { display: block; }
+  </style>
+</head>
+<body class="ov-transparent">
+<div class="board" id="board">
+  <div class="bhead">
+    <div class="btitle"><span id="rname">–</span><span class="bstate" id="rstate"></span></div>
+    <div class="bcount" id="rcount"></div>
+    <div class="bar"><div class="fill" id="rfill"></div></div>
+  </div>
+  <div class="blist" id="vp"><div class="btrack" id="tr"></div></div>
+</div>
+<div id="status-badge">Loading…</div>
+
+<script src="/shared/overlay.js"></script>
+<script>
+  const P    = OV.params;
+  // Fresher than the other overlays: this is on screen exactly while everyone
+  // waits for the remaining tables to finish.
+  const POLL  = (parseInt(P.get('refresh'), 10) || 15) * 1000;
+  const SPEED = 40; // px/sec, only used when the list is longer than the frame
+  const SCALE = parseFloat(P.get('scale')) || 1;
+  const HERO_PX = Math.round((parseInt(P.get('hero'), 10) || 38) * SCALE);
+
+  document.documentElement.style.setProperty('--scale', SCALE);
+  // Solid by default now that it is a full board; ?bg=transparent drops it.
+  if (P.get('bg') === 'transparent' || P.get('bg') === 'none') {
+    document.getElementById('board').style.background = 'transparent';
+  }
+
+  const board = document.getElementById('board');
+  const vp = document.getElementById('vp');
+  const tr = document.getElementById('tr');
+
+  const ELIM_LABELS = ['Round of 16', 'Quarterfinals', 'Semifinals', 'Finals'];
+
+  function roundLabel(tdata, r) {
+    if (!r.elimination) return 'Runde ' + r.round;
+    const elim  = tdata.rounds.filter(x => x.elimination).sort((a, b) => a.round - b.round);
+    const idx   = elim.findIndex(x => x.round === r.round);
+    const first = elim[0]?.pairings?.length || 0;
+    const start = first >= 8 ? 0 : first >= 4 ? 1 : first >= 2 ? 2 : 3;
+    return ELIM_LABELS[Math.min(start + idx, ELIM_LABELS.length - 1)] || ('Runde ' + r.round);
+  }
+
+  function tableNo(p) {
+    return typeof p.table === 'number' ? p.table
+      : (parseInt(String(p.table).replace(/\D/g, ''), 10) || null);
+  }
+
+  // ── scroll engine (only engages when the list overflows) ───────────────────
+  let scrollY = 0, contentH = 0, measuring = false, prevTs = null;
+
+  function setRows(html) {
+    measuring = true;
+    tr.style.transform = 'translateY(0)';
+    tr.classList.remove('fit');       // measure the natural height first
+    tr.innerHTML = html;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const h = tr.scrollHeight;
+      if (h <= vp.clientHeight) {
+        contentH = 0; scrollY = 0;
+        tr.classList.add('fit');      // fits: spread the rows over the frame
+      } else {
+        contentH = h;
+        if (scrollY >= contentH) scrollY = 0;
+        tr.innerHTML = html + html;   // duplicate for a seamless wrap
+      }
+      measuring = false;
+    }));
+  }
+
+  function tick(ts) {
+    requestAnimationFrame(tick);
+    if (measuring || contentH <= 0) { prevTs = ts; return; }
+    const dt = Math.min((ts - (prevTs || ts)) / 1000, 0.05);
+    prevTs = ts;
+    scrollY += SPEED * dt;
+    if (scrollY >= contentH) scrollY -= contentH;
+    tr.style.transform = `translateY(${-scrollY}px)`;
+  }
+  requestAnimationFrame(tick);
+
+  // ── rendering ─────────────────────────────────────────────────────────────
+  function rowsHtml(pairings, byId, byName) {
+    if (!pairings.length) return '<div class="empty">Keine Paarungen</div>';
+
+    const heroOf = (gemId, name) =>
+      byId[gemId] || byName[(name || '').toLowerCase()] || null;
+
+    return pairings.map(p => {
+      const w1 = p.winner === 'p1', w2 = p.winner === 'p2';
+      const n  = tableNo(p);
+
+      // Running tables say so; finished ones rely on the green name alone,
+      // except when GEM gave us no winner at all.
+      let mid = '<div class="mid"></div>';
+      if (!p.done)             mid = '<div class="mid running">läuft</div>';
+      else if (!w1 && !w2)     mid = '<div class="mid unknown">beendet</div>';
+
+      const c1 = p.done ? (w1 ? ' win' : w2 ? ' lose' : '') : '';
+      const c2 = p.done ? (w2 ? ' win' : w1 ? ' lose' : '') : '';
+
+      return `<div class="trow${p.done ? '' : ' live'}">
+        <div class="tno">${n ? 'T' + n : ''}</div>
+        <div class="pl${c1}">
+          ${OV.hw(heroOf(p.p1GemId, p.p1), HERO_PX)}
+          <span class="nm">${OV.esc(OV.fmtName(p.p1))}</span>
+        </div>
+        ${mid}
+        <div class="pl r${c2}">
+          ${OV.hw(heroOf(p.p2GemId, p.p2), HERO_PX)}
+          <span class="nm">${OV.esc(OV.fmtName(p.p2))}</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  let visible = false;
+  let tdata = null;
+  let heroById = {}, heroByName = {};
+
+  function render() {
+    document.body.classList.toggle('visible', visible);
+    if (!visible) { board.classList.remove('show'); return; }
+
+    const r = tdata && tdata.rounds.length ? tdata.rounds[tdata.rounds.length - 1] : null;
+    if (!r) {
+      document.getElementById('rname').textContent = 'Turnier';
+      document.getElementById('rstate').textContent = '';
+      document.getElementById('rcount').textContent = '';
+      setRows('<div class="empty">Noch keine Runde</div>');
+      board.classList.add('show');
+      return;
+    }
+
+    const done  = Math.max(0, Math.min(r.total, r.done));
+    const total = r.total || 0;
+    const pct   = total ? Math.round(done / total * 100) : 0;
+    const over  = total > 0 && done >= total;
+
+    document.getElementById('rname').textContent  = roundLabel(tdata, r);
+    document.getElementById('rstate').textContent = over ? 'abgeschlossen' : 'läuft';
+    document.getElementById('rcount').innerHTML   = `<b>${done}</b> von <b>${total}</b> Tischen fertig`;
+    document.getElementById('rfill').style.width  = pct + '%';
+
+    const sorted = [...r.pairings].sort((a, b) => (tableNo(a) || 999) - (tableNo(b) || 999));
+    setRows(rowsHtml(sorted, heroById, heroByName));
+
+    board.classList.add('show');
+    OV.badge(pct + '%');
+  }
+
+  async function loadRounds() {
+    try {
+      const [tRes, hRes] = await Promise.all([
+        fetch('/api/tournament' + OV.query),
+        fetch('/api/heroes' + OV.query)
+      ]);
+      if (!tRes.ok) throw new Error('HTTP ' + tRes.status);
+      const j = await tRes.json();
+      if (j.error) throw new Error(j.error);
+
+      const heroes = await hRes.json().catch(() => []);
+      const byId = {}, byName = {};
+      (Array.isArray(heroes) ? heroes : []).forEach(h => {
+        if (h.gemId && h.hero) byId[h.gemId] = h.hero;
+        if (h.name  && h.hero) byName[h.name.toLowerCase()] = h.hero;
+      });
+      heroById = byId; heroByName = byName;
+
+      OV.setFormat(j.meta?.format);
+      tdata = j;
+      render();
+    } catch (err) {
+      OV.badge('Error: ' + err.message, true);
+    }
+  }
+
+  // GEM is only polled while the board is actually on screen.
+  let timer = null;
+  function setVisible(next) {
+    if (next === visible) return;
+    visible = next;
+    clearInterval(timer);
+    timer = null;
+    if (visible) {
+      loadRounds();
+      timer = setInterval(loadRounds, POLL);
+    } else {
+      render();
+    }
+  }
+
+  OV.initSettings(() => { if (visible) render(); });
+  OV.onMatch(m => setVisible(!!(m && m.ended)));
+  OV.onLiveState(s => { if (s === 'offline' && visible) OV.badge('Reconnecting…', true); });
+
+  // Fallback if SSE never establishes.
+  setInterval(() => {
+    fetch('/api/match').then(r => r.json()).then(m => setVisible(!!m.ended)).catch(() => {});
+  }, 30000);
+
+  fetch('/api/match').then(r => r.json()).then(m => setVisible(!!m.ended)).catch(() => {});
+</script>
+</body>
+</html>

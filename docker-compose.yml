@@ -1,0 +1,35 @@
+services:
+  fab-obs:
+    build: .
+    container_name: fab-obs-to-plugin
+    restart: unless-stopped
+
+    ports:
+      - "3000:3000"
+
+    volumes:
+      # GEM session, settings/PIN and the live life totals. Without this the
+      # PIN changes and the featured match is lost on every recreate.
+      - ./data:/app/data
+
+    environment:
+      # REQUIRED. Inside the container the only visible address is the Docker
+      # bridge (172.17.x), which no tablet can reach — so the address to hand
+      # out has to be stated. Use the LAN address of the machine running Docker.
+      #   PUBLIC_HOST: 192.168.2.10
+      #   PUBLIC_HOST: nas.local:3000        (host name works too)
+      PUBLIC_HOST: "${PUBLIC_HOST:?set PUBLIC_HOST to the LAN address of this machine, e.g. 192.168.2.10}"
+
+      # Optional. Pins the PIN for the config page and the tablet. Without it a
+      # random one is generated on first start and kept in data/settings.json.
+      # "off" disables protection entirely — only for a fully trusted network.
+      CONTROL_PIN: "${CONTROL_PIN:-}"
+
+      TZ: "${TZ:-Europe/Berlin}"
+
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/match').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s

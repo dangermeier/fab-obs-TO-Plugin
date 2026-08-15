@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FAB Hero Breakdown</title>
+  <link rel="stylesheet" href="/shared/overlay.css">
+  <style>
+    body { display: flex; flex-direction: column; }
+
+    /* Scale-to-fit inner container (designed for 16:9) */
+    .scale-outer {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+    .scale-inner {
+      position: absolute;
+      top: 0; left: 0;
+      width: 1920px; /* fixed design width */
+      transform-origin: top left;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .bd-header {
+      padding: 18px 100px 14px;
+      border-bottom: 1px solid var(--line);
+      background: var(--bg-raised);
+      flex-shrink: 0;
+    }
+    .bd-title    { font-family: var(--font-head); font-weight: 600; font-size: 30px; color: var(--text); }
+    .bd-subtitle { font-size: 15px; color: var(--text-dim); margin-top: 4px; }
+
+    .bars { padding: 16px 100px 24px; display: flex; flex-direction: column; gap: 10px; }
+
+    .bar-row {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      height: 80px;
+    }
+
+    .hero-name {
+      width: 240px;
+      flex-shrink: 0;
+      font-size: 19px;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .bar-track {
+      flex: 1;
+      height: 20px;
+      background: var(--bg-sunken);
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      background: var(--accent);
+    }
+
+    .bar-stat {
+      width: 120px;
+      flex-shrink: 0;
+      text-align: right;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .bar-stat .n { font-family: var(--font-head); color: var(--accent); font-size: 24px; }
+    .bar-stat .p { color: var(--text-dim); font-size: 13px; margin-left: 5px; }
+
+    .no-data { padding: 80px; text-align: center; color: var(--text-dim); font-size: 20px; }
+  </style>
+</head>
+<body>
+<div class="overlay-frame" style="background:var(--bg)">
+  <div class="scale-outer" id="outer">
+    <div class="scale-inner" id="inner">
+      <div class="no-data">Loading…</div>
+    </div>
+  </div>
+</div>
+<div id="status-badge">Loading…</div>
+
+<script src="/shared/overlay.js"></script>
+<script>
+  const REFRESH = OV.refreshMs;
+  const outer = document.getElementById('outer');
+  const inner = document.getElementById('inner');
+
+  function scaleToFit() {
+    inner.style.transform = 'none';
+    const iW = 1920; // fixed design width
+    const iH = inner.scrollHeight;
+    if (!iH) return;
+    const scale = Math.min(outer.clientWidth / iW, outer.clientHeight / iH);
+    inner.style.transform = `scale(${scale})`;
+    // Size outer so inner is visible
+    outer.style.height = Math.round(iH * scale) + 'px';
+  }
+
+  function render(title, heroes, total) {
+    const counts = {};
+    heroes.forEach(h => { if (h.hero) counts[h.hero] = (counts[h.hero] || 0) + 1; });
+    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    const max = sorted[0]?.[1] || 1;
+
+    if (!sorted.length) {
+      inner.innerHTML = '<div class="no-data">No hero data available</div>';
+      scaleToFit();
+      return;
+    }
+
+    const rows = sorted.map(([hero, count]) => {
+      const pct = (count / total * 100).toFixed(1);
+      const barW = (count / max * 100).toFixed(1);
+      return `<div class="bar-row">
+        ${OV.hw(hero, 70)}
+        <div class="hero-name">${OV.esc(hero)}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${barW}%"></div></div>
+        <div class="bar-stat"><span class="n">${count}</span><span class="p">${pct}%</span></div>
+      </div>`;
+    }).join('');
+
+    inner.innerHTML = `
+      <div class="bd-header">
+        <div class="bd-title">${OV.esc(title)}</div>
+        <div class="bd-subtitle">Hero Breakdown · ${sorted.length} heroes · ${total} players</div>
+      </div>
+      <div class="bars">${rows}</div>`;
+
+    requestAnimationFrame(() => requestAnimationFrame(scaleToFit));
+  }
+
+  async function refresh() {
+    try {
+      const q = OV.query;
+      const [tdRes, hRes] = await Promise.all([fetch(`/api/tournament${q}`), fetch(`/api/heroes${q}`)]);
+      if (tdRes.status === 401) { OV.badge('Not logged in', true); return; }
+      if (!tdRes.ok) throw new Error(`HTTP ${tdRes.status}`);
+      const tdata  = await tdRes.json();
+      const heroes = await hRes.json().catch(() => []);
+      if (tdata.error) throw new Error(tdata.error);
+
+      OV.setFormat(tdata.meta?.format);
+      render(tdata.meta?.title || 'Hero Breakdown', heroes, heroes.length || tdata.meta?.playerCount || 0);
+      OV.badgeOk(Math.round(REFRESH / 1000));
+    } catch (err) {
+      OV.badge('Error: ' + err.message, true);
+    }
+  }
+
+  window.addEventListener('resize', scaleToFit);
+  refresh();
+  setInterval(refresh, REFRESH);
+</script>
+</body>
+</html>

@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FAB OBS TO Plugin — Config</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #f2f4f8;
+      color: #14181f;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 14px;
+      min-height: 100vh;
+      padding: 32px 16px;
+    }
+
+    .container { max-width: 680px; margin: 0 auto; }
+
+    .header { text-align: center; margin-bottom: 36px; }
+    .header h1 {
+      font-family: 'Bahnschrift', 'Segoe UI Semibold', 'Franklin Gothic Medium', system-ui, sans-serif;
+      font-size: 30px; font-weight: 600; color: #14181f; margin-bottom: 6px;
+    }
+    .header p  { color: #6d7581; font-size: 13px; }
+
+    .card {
+      background: #ffffff;
+      border: 1px solid rgba(20,24,31,0.11);
+      border-top: 3px solid #2456c7;
+      border-radius: 3px;
+      padding: 20px 24px; margin-bottom: 20px;
+      box-shadow: 0 2px 10px rgba(20,24,31,0.06);
+    }
+    .card h2 { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #2456c7; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #2456c7; display: inline-block; flex-shrink: 0; }
+    .dot.green  { background: #1d7a4a; }
+    .dot.red    { background: #c0392f; }
+    .dot.yellow { background: #2456c7; animation: pulse 1.2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    label { display: block; font-size: 12px; color: #6d7581; margin-bottom: 5px; margin-top: 14px; }
+    label:first-of-type { margin-top: 0; }
+    input[type="text"] {
+      width: 100%; background: #f2f4f8; border: 1px solid #2456c744;
+      border-radius: 3px; color: #14181f; padding: 8px 12px;
+      font-size: 13px; font-family: monospace; outline: none; transition: border-color 0.15s;
+    }
+    input:focus { border-color: #2456c7; }
+
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 20px; border-radius: 3px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
+    .btn:hover:not(:disabled) { opacity: 0.85; }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-primary { background: #2456c7; color: #f2f4f8; }
+    .btn-danger  { background: #c0392f33; color: #c0392f; border: 1px solid #c0392f55; }
+    .btn-ghost   { background: #2456c711; color: #2456c7; border: 1px solid #2456c733; }
+    .btn-small   { padding: 5px 12px; font-size: 12px; }
+    .btn-copy    { background: #2456c722; color: #2456c7; border: 1px solid #2456c744; }
+
+    .alert { padding: 10px 14px; border-radius: 3px; font-size: 13px; margin-top: 12px; }
+    .alert.err { background: #c0392f22; color: #c0392f; border: 1px solid #c0392f44; }
+    .alert.ok  { background: #1d7a4a22; color: #1d7a4a; border: 1px solid #1d7a4a44; }
+    .alert.info { background: #2456c711; color: #2456c7; border: 1px solid #2456c733; }
+
+    .waiting-box {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 14px; padding: 24px 0 8px;
+    }
+    .spinner {
+      width: 32px; height: 32px; border-radius: 50%;
+      border: 3px solid #2456c733;
+      border-top-color: #2456c7;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .waiting-text { color: #6d7581; font-size: 13px; text-align: center; line-height: 1.6; }
+
+    /* Advanced toggle */
+    details { margin-top: 16px; }
+    summary { cursor: pointer; font-size: 12px; color: #6d7581; user-select: none; list-style: none; display: flex; align-items: center; gap: 6px; }
+    summary::before { content: '›'; font-size: 14px; transition: transform 0.15s; }
+    details[open] summary::before { transform: rotate(90deg); }
+    .advanced-body { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(20,24,31,0.05); }
+
+    /* Overlay links */
+    .overlay-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(20,24,31,0.08); }
+    .overlay-row:last-child { border-bottom: none; }
+    .overlay-label { font-size: 13px; color: #6d7581; min-width: 100px; }
+    .overlay-url { flex: 1; background: #f2f4f8; border: 1px solid #2456c722; border-radius: 3px; padding: 6px 10px; font-size: 12px; color: #2456c7; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .tip { background: #2456c70a; border: 1px solid #2456c722; border-radius: 3px; padding: 12px 16px; font-size: 12px; color: #6d7581; margin-top: 14px; line-height: 1.6; }
+    .tip strong { color: #14181f; }
+
+    .row { display: flex; gap: 10px; align-items: flex-end; }
+    .row .grow { flex: 1; }
+    .mt { margin-top: 12px; }
+    .flex-between { display: flex; align-items: center; justify-content: space-between; }
+
+    /* Event list */
+    .event-list { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+    .event-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; border-radius: 3px; cursor: pointer;
+      border: 1px solid rgba(20,24,31,0.08); background: #f8fafc;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .event-row:hover  { border-color: #2456c744; background: #2456c70a; }
+    .event-row.selected { border-color: #2456c799; background: #2456c718; }
+    .event-info  { flex: 1; min-width: 0; }
+    .event-title { font-size: 13px; color: #14181f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .event-meta  { font-size: 11px; color: #6d7581; margin-top: 2px; }
+    .event-badges { display: flex; gap: 5px; flex-shrink: 0; }
+    .badge { padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
+    .badge-active     { background: #1d7a4a22; color: #1d7a4a;  border: 1px solid #1d7a4a44; }
+    .badge-upcoming   { background: #2456c722; color: #2456c7;  border: 1px solid #2456c744; }
+    .badge-past       { background: rgba(20,24,31,0.05); color: #6d7581;  border: 1px solid rgba(20,24,31,0.12); }
+    .badge-judge      { background: #1b45a822; color: #1b45a8;  border: 1px solid #1b45a844; }
+    .badge-scorekeeper{ background: #5b3fa822; color: #5b3fa8;  border: 1px solid #5b3fa844; }
+    .badge-store      { background: #a8621b22; color: #a8621b;  border: 1px solid #a8621b44; }
+
+    .events-loading { color: #6d7581; font-size: 13px; display: flex; align-items: center; gap: 8px; padding: 8px 0; }
+    .events-empty   { color: #6d7581; font-size: 13px; padding: 8px 0; }
+    .manual-id-row  { display: flex; gap: 8px; align-items: flex-end; margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(20,24,31,0.08); }
+    .manual-id-row .grow { flex: 1; }
+
+    /* Mode selector */
+    .mode-selector { display: flex; gap: 6px; margin-bottom: 14px; }
+    .mode-btn {
+      flex: 1; padding: 7px 12px; border-radius: 3px; border: 1px solid #2456c733;
+      background: #2456c70a; color: #6d7581; font-size: 12px; font-weight: 600;
+      cursor: pointer; transition: all 0.15s; text-align: center;
+    }
+    .mode-btn:hover    { border-color: #2456c766; color: #14181f; }
+    .mode-btn.active   { background: #2456c722; border-color: #2456c799; color: #1b45a8; }
+
+    /* Tablet address — big enough to type off the screen onto a tablet */
+    .lan-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; margin-bottom: 6px;
+      background: #2456c70a; border: 1px solid #2456c733; border-radius: 3px;
+    }
+    /* PIN gate — the config page changes settings, so it is guarded exactly
+       like the tablet. Nobody else on the venue Wi-Fi gets to reconfigure it. */
+    .gate {
+      position: fixed; inset: 0; z-index: 500;
+      display: none; align-items: center; justify-content: center;
+      background: rgba(20, 24, 31, 0.55);
+      -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+      padding: 20px;
+    }
+    .gate.open { display: flex; }
+    .gate-box {
+      width: 100%; max-width: 360px;
+      background: #fff;
+      border: 1px solid rgba(20,24,31,0.11);
+      border-top: 3px solid #2456c7;
+      border-radius: 3px;
+      padding: 24px;
+      box-shadow: 0 12px 40px rgba(20,24,31,0.28);
+    }
+    .gate-box h2 {
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.08em; color: #2456c7; margin-bottom: 14px;
+    }
+    .gate-box p { font-size: 12.5px; color: #6d7581; line-height: 1.6; margin-bottom: 16px; }
+    .gate-box input {
+      width: 100%; min-height: 46px; text-align: center;
+      font-family: 'Bahnschrift', 'Segoe UI', monospace;
+      font-size: 26px; letter-spacing: 0.3em;
+      background: #f2f4f8; border: 1px solid rgba(20,24,31,0.2);
+      border-radius: 3px; color: #14181f; outline: none;
+    }
+    .gate-box input:focus { border-color: #2456c7; }
+    .gate-err { font-size: 12.5px; color: #c0392f; min-height: 18px; margin: 8px 0 12px; }
+
+    .lan-url { flex: 1; font-family: monospace; font-size: 15px; color: #1b45a8; word-break: break-all; }
+    .lan-adapter { font-size: 11px; color: #6d7581; white-space: nowrap; }
+    .lan-row.virtual { opacity: 0.5; }
+    .lan-none { color: #c0392f; font-size: 13px; padding: 6px 0; }
+
+    .pin-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+    .pin-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #6d7581; }
+    .pin-value {
+      font-family: monospace; font-size: 22px; font-weight: 700;
+      color: #1b45a8; letter-spacing: 4px; margin-right: auto;
+     font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+
+<div class="gate" id="gate">
+  <div class="gate-box">
+    <h2>PIN</h2>
+    <p>
+      This page changes what goes on stream, so it is locked. The PIN is printed
+      in the server console on every start.
+    </p>
+    <input type="password" id="gate-pin" inputmode="numeric" autocomplete="off"
+           maxlength="8" placeholder="••••">
+    <div class="gate-err" id="gate-err"></div>
+    <button class="btn btn-primary" id="gate-ok" style="width:100%">Unlock</button>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="header">
+    <h1>FAB OBS TO Plugin</h1>
+    <p>Tournament overlay for OBS Studio</p>
+  </div>
+
+  <!-- Auth Card -->
+  <div class="card" id="auth-card">
+    <h2><span class="dot" id="auth-dot"></span> GEM Session</h2>
+    <div id="auth-body">Loading…</div>
+  </div>
+
+  <!-- Event Card -->
+  <div class="card" id="event-card" style="display:none">
+    <h2>
+      <span class="dot"></span> Select Event
+      <button class="btn btn-ghost btn-small" id="refresh-events-btn" style="margin-left:auto">Refresh</button>
+    </h2>
+    <div class="mode-selector">
+      <button class="mode-btn" data-mode="judge">Judge / Scorekeeper</button>
+      <button class="mode-btn" data-mode="store">Store</button>
+    </div>
+    <div id="event-list-body">
+      <div class="events-loading"><div class="spinner" style="width:16px;height:16px;border-width:2px"></div> Loading events…</div>
+    </div>
+    <div id="event-alert"></div>
+
+    <details>
+      <summary>Enter Event ID manually</summary>
+      <div class="advanced-body">
+        <div class="manual-id-row">
+          <div class="grow">
+            <label for="event-id">GEM Event ID</label>
+            <input type="text" id="event-id" placeholder="e.g. 12345">
+          </div>
+          <button class="btn btn-ghost btn-small" id="save-event-btn">Save</button>
+        </div>
+        <div class="tip mt" style="margin-top:8px">
+          Find the ID in the GEM run URL: gem.fabtcg.com/gem/<strong><u>12345</u></strong>/run/
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <!-- Overlays Card -->
+  <div class="card" id="overlays-card" style="display:none">
+    <h2><span class="dot"></span> OBS Overlay Sources</h2>
+    <div class="overlay-row">
+      <span class="overlay-label">Pairings</span>
+      <span class="overlay-url" id="url-pairings"></span>
+      <button class="btn btn-copy btn-small" onclick="copyUrl('url-pairings')">Copy</button>
+    </div>
+    <div class="overlay-row">
+      <span class="overlay-label">Standings</span>
+      <span class="overlay-url" id="url-standings"></span>
+      <button class="btn btn-copy btn-small" onclick="copyUrl('url-standings')">Copy</button>
+    </div>
+    <div class="overlay-row">
+      <span class="overlay-label">Bracket</span>
+      <span class="overlay-url" id="url-bracket"></span>
+      <button class="btn btn-copy btn-small" onclick="copyUrl('url-bracket')">Copy</button>
+    </div>
+    <div class="overlay-row">
+      <span class="overlay-label">Hero Breakdown</span>
+      <span class="overlay-url" id="url-breakdown"></span>
+      <button class="btn btn-copy btn-small" onclick="copyUrl('url-breakdown')">Copy</button>
+    </div>
+    <div class="overlay-row">
+      <span class="overlay-label">Featured Match</span>
+      <span class="overlay-url" id="url-match"></span>
+      <button class="btn btn-copy btn-small" onclick="copyUrl('url-match')">Copy</button>
+    </div>
+    <div class="overlay-row">
+      <span class="overlay-label">Life Counter</span>
+      <span class="overlay-url" id="url-life"></span>
+      <button class="btn btn-copy btn-small" onclick="copyUrl('url-life')">Copy</button>
+    </div>
+    <div class="overlay-row">
+      <span class="overlay-label">Round Status</span>
+      <span class="overlay-url" id="url-round"></span>
+      <button class="btn btn-copy btn-small" onclick="copyUrl('url-round')">Copy</button>
+    </div>
+    <div class="tip">
+      <strong>Add to OBS:</strong> Sources → + → Browser Source → paste URL →
+      set Width &amp; Height to match your stream resolution → OK.<br>
+      Pairings &amp; Standings scroll automatically when content overflows.
+      Bracket &amp; Hero Breakdown scale to fit the screen.
+      Featured Match, Life Counter and Round Status have a transparent background
+      so they can sit on top of your camera feed, and they update instantly — no
+      30 second wait.<br>
+      <strong>Round Status stays invisible</strong> until you confirm on the tablet
+      that the featured match is over — then it fades in and shows how far the
+      running round has got.
+    </div>
+  </div>
+
+  <!-- Featured match, life counter, name privacy -->
+  <div class="card" id="live-card">
+    <h2><span class="dot" style="background:#a8621b"></span> Featured Match &amp; Life Counter</h2>
+
+    <label>Life counter for your tablet</label>
+    <div id="lan-body">
+      <div class="events-loading"><div class="spinner" style="width:16px;height:16px;border-width:2px"></div> Loading…</div>
+    </div>
+
+    <div class="pin-row" id="pin-row" style="display:none">
+      <span class="pin-label">PIN</span>
+      <span class="pin-value" id="pin-value">––––</span>
+      <button class="btn btn-ghost btn-small" id="pin-new">New PIN</button>
+      <button class="btn btn-ghost btn-small" id="pin-toggle">Disable</button>
+    </div>
+
+    <div class="tip">
+      Open that address on the tablet, enter the PIN once, and pick the table you
+      are streaming. Life totals start at each hero's own life value and appear in
+      the Life Counter overlay instantly. It keeps working even if GEM goes down.
+    </div>
+
+    <label class="mt" style="margin-top:20px">Player names — GDPR</label>
+    <div class="mode-selector" id="name-modes">
+      <button class="mode-btn" data-mode="full">Alexander Schauer</button>
+      <button class="mode-btn" data-mode="short">Alexander S.</button>
+      <button class="mode-btn" data-mode="initials">A. S.</button>
+    </div>
+    <div id="name-alert"></div>
+    <div class="tip">
+      Applies to every overlay at once, without reloading them in OBS. Show full
+      names only if your players have agreed to it. Append
+      <strong>?names=full</strong> to a single overlay URL to override this for
+      that source only.
+    </div>
+  </div>
+
+
+</div>
+
+<script src="/shared/overlay.js"></script>
+<script>
+  // ── PIN gate ───────────────────────────────────────────────────────────────
+  // Reading is open everywhere; this page only writes, so it unlocks once and
+  // then sends the token with every change.
+
+  const gate = document.getElementById('gate');
+  let onUnlock = null;
+
+  function openGate(retry) {
+    onUnlock = retry || onUnlock;
+    document.getElementById('gate-err').textContent = '';
+    document.getElementById('gate-pin').value = '';
+    gate.classList.add('open');
+    setTimeout(() => document.getElementById('gate-pin').focus(), 50);
+  }
+
+  async function submitGate() {
+    const pin = document.getElementById('gate-pin').value.trim();
+    if (!pin) return;
+    try {
+      await OV.login(pin);
+      gate.classList.remove('open');
+      const again = onUnlock; onUnlock = null;
+      if (again) again();
+    } catch (err) {
+      document.getElementById('gate-err').textContent = err.message;
+      document.getElementById('gate-pin').value = '';
+      document.getElementById('gate-pin').focus();
+    }
+  }
+
+  document.getElementById('gate-ok').addEventListener('click', submitGate);
+  document.getElementById('gate-pin').addEventListener('keydown', e => {
+    if (e.key === 'Enter') submitGate();
+  });
+
+  // Every guarded call goes through here: a 403 re-opens the gate and the
+  // original action is replayed once the PIN is accepted.
+  const post = (path, body, retry) => OV.post(path, body, () => openGate(retry));
+
+  const origin = window.location.origin;
+  document.getElementById('url-pairings').textContent   = `${origin}/overlays/pairings.html`;
+  document.getElementById('url-standings').textContent  = `${origin}/overlays/standings.html`;
+  document.getElementById('url-bracket').textContent    = `${origin}/overlays/bracket.html`;
+  document.getElementById('url-breakdown').textContent  = `${origin}/overlays/breakdown.html`;
+  document.getElementById('url-match').textContent      = `${origin}/overlays/match.html`;
+  document.getElementById('url-life').textContent       = `${origin}/overlays/life.html`;
+  document.getElementById('url-round').textContent      = `${origin}/overlays/round.html`;
+
+  function copyUrl(id) {
+    navigator.clipboard.writeText(document.getElementById(id).textContent).then(() => {
+      const btn = document.querySelector(`[onclick="copyUrl('${id}')"]`);
+      const orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = orig, 1500);
+    });
+  }
+
+  // ── Featured match / life counter settings ─────────────────────────────────
+
+  let liveSettings = null;
+
+  function renderLive(s) {
+    liveSettings = s;
+
+    const lan = s.lanUrls || [];
+    document.getElementById('lan-body').innerHTML = lan.length
+      ? lan.map((e, i) => `
+          <div class="lan-row${e.virtual ? ' virtual' : ''}">
+            <span class="lan-url" id="lan-${i}">${e.url}</span>
+            <span class="lan-adapter">${e.adapter}${e.virtual ? ' · virtual' : ''}</span>
+            <button class="btn btn-copy btn-small" onclick="copyUrl('lan-${i}')">Copy</button>
+          </div>`).join('') +
+        (lan.some(e => e.virtual)
+          ? `<div class="tip" style="margin-top:4px">
+               Several addresses show up because this machine has virtual network
+               adapters. Use the first one — it is the adapter your Wi-Fi is on.
+             </div>`
+          : '')
+      : `<div class="lan-none">
+           No network address found. The server may be running with HOST=127.0.0.1,
+           or this machine is not on a network — the tablet cannot connect.
+         </div>`;
+
+    // `pin` only comes down once unlocked, so it doubles as the lock indicator.
+    document.getElementById('pin-row').style.display = s.pin === undefined ? 'none' : 'flex';
+    document.getElementById('pin-value').textContent = s.pin || 'off';
+    document.getElementById('pin-toggle').textContent = s.pinRequired ? 'Disable' : 'Enable';
+
+    document.querySelectorAll('#name-modes .mode-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.mode === s.nameMode));
+  }
+
+  async function loadLiveSettings() {
+    try {
+      renderLive(await OV.getJson('/api/settings'));
+    } catch (err) {
+      document.getElementById('lan-body').innerHTML =
+        `<div class="lan-none">Could not load settings: ${err.message}</div>`;
+    }
+  }
+
+  async function savePin(body) {
+    try {
+      await post('/api/settings/pin', body, () => savePin(body));
+      // Changing the PIN invalidates our own token — unlock again with the new one.
+      if (body.regenerate || body.pin) OV.setToken('');
+      await loadLiveSettings();
+    } catch (err) { if (err.message !== 'PIN erforderlich') alert(err.message); }
+  }
+
+  document.getElementById('pin-new').addEventListener('click', () => savePin({ regenerate: true }));
+  document.getElementById('pin-toggle').addEventListener('click', () => {
+    // Turning it back on issues a fresh PIN; either way already-paired tablets
+    // have to enter it again.
+    savePin(liveSettings && liveSettings.pinRequired ? { pin: null } : { regenerate: true });
+  });
+
+  document.querySelectorAll('#name-modes .mode-btn').forEach(btn => {
+    const apply = async () => {
+      const al = document.getElementById('name-alert');
+      try {
+        await post('/api/settings', { nameMode: btn.dataset.mode }, apply);
+        await loadLiveSettings();
+        al.innerHTML = '<div class="alert ok">Applied to all overlays.</div>';
+      } catch (err) {
+        if (err.message === 'PIN erforderlich') return;
+        al.innerHTML = `<div class="alert err">${err.message}</div>`;
+      }
+      setTimeout(() => al.innerHTML = '', 2500);
+    };
+    btn.addEventListener('click', apply);
+  });
+
+  loadLiveSettings();
+
+  let pollTimer = null;
+
+  function stopPolling() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  }
+
+  async function loadStatus() {
+    const data = await OV.getJson('/api/status');
+    renderAuth(data);
+    if (data.authenticated) {
+      currentEventId = data.eventId;
+      loadEventList();
+    }
+    return data;
+  }
+
+  function renderAuth({ authenticated, email, eventId, loginInProgress, canBrowserLogin, browserLoginBlocked }) {
+    const dot  = document.getElementById('auth-dot');
+    const body = document.getElementById('auth-body');
+
+    if (authenticated) {
+      stopPolling();
+      dot.className = 'dot green';
+      body.innerHTML = `
+        <div class="flex-between">
+          <span style="color:#6d7581;font-size:13px;">Connected to GEM</span>
+          <button class="btn btn-danger btn-small" id="logout-btn">Disconnect</button>
+        </div>`;
+      document.getElementById('logout-btn').addEventListener('click', doLogout);
+      document.getElementById('event-card').style.display = '';
+      document.getElementById('overlays-card').style.display = '';
+      if (eventId) document.getElementById('event-id').value = eventId;
+
+    } else if (loginInProgress) {
+      dot.className = 'dot yellow';
+      body.innerHTML = `
+        <div class="waiting-box">
+          <div class="spinner"></div>
+          <p class="waiting-text">
+            A browser window has opened — log in to GEM there.<br>
+            This page will update automatically when done.
+          </p>
+          <button class="btn btn-ghost btn-small" id="cancel-btn">Cancel</button>
+        </div>`;
+      document.getElementById('cancel-btn').addEventListener('click', doLogout);
+      document.getElementById('event-card').style.display = 'none';
+      document.getElementById('overlays-card').style.display = 'none';
+      startPolling();
+
+    } else {
+      stopPolling();
+      dot.className = 'dot red';
+      // The one-click login drives a browser on the *server's* desktop. If
+      // there is none, or you are sitting at a different computer, that window
+      // would open where you cannot see it — so offer the cookie instead and
+      // say plainly why.
+      const blockedNote = browserLoginBlocked === 'remote'
+        ? `You are connected from another computer. The one-click login would
+           open a browser window on the machine running the server, not on this
+           one — so use the session cookie below.`
+        : `This server has no desktop browser available, so the one-click login
+           cannot run. Use the session cookie below instead.`;
+
+      const browserPath = canBrowserLogin === false ? `
+        <div class="alert info" style="margin-bottom:16px">${blockedNote}</div>` : `
+        <p style="color:#6d7581;font-size:13px;margin-bottom:16px;line-height:1.6;">
+          Click the button below to open GEM in a browser window. Log in there —
+          the session is automatically saved when done.
+        </p>
+        <button class="btn btn-primary" id="gem-login-btn">Login with GEM</button>
+        <div id="login-alert"></div>`;
+
+      body.innerHTML = browserPath + `
+        <details${canBrowserLogin === false ? ' open' : ''}>
+          <summary>Manual session cookie${canBrowserLogin === false ? '' : ' (advanced)'}</summary>
+          <div class="advanced-body">
+            <p style="font-size:12px;color:#6d7581;margin-bottom:10px;line-height:1.6;">
+              If the browser login doesn't work, paste your <code style="background:#f8fafc;padding:1px 5px;border-radius:3px;color:#2456c7;border:1px solid #2456c733;">sessionid</code> cookie here.
+              Find it in DevTools → Application → Cookies → gem.fabtcg.com.
+            </p>
+            <label for="session-input">sessionid value</label>
+            <input type="text" id="session-input" placeholder="Paste sessionid cookie value…" autocomplete="off">
+            <div class="mt">
+              <button class="btn btn-ghost btn-small" id="manual-connect-btn">Connect</button>
+            </div>
+            <div id="manual-alert"></div>
+          </div>
+        </details>`;
+
+      document.getElementById('gem-login-btn')?.addEventListener('click', doGemLogin);
+      document.getElementById('manual-connect-btn').addEventListener('click', doManualConnect);
+      document.getElementById('event-card').style.display = 'none';
+      document.getElementById('overlays-card').style.display = 'none';
+    }
+  }
+
+  function startPolling() {
+    if (pollTimer) return;
+    pollTimer = setInterval(async () => {
+      const data = await OV.getJson('/api/status');
+      if (data.authenticated || !data.loginInProgress) {
+        renderAuth(data);
+      }
+    }, 2000);
+  }
+
+  async function doGemLogin() {
+    const btn   = document.getElementById('gem-login-btn');
+    const alert = document.getElementById('login-alert');
+    btn.disabled = true;
+    btn.textContent = 'Opening browser…';
+    alert.innerHTML = '';
+
+    try {
+      await post('/api/launch-login', {}, doGemLogin);
+      // Immediately re-render to show spinner + start polling
+      renderAuth({ authenticated: false, loginInProgress: true });
+    } catch (err) {
+      if (err.message !== 'PIN erforderlich') {
+        alert.innerHTML = `<div class="alert err">${err.message}</div>`;
+      }
+      btn.disabled = false;
+      btn.textContent = 'Login with GEM';
+    }
+  }
+
+  async function doManualConnect() {
+    const sessionId = (document.getElementById('session-input')?.value || '').trim();
+    const alert     = document.getElementById('manual-alert');
+    if (!sessionId) { alert.innerHTML = '<div class="alert err">Please paste your sessionid value.</div>'; return; }
+
+    const btn = document.getElementById('manual-connect-btn');
+    btn.disabled = true; btn.textContent = 'Verifying…';
+
+    try {
+      await post('/api/login', { sessionId }, doManualConnect);
+      await loadStatus();
+    } catch (err) {
+      if (err.message !== 'PIN erforderlich') {
+        alert.innerHTML = `<div class="alert err">${err.message}</div>`;
+      }
+      btn.disabled = false; btn.textContent = 'Connect';
+    }
+  }
+
+  async function doLogout() {
+    stopPolling();
+    try { await post('/api/logout', {}, doLogout); } catch {}
+    await loadStatus();
+  }
+
+  // ── Event list ────────────────────────────────────────────────────────────
+
+  let currentEventId = null;
+  let currentMode = localStorage.getItem('fab-event-mode') || 'judge';
+
+  function initModeButtons() {
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.mode === currentMode);
+      btn.addEventListener('click', () => {
+        currentMode = btn.dataset.mode;
+        localStorage.setItem('fab-event-mode', currentMode);
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === currentMode));
+        loadEventList();
+      });
+    });
+  }
+  initModeButtons();
+
+  async function saveEventId(eventId) {
+    try {
+      const data = await post('/api/event', { eventId }, () => saveEventId(eventId));
+      currentEventId = eventId;
+      document.getElementById('event-id').value = eventId;
+      renderEventList(lastEventList); // re-render to update selection
+      const al = document.getElementById('event-alert');
+      al.innerHTML = `<div class="alert ok">Event selected: ${data.eventId}</div>`;
+      setTimeout(() => al.innerHTML = '', 2500);
+    } catch (err) {
+      if (err.message === 'PIN erforderlich') return;
+      document.getElementById('event-alert').innerHTML = `<div class="alert err">${err.message}</div>`;
+    }
+  }
+
+  let lastEventList = [];
+
+  function renderEventList(events) {
+    lastEventList = events;
+    const body = document.getElementById('event-list-body');
+    if (!events.length) {
+      const modeLabel = currentMode === 'store' ? 'store' : 'judge / scorekeeper';
+      body.innerHTML = `<div class="events-empty">No ${modeLabel} events found. Try switching mode or check your GEM account.</div>`;
+      return;
+    }
+
+    body.innerHTML = '<div class="event-list">' +
+      events.map(ev => {
+        const statusBadge = ev.status === 'active'   ? '<span class="badge badge-active">Active</span>'
+                          : ev.status === 'upcoming' ? '<span class="badge badge-upcoming">Upcoming</span>'
+                          :                            '<span class="badge badge-past">Past</span>';
+        const roleBadge   = ev.role === 'judge'       ? '<span class="badge badge-judge">Judge</span>'
+                          : ev.role === 'scorekeeper' ? '<span class="badge badge-scorekeeper">Scorekeeper</span>'
+                          :                             '<span class="badge badge-store">Store</span>';
+        const selected    = ev.id === currentEventId ? ' selected' : '';
+        const meta        = [ev.dateText, ev.eventType, ev.format].filter(Boolean).join(' · ');
+        return `<div class="event-row${selected}" data-id="${ev.id}">
+          <div class="event-info">
+            <div class="event-title">${ev.title}</div>
+            ${meta ? `<div class="event-meta">${meta}</div>` : ''}
+          </div>
+          <div class="event-badges">${statusBadge}${roleBadge}</div>
+        </div>`;
+      }).join('') +
+    '</div>';
+
+    body.querySelectorAll('.event-row').forEach(row => {
+      row.addEventListener('click', () => saveEventId(row.dataset.id));
+    });
+  }
+
+  async function loadEventList() {
+    document.getElementById('event-list-body').innerHTML =
+      '<div class="events-loading"><div class="spinner" style="width:16px;height:16px;border-width:2px"></div> Loading events…</div>';
+    try {
+      const events = await fetch(`/api/events?mode=${currentMode}`).then(r => r.json());
+      renderEventList(Array.isArray(events) ? events : []);
+    } catch {
+      document.getElementById('event-list-body').innerHTML =
+        '<div class="events-empty" style="color:#c0392f">Failed to load events.</div>';
+    }
+  }
+
+  document.getElementById('refresh-events-btn').addEventListener('click', loadEventList);
+
+  document.getElementById('save-event-btn').addEventListener('click', () => {
+    const eventId = document.getElementById('event-id').value.trim();
+    if (!eventId) {
+      document.getElementById('event-alert').innerHTML = '<div class="alert err">Please enter an Event ID.</div>';
+      return;
+    }
+    saveEventId(eventId);
+  });
+
+  // ── boot ──────────────────────────────────────────────────────────────────
+  // Ask for the PIN up front rather than letting the first change fail. If the
+  // stored token is stale, the first guarded call re-opens the gate anyway.
+  (async () => {
+    const status = await loadStatus().catch(() => null);
+
+    if (status && status.unlocked === false) {
+      openGate(async () => {
+        await loadStatus();
+        await loadLiveSettings();
+      });
+    }
+  })();
+
+</script>
+</body>
+</html>

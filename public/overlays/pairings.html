@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FAB Pairings</title>
+  <link rel="stylesheet" href="/shared/overlay.css">
+  <style>
+    .row {
+      display: flex;
+      align-items: center;
+      height: 62px;
+      padding: 0 16px;
+      gap: 10px;
+      border-bottom: 1px solid var(--line);
+      flex-shrink: 0;
+    }
+    .row:nth-child(even) { background: var(--bg-row); }
+
+    .tbl {
+      width: 40px;
+      text-align: center;
+      font-family: var(--font-head);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent);
+      flex-shrink: 0;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Each player side: hero image + name */
+    .side {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .side.r { flex-direction: row-reverse; }
+
+    .pname {
+      flex: 1;
+      font-size: clamp(13px, 1.5vw, 17px);
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .side.r .pname { text-align: right; }
+    .pname.win  { color: var(--win); font-weight: 700; }
+    .pname.lose { color: var(--text-dim); }
+
+    .mid {
+      width: 68px;
+      text-align: center;
+      flex-shrink: 0;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-dim);
+    }
+    .mid.done { color: var(--win); }
+
+    .empty { padding: 48px 20px; text-align: center; color: var(--text-dim); font-size: 15px; }
+  </style>
+</head>
+<body>
+<div class="overlay-frame">
+  <div class="overlay-header">
+    <div class="overlay-title" id="ttl">Loading…</div>
+    <div class="overlay-subtitle" id="sub"></div>
+  </div>
+  <div class="scroll-viewport" id="vp">
+    <div class="scroll-track" id="tr"></div>
+  </div>
+</div>
+<div id="status-badge">Loading…</div>
+
+<script src="/shared/overlay.js"></script>
+<script>
+  const REFRESH = OV.refreshMs;
+  const SPEED   = 48; // px / sec
+
+  const tr = document.getElementById('tr');
+  const vp = document.getElementById('vp');
+
+  // ── scroll engine ──────────────────────────────────────────────────────────
+  let scrollY = 0, contentH = 0, measuring = false, pending = null, prevTs = null;
+
+  function setContent(html) {
+    measuring = true;
+    tr.style.transform = 'translateY(0)';
+    tr.innerHTML = html;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const h = tr.scrollHeight;
+      if (h <= vp.clientHeight) {
+        contentH = 0; scrollY = 0;
+      } else {
+        contentH = h;
+        if (scrollY >= contentH) scrollY = 0;
+        tr.innerHTML = html + html;
+      }
+      measuring = false;
+    }));
+  }
+
+  function tick(ts) {
+    requestAnimationFrame(tick);
+    if (measuring || contentH <= 0) { prevTs = ts; return; }
+    const dt = Math.min((ts - (prevTs || ts)) / 1000, 0.05);
+    prevTs = ts;
+    scrollY += SPEED * dt;
+    if (scrollY >= contentH) {
+      scrollY -= contentH;
+      if (pending) { setContent(pending); pending = null; return; }
+    }
+    tr.style.transform = `translateY(${-scrollY}px)`;
+  }
+  requestAnimationFrame(tick);
+
+  // ── rendering ──────────────────────────────────────────────────────────────
+  function buildHtml(pairs, byId, byN) {
+    if (!pairs.length) return '<div class="empty">No pairings yet</div>';
+    return pairs.map(p => {
+      const h1 = byId[p.p1GemId] || byN[(p.p1 || '').toLowerCase()] || null;
+      const h2 = byId[p.p2GemId] || byN[(p.p2 || '').toLowerCase()] || null;
+      const w1 = p.winner === 'p1', w2 = p.winner === 'p2';
+      const mid = p.done ? (w1 ? 'W – L' : w2 ? 'L – W' : '? – ?') : 'vs';
+      return `<div class="row">
+        <div class="tbl">T${OV.esc(p.table)}</div>
+        <div class="side">${OV.hw(h1, 50)}<span class="pname${w1?' win':w2?' lose':''}">${OV.esc(OV.fmtName(p.p1))}</span></div>
+        <div class="mid${p.done?' done':''}">${mid}</div>
+        <div class="side r">${OV.hw(h2, 50)}<span class="pname${w2?' win':w1?' lose':''}">${OV.esc(OV.fmtName(p.p2))}</span></div>
+      </div>`;
+    }).join('');
+  }
+
+  // New HTML is queued in `pending` and swapped in at the scroll seam so the
+  // list never jumps.
+  function show(html) {
+    if (contentH === 0) setContent(html); else pending = html;
+  }
+
+  // ── data fetch ─────────────────────────────────────────────────────────────
+  let lastRound = null, lastMaps = null;
+
+  async function refresh() {
+    try {
+      const q = OV.query;
+      const [tdRes, hRes] = await Promise.all([fetch(`/api/tournament${q}`), fetch(`/api/heroes${q}`)]);
+      if (tdRes.status === 401) { OV.badge('Not logged in', true); return; }
+      if (!tdRes.ok) throw new Error(`HTTP ${tdRes.status}`);
+
+      const tdata  = await tdRes.json();
+      const heroes = await hRes.json().catch(() => []);
+      if (tdata.error) throw new Error(tdata.error);
+
+      OV.setFormat(tdata.meta?.format);
+      const round = tdata.rounds.length ? tdata.rounds[tdata.rounds.length - 1] : null;
+      document.getElementById('ttl').textContent = tdata.meta?.title || 'FAB Pairings';
+
+      if (!round) {
+        document.getElementById('sub').textContent = '';
+        lastRound = null;
+        show('<div class="empty">No pairings yet</div>');
+        OV.badge('Waiting…');
+        return;
+      }
+      document.getElementById('sub').textContent = `Round ${round.round} · ${round.done}/${round.total} done`;
+
+      const byId = {}, byN = {};
+      heroes.forEach(h => {
+        if (h.gemId && h.hero) byId[h.gemId] = h.hero;
+        if (h.name  && h.hero) byN[h.name.toLowerCase()] = h.hero;
+      });
+
+      lastRound = round; lastMaps = { byId, byN };
+      show(buildHtml(round.pairings, byId, byN));
+      OV.badgeOk(Math.round(REFRESH / 1000));
+    } catch (err) {
+      OV.badge('Error: ' + err.message, true);
+    }
+  }
+
+  // Switching the name mode in the config UI re-renders without an OBS reload.
+  OV.initSettings(() => {
+    if (lastRound) show(buildHtml(lastRound.pairings, lastMaps.byId, lastMaps.byN));
+  }).then(refresh);
+
+  setInterval(refresh, REFRESH);
+</script>
+</body>
+</html>

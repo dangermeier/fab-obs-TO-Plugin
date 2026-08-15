@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FAB Life Counter</title>
+  <link rel="stylesheet" href="/shared/overlay.css">
+  <style>
+    body { font-size: calc(20px * var(--scale)); }
+
+    .badge {
+      position: fixed;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4em;
+      padding: 0.85em 1.1em;
+      min-width: 11em;
+      opacity: 0;
+      transition: opacity 0.4s;
+    }
+    .badge.show { opacity: 1; }
+
+    .badge.left  { left:  var(--inset); }
+    .badge.right { right: var(--inset); align-items: flex-end; }
+
+    body.pos-top    .badge { top:    var(--margin); }
+    body.pos-bottom .badge { bottom: var(--margin); }
+    body.pos-center .badge { top: 50%; transform: translateY(-50%); }
+
+    .row { display: flex; align-items: center; gap: 0.8em; }
+    .badge.right .row { flex-direction: row-reverse; }
+
+    /* Life number + the floating damage delta share a stacking context */
+    .lifewrap { position: relative; display: flex; align-items: center; }
+    .life {
+      font-family: var(--font-head);
+      font-size: 3.4em;
+      font-weight: 700;
+      line-height: 1;
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
+      min-width: 2ch;
+      text-align: center;
+    }
+
+    .delta {
+      position: absolute;
+      left: 50%;
+      top: -0.2em;
+      transform: translateX(-50%);
+      font-size: 1.25em;
+      font-weight: 700;
+      opacity: 0;
+      pointer-events: none;
+      white-space: nowrap;
+      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9);
+    }
+    .delta.down { color: var(--danger); }
+    .delta.up   { color: var(--win); }
+    .delta.go   { animation: deltafly 1.1s ease-out forwards; }
+
+    @keyframes deltafly {
+      0%   { opacity: 0; transform: translate(-50%, 0.35em); }
+      18%  { opacity: 1; }
+      100% { opacity: 0; transform: translate(-50%, -1.6em); }
+    }
+
+    .life.punch-down { animation: punchdown 0.5s ease-out; }
+    .life.punch-up   { animation: punchup   0.5s ease-out; }
+
+    @keyframes punchdown {
+      0%   { transform: scale(1);    color: var(--danger); }
+      32%  { transform: scale(1.22); color: var(--danger); }
+      100% { transform: scale(1); }
+    }
+    @keyframes punchup {
+      0%   { transform: scale(1);    color: var(--win); }
+      32%  { transform: scale(1.18); color: var(--win); }
+      100% { transform: scale(1); }
+    }
+
+    .meta { display: flex; flex-direction: column; gap: 0.1em; max-width: 13em; }
+    .badge.right .meta { align-items: flex-end; text-align: right; }
+
+    .pname { font-size: 1.15em; font-weight: 600; }
+    .phero { font-size: 0.9em; }
+
+    .rec { font-size: 0.8em; }
+  </style>
+</head>
+<!-- Floats over the camera feed, so it always uses the dark surface. -->
+<body class="surface-dark">
+<div id="status-badge">Loading…</div>
+
+<script src="/shared/overlay.js"></script>
+<script>
+  const P     = OV.params;
+  const SOLID = P.get('bg') === 'solid';
+  const SIDE  = ['left', 'right', 'both'].includes(P.get('side')) ? P.get('side') : 'both';
+  const POS   = ['top', 'center', 'bottom'].includes(P.get('pos')) ? P.get('pos') : 'bottom';
+  const SCALE = parseFloat(P.get('scale')) || 1;
+  const HERO_PX = Math.round((parseInt(P.get('hero'), 10) || 76) * SCALE);
+
+  document.documentElement.style.setProperty('--scale',  SCALE);
+  document.documentElement.style.setProperty('--margin', (parseInt(P.get('margin'), 10) || 60) + 'px');
+  document.documentElement.style.setProperty('--inset',  (parseInt(P.get('inset'),  10) || 60) + 'px');
+  document.body.classList.add('pos-' + POS);
+  if (!SOLID) document.body.classList.add('ov-transparent');
+
+  // The DOM is built once and then patched in place — re-rendering it would
+  // restart the punch animation and wipe the damage flash mid-flight.
+  function makeBadge(side) {
+    const el = document.createElement('div');
+    el.className = 'badge ' + side + (SOLID ? ' ov-panel' : ' ov-floating');
+    el.innerHTML =
+      '<div class="row">' +
+        '<div class="heroslot"></div>' +
+        '<div class="lifewrap"><div class="life">–</div><div class="delta"></div></div>' +
+      '</div>' +
+      '<div class="meta">' +
+        '<div class="pname ov-pname"></div>' +
+        '<div class="phero ov-phero"></div>' +
+        '<div class="rec ov-prec"></div>' +
+      '</div>';
+    document.body.appendChild(el);
+
+    return {
+      el,
+      heroslot: el.querySelector('.heroslot'),
+      life:     el.querySelector('.life'),
+      delta:    el.querySelector('.delta'),
+      pname:    el.querySelector('.pname'),
+      phero:    el.querySelector('.phero'),
+      rec:      el.querySelector('.rec'),
+      lastHero: undefined,
+      lastLife: null
+    };
+  }
+
+  const badges = {
+    left:  (SIDE === 'both' || SIDE === 'left')  ? makeBadge('left')  : null,
+    right: (SIDE === 'both' || SIDE === 'right') ? makeBadge('right') : null
+  };
+
+  function flash(b, diff) {
+    b.life.classList.remove('punch-up', 'punch-down');
+    void b.life.offsetWidth;                       // force the animation to restart
+    b.life.classList.add(diff < 0 ? 'punch-down' : 'punch-up');
+
+    b.delta.textContent = (diff > 0 ? '+' : '') + diff;
+    b.delta.className   = 'delta ' + (diff < 0 ? 'down' : 'up');
+    void b.delta.offsetWidth;
+    b.delta.classList.add('go');
+  }
+
+  function update(b, p, life, animate) {
+    if (!b) return;
+
+    const hero = (p && p.hero) || null;
+    if (hero !== b.lastHero) {
+      b.heroslot.innerHTML = OV.hw(hero, HERO_PX);
+      b.lastHero = hero;
+    }
+
+    b.pname.textContent = OV.fmtName(p && p.name);
+    b.phero.textContent = hero || '—';
+    // 0–0 says nothing — before round 1 and in manual mode it is just noise.
+    b.rec.textContent   = p && (p.wins || p.losses) ? `${p.wins}–${p.losses}` : '';
+
+    const v = Number.isFinite(life) ? life : null;
+    if (v !== b.lastLife) {
+      if (animate && b.lastLife !== null && v !== null) flash(b, v - b.lastLife);
+      b.life.textContent = v === null ? '–' : String(v);
+      b.lastLife = v;
+    }
+  }
+
+  let lastKey = null;
+
+  function render(m) {
+    if (!m || (!m.p1 && !m.p2)) {
+      Object.values(badges).forEach(b => b && b.el.classList.remove('show'));
+      OV.badge(m && m.warning ? m.warning : 'No featured match', !!(m && m.warning));
+      return;
+    }
+
+    OV.setFormat(m.format);
+    const [l, r] = m.swapped ? ['p2', 'p1'] : ['p1', 'p2'];
+
+    // A new match is a reset, not a hit — don't punch the numbers for it.
+    const key = `${m.matchKey}|${m.swapped}`;
+    const animate = key === lastKey;
+    lastKey = key;
+
+    update(badges.left,  m[l], m.life[l], animate);
+    update(badges.right, m[r], m.life[r], animate);
+
+    Object.values(badges).forEach(b => b && b.el.classList.add('show'));
+    OV.badge(m.warning || 'Live', !!m.warning);
+  }
+
+  let last = null;
+  OV.initSettings(() => render(last));
+  OV.onMatch(m => { last = m; render(m); });
+  OV.onLiveState(s => { if (s === 'offline') OV.badge('Reconnecting…', true); });
+
+  // Fallback if SSE never connects.
+  function poll() {
+    fetch('/api/match')
+      .then(r => r.json())
+      .then(m => { if (!last || m.rev >= last.rev) { last = m; render(m); } })
+      .catch(() => {});
+  }
+  poll();
+  setInterval(poll, OV.refreshMs);
+</script>
+</body>
+</html>

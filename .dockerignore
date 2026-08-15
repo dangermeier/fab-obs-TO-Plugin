@@ -1,0 +1,12 @@
+node_modules
+data
+.git
+.gitignore
+.claude
+*.log
+*.md
+Dockerfile
+.dockerignore
+docker-compose.yml
+start.bat
+start.sh
