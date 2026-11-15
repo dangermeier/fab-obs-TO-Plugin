@@ -275,5 +275,6 @@ function startAutoRefresh(hasClients) {
 }
 
 module.exports = {
-  refreshFeatured, selectMatch, setManualMatch, startAutoRefresh
+  refreshFeatured, selectMatch, setManualMatch, startAutoRefresh,
+  tableNum, completedSwissRounds, labelForRound, stageForRound
 };

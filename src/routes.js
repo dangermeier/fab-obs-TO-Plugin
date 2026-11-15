@@ -243,35 +243,22 @@ function eventFor(req, res) {
   return eventId;
 }
 
-router.get('/tournament', async (req, res) => {
-  const eventId = eventFor(req, res);
-  if (!eventId) return;
-  try {
-    res.json(await fetchTournamentData(eventId));
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.get('/heroes', async (req, res) => {
-  const eventId = eventFor(req, res);
-  if (!eventId) return;
-  try {
-    res.json(await fetchHeroesCsv(eventId));
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.get('/standings', async (req, res) => {
-  const eventId = eventFor(req, res);
-  if (!eventId) return;
-  try {
-    res.json(await fetchStandingsCsv(eventId));
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// The three views of an event, each straight from the fetcher.
+for (const [path, load] of [
+  ['/tournament', fetchTournamentData],
+  ['/heroes',     fetchHeroesCsv],
+  ['/standings',  fetchStandingsCsv]
+]) {
+  router.get(path, async (req, res) => {
+    const eventId = eventFor(req, res);
+    if (!eventId) return;
+    try {
+      res.json(await load(eventId));
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+}
 
 // Convenience: card lookup + image proxy in one request — use as <img src="/api/hero-image?name=Fai">
 // &young=1 picks the Blitz/Limited printing; without it the adult hero wins.

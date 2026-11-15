@@ -225,13 +225,6 @@
   OV.fx($('mid'), { motes: 22 });
   OV.fx($('art'), { motes: 26 });
 
-  // "6 / 7" for Swiss; a top-cut stage is its own name.
-  function roundValue(m) {
-    if (m.roundStage) return OV.matchRoundName(m);
-    if (m.round) return m.round + (m.totalRounds ? ' / ' + m.totalRounds : '');
-    return m.roundLabel || '';
-  }
-
   /* Which seat won: 'left' / 'right' as asked for, or — with ?side=auto — the
    * player still standing once the other one is at zero or below. null means
    * there is no winner to show yet. */
@@ -244,9 +237,7 @@
     return null;
   }
 
-  const fact = (id, label, value) => {
-    $(id).innerHTML = value ? `<div class="k">${OV.esc(label)}</div><div class="v">${OV.esc(value)}</div>` : '';
-  };
+  const fact = (id, label, value) => { $(id).innerHTML = OV.kv(label, value); };
 
   let last = null, washFor = null;
 
@@ -273,7 +264,7 @@
 
     fact('f-event',  OV.t('lblEvent'),  m.eventTitle);
     fact('f-format', OV.t('lblFormat'), m.format);
-    fact('f-round',  OV.t('lblRound'),  roundValue(m));
+    fact('f-round',  OV.t('lblRound'),  OV.matchRoundValue(m));
     $('word').textContent = OV.t('winner');
     $('name').textContent = OV.fmtName(p.name);
     $('hero').textContent = hero || '';
@@ -299,18 +290,7 @@
   }
 
   OV.initSettings(render);
-  OV.onMatch(m => { last = m; render(); });
-  OV.onLiveState(s => { if (s === 'offline') OV.badge('Reconnecting…', true); });
-
-  // Fallback if the live channel never connects.
-  function poll() {
-    fetch('/api/match')
-      .then(r => r.json())
-      .then(m => { if (!last || m.rev >= last.rev) { last = m; render(); } })
-      .catch(() => {});
-  }
-  poll();
-  setInterval(poll, OV.refreshMs);
+  OV.followMatch(m => { last = m; render(); });
 </script>
 </body>
 </html>

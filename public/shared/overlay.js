@@ -347,6 +347,21 @@
     return m.roundLabel || '';
   };
 
+  // The round as a bare value for a "Round" fact: "6 / 7" for Swiss, while a
+  // top-cut stage is its own name.
+  OV.matchRoundValue = function (m) {
+    if (!m) return '';
+    if (m.roundStage) return OV.matchRoundName(m);
+    if (m.round) return m.round + (m.totalRounds ? ' / ' + m.totalRounds : '');
+    return m.roundLabel || '';
+  };
+
+  // A labelled value ("ROUND" over "6 / 7") as the frame and the matchup and
+  // winner screens show it; nothing at all for an empty value.
+  OV.kv = function (label, value) {
+    return value ? '<div class="k">' + OV.esc(label) + '</div><div class="v">' + OV.esc(value) + '</div>' : '';
+  };
+
   // ── hero artwork ───────────────────────────────────────────────────────────
 
   // Young heroes (Blitz, Draft, Sealed, Commoner) have their own printing and
@@ -751,6 +766,27 @@
   // The event itself changed (another one selected, or the demo advanced):
   // re-read now rather than on the next poll.
   OV.onRefresh  = function (fn) { handlers.refresh.push(fn);  connectLive(); };
+
+  /* Everything an overlay of the featured match needs: fn(match) on every
+   * change from the live channel, a badge while that is down, and a slow poll
+   * as the fallback should it never connect. A polled state older than what
+   * the channel already delivered is dropped. */
+  OV.followMatch = function (fn) {
+    var rev = -1;
+    function take(m) { rev = m && m.rev != null ? m.rev : rev; fn(m); }
+
+    OV.onMatch(take);
+    OV.onLiveState(function (s) { if (s === 'offline') OV.badge('Reconnecting…', true); });
+
+    function poll() {
+      fetch('/api/match')
+        .then(function (r) { return r.json(); })
+        .then(function (m) { if (m.rev == null || m.rev >= rev) take(m); })
+        .catch(function () {});
+    }
+    poll();
+    setInterval(poll, OV.refreshMs);
+  };
 
   // ── control token ──────────────────────────────────────────────────────────
   //

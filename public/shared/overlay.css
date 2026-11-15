@@ -79,8 +79,6 @@
   --lift-strong: 0 2px 4px rgba(20, 24, 31, 0.07), 0 1.1em 2.4em -0.8em rgba(20, 24, 31, 0.38);
   --glow:    0 0 0.9em rgba(36, 86, 199, 0.4);
   --ring:    rgba(20, 24, 31, 0.16);
-  /* An accent rule that fades out towards both ends. */
-  --rule:    linear-gradient(90deg, transparent 0%, var(--accent) 16%, var(--accent) 84%, transparent 100%);
 
   /* Background animation: the drifting light and the motes in it. */
   --fx-light: rgba(36, 86, 199, 0.24);
@@ -88,15 +86,8 @@
   --fx-mote:  rgba(36, 86, 199, 0.6);
   --fx-sheen: rgba(36, 86, 199, 0.11);
 
-  /* ── dividers ─────────────────────────────────────────────────────────────
-     A dividing line never runs edge to edge: it fades in, breaks in the middle
-     for a small four-pointed star, and fades out again. --sep-h / --sep-v are
-     complete backgrounds for a thin strip laid over the seam. (They have to
-     be declared per theme: a custom property resolves the var()s inside it
-     where it is declared, not where it is used.) */
+  /* The ornament in the gap of a dividing line: a four-pointed star. */
   --orn-img: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%232456c7' d='M12 0C13 8 16 11 24 12 16 13 13 16 12 24 11 16 8 13 0 12 8 11 11 8 12 0Z'/%3E%3C/svg%3E");
-  --sep-h: var(--orn-img) center / 0.62em 0.62em no-repeat, linear-gradient(90deg, transparent 0%, var(--line-strong) 26%, var(--line-strong) calc(50% - 0.8em), transparent calc(50% - 0.8em), transparent calc(50% + 0.8em), var(--line-strong) calc(50% + 0.8em), var(--line-strong) 74%, transparent 100%) center / 100% 1px no-repeat;
-  --sep-v: var(--orn-img) center / 0.62em 0.62em no-repeat, linear-gradient(180deg, transparent 0%, var(--line-strong) 26%, var(--line-strong) calc(50% - 0.8em), transparent calc(50% - 0.8em), transparent calc(50% + 0.8em), var(--line-strong) calc(50% + 0.8em), var(--line-strong) 74%, transparent 100%) center / 1px 100% no-repeat;
 
   /* ── sizing ───────────────────────────────────────────────────────────────
      One unit for every full-frame board: 20px on a 1920-wide source, growing
@@ -144,16 +135,24 @@
   --fx-soft:  rgba(72, 104, 184, 0.34);
   --fx-mote:  rgba(186, 208, 255, 0.85);
   --fx-sheen: rgba(170, 196, 255, 0.13);
-  /* Declared again so it picks up this theme's accent. */
-  --rule:    linear-gradient(90deg, transparent 0%, var(--accent) 16%, var(--accent) 84%, transparent 100%);
 
-  /* ── dividers ─────────────────────────────────────────────────────────────
-     A dividing line never runs edge to edge: it fades in, breaks in the middle
-     for a small four-pointed star, and fades out again. --sep-h / --sep-v are
-     complete backgrounds for a thin strip laid over the seam. (They have to
-     be declared per theme: a custom property resolves the var()s inside it
-     where it is declared, not where it is used.) */
+  /* The ornament in the gap of a dividing line: a four-pointed star. */
   --orn-img: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%2386a9f5' d='M12 0C13 8 16 11 24 12 16 13 13 16 12 24 11 16 8 13 0 12 8 11 11 8 12 0Z'/%3E%3C/svg%3E");
+}
+
+/* ── tokens derived from a theme's colours ─────────────────────────────────
+   One declaration for every theme scope. They cannot simply sit on :root: a
+   custom property resolves the var()s inside it where it is declared, so
+   each scope has to compute its own from its --accent, --line-strong and
+   --orn-img.
+
+     --rule    an accent rule that fades out towards both ends
+     --sep-h   a dividing line: fades in, breaks in the middle for the
+     --sep-v   theme's ornament, and fades out again — never edge to edge */
+:root,
+.surface-dark,
+[class*="theme-"] {
+  --rule: linear-gradient(90deg, transparent 0%, var(--accent) 16%, var(--accent) 84%, transparent 100%);
   --sep-h: var(--orn-img) center / 0.62em 0.62em no-repeat, linear-gradient(90deg, transparent 0%, var(--line-strong) 26%, var(--line-strong) calc(50% - 0.8em), transparent calc(50% - 0.8em), transparent calc(50% + 0.8em), var(--line-strong) calc(50% + 0.8em), var(--line-strong) 74%, transparent 100%) center / 100% 1px no-repeat;
   --sep-v: var(--orn-img) center / 0.62em 0.62em no-repeat, linear-gradient(180deg, transparent 0%, var(--line-strong) 26%, var(--line-strong) calc(50% - 0.8em), transparent calc(50% - 0.8em), transparent calc(50% + 0.8em), var(--line-strong) calc(50% + 0.8em), var(--line-strong) 74%, transparent 100%) center / 1px 100% no-repeat;
 }
@@ -878,18 +877,9 @@ html.no-fx .orn, html.no-fx .bh-tag::before { animation: none; }
   --fx-soft:  rgba(96, 70, 235, 0.36);
   --fx-mote:  rgba(255, 128, 232, 0.9);
   --fx-sheen: rgba(240, 150, 255, 0.14);
-  /* Declared again so it picks up this theme's accent. */
-  --rule:    linear-gradient(90deg, transparent 0%, var(--accent) 16%, var(--accent) 84%, transparent 100%);
 
-  /* ── dividers ─────────────────────────────────────────────────────────────
-     A dividing line never runs edge to edge: it fades in, breaks in the middle
-     for a small four-pointed star, and fades out again. --sep-h / --sep-v are
-     complete backgrounds for a thin strip laid over the seam. (They have to
-     be declared per theme: a custom property resolves the var()s inside it
-     where it is declared, not where it is used.) */
+  /* The ornament in the gap of a dividing line: a four-pointed star. */
   --orn-img: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23f06bff' d='M12 0C13 8 16 11 24 12 16 13 13 16 12 24 11 16 8 13 0 12 8 11 11 8 12 0Z'/%3E%3C/svg%3E");
-  --sep-h: var(--orn-img) center / 0.62em 0.62em no-repeat, linear-gradient(90deg, transparent 0%, var(--line-strong) 26%, var(--line-strong) calc(50% - 0.8em), transparent calc(50% - 0.8em), transparent calc(50% + 0.8em), var(--line-strong) calc(50% + 0.8em), var(--line-strong) 74%, transparent 100%) center / 100% 1px no-repeat;
-  --sep-v: var(--orn-img) center / 0.62em 0.62em no-repeat, linear-gradient(180deg, transparent 0%, var(--line-strong) 26%, var(--line-strong) calc(50% - 0.8em), transparent calc(50% - 0.8em), transparent calc(50% + 0.8em), var(--line-strong) calc(50% + 0.8em), var(--line-strong) 74%, transparent 100%) center / 1px 100% no-repeat;
 }
 
 /* ── its background ─────────────────────────────────────────────────────── */
@@ -988,16 +978,9 @@ html.no-fx .orn, html.no-fx .bh-tag::before { animation: none; }
   --fx-soft:  rgba(170, 40, 180, 0.16);
   --fx-mote:  rgba(255, 50, 70, 0.4);
   --fx-sheen: rgba(150, 230, 255, 0.13);
-  /* Declared again so it picks up this theme's accent. */
-  --rule:    linear-gradient(90deg, transparent 0%, var(--accent) 16%, var(--accent) 84%, transparent 100%);
 
-  /* ── dividers ─────────────────────────────────────────────────────────────
-     As everywhere, but the ornament in the gap is the point of a blade — a
-     narrow steel kite — not a star. (Declared per theme: a custom property
-     resolves the var()s inside it where it is declared, not where it is used.) */
+  /* The ornament in the gap of a dividing line: the point of a blade. */
   --orn-img: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23e6f6fc' d='M12 0 16.5 12 12 24Z'/%3E%3Cpath fill='%2378b4cc' d='M12 0 7.5 12 12 24Z'/%3E%3C/svg%3E");
-  --sep-h: var(--orn-img) center / 0.62em 0.62em no-repeat, linear-gradient(90deg, transparent 0%, var(--line-strong) 26%, var(--line-strong) calc(50% - 0.8em), transparent calc(50% - 0.8em), transparent calc(50% + 0.8em), var(--line-strong) calc(50% + 0.8em), var(--line-strong) 74%, transparent 100%) center / 100% 1px no-repeat;
-  --sep-v: var(--orn-img) center / 0.62em 0.62em no-repeat, linear-gradient(180deg, transparent 0%, var(--line-strong) 26%, var(--line-strong) calc(50% - 0.8em), transparent calc(50% - 0.8em), transparent calc(50% + 0.8em), var(--line-strong) calc(50% + 0.8em), var(--line-strong) 74%, transparent 100%) center / 1px 100% no-repeat;
 }
 
 /* ── its background ─────────────────────────────────────────────────────── */

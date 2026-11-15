@@ -256,13 +256,6 @@
   const P = OV.params;
   const BANNER = P.get('layout') === 'banner';
 
-  // "6 / 7" for Swiss; a top-cut stage is its own name.
-  function roundValue(m) {
-    if (m.roundStage) return OV.matchRoundName(m);
-    if (m.round) return m.round + (m.totalRounds ? ' / ' + m.totalRounds : '');
-    return m.roundLabel || '';
-  }
-
   // ═══ layout 1: matchup screen ══════════════════════════════════════════════
 
   function matchupLayout() {
@@ -295,11 +288,7 @@
       stats: el.querySelector('.mu-stats')
     }));
 
-    const pair = (label, value) =>
-      `<div class="k">${OV.esc(label)}</div><div class="v">${OV.esc(value)}</div>`;
-    const fact = (id, label, value) => {
-      frame.querySelector('#' + id).innerHTML = value ? pair(label, value) : '';
-    };
+    const fact = (id, label, value) => { frame.querySelector('#' + id).innerHTML = OV.kv(label, value); };
 
     function update(s, p, life) {
       const hero = (p && p.hero) || null;
@@ -313,7 +302,7 @@
       const stats = [
         p && (p.wins || p.losses) ? [OV.t('lblRecord'), `${p.wins}–${p.losses}`] : null
       ].filter(Boolean);
-      const html = stats.map(([k, v]) => `<div class="mu-stat">${pair(k, v)}</div>`).join('');
+      const html = stats.map(([k, v]) => `<div class="mu-stat">${OV.kv(k, v)}</div>`).join('');
       if (s.stats.innerHTML !== html) s.stats.innerHTML = html;
     }
 
@@ -324,7 +313,7 @@
         update(sides[1], m[r], m.life[r]);
         fact('f-event',  OV.t('lblEvent'),  m.eventTitle);
         fact('f-format', OV.t('lblFormat'), m.format);
-        fact('f-round',  OV.t('lblRound'),  roundValue(m));
+        fact('f-round',  OV.t('lblRound'),  OV.matchRoundValue(m));
         fact('f-table',  OV.t('lblTable'),  m.table);
         frame.classList.add('show');
       }
@@ -373,7 +362,7 @@
         : '<div class="vs">VS</div>';
 
       return `<div class="center">
-        <div class="round">${OV.esc(m.roundStage || !m.round ? OV.matchRoundName(m) : OV.t('round', { n: roundValue(m) }))}</div>
+        <div class="round">${OV.esc(m.roundStage || !m.round ? OV.matchRoundName(m) : OV.t('round', { n: OV.matchRoundValue(m) }))}</div>
         ${m.table ? `<div class="table">${OV.esc(OV.t('table', { n: m.table }))}</div>` : ''}
         ${middle}
       </div>`;
@@ -410,18 +399,7 @@
   }
 
   OV.initSettings(render);
-  OV.onMatch(m => { last = m; render(); });
-  OV.onLiveState(s => { if (s === 'offline') OV.badge('Reconnecting…', true); });
-
-  // Fallback for the rare case the live channel never establishes.
-  function poll() {
-    fetch('/api/match')
-      .then(r => r.json())
-      .then(m => { if (!last || m.rev >= last.rev) { last = m; render(); } })
-      .catch(() => {});
-  }
-  poll();
-  setInterval(poll, OV.refreshMs);
+  OV.followMatch(m => { last = m; render(); });
 </script>
 </body>
 </html>

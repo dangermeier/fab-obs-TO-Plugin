@@ -2,7 +2,6 @@ node_modules
 data
 .git
 .gitignore
-.claude
 *.log
 *.md
 Dockerfile

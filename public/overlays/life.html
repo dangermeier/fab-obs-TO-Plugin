@@ -546,10 +546,7 @@
       setLife(s, lifeTotal, animate);
     }
 
-    const fact = (id, label, value) => {
-      const el = frame.querySelector('#' + id);
-      el.innerHTML = value ? `<div class="k">${OV.esc(label)}</div><div class="v">${OV.esc(value)}</div>` : '';
-    };
+    const fact = (id, label, value) => { frame.querySelector('#' + id).innerHTML = OV.kv(label, value); };
 
     // The card: dealt in, turned over on a change, drawn away — see OV.cardStage.
     const slot  = frame.querySelector('.card');
@@ -615,18 +612,7 @@
   }
 
   OV.initSettings(() => render(last));
-  OV.onMatch(m => { last = m; render(m); });
-  OV.onLiveState(s => { if (s === 'offline') OV.badge('Reconnecting…', true); });
-
-  // Fallback if the live channel never connects.
-  function poll() {
-    fetch('/api/match')
-      .then(r => r.json())
-      .then(m => { if (!last || m.rev >= last.rev) { last = m; render(m); } })
-      .catch(() => {});
-  }
-  poll();
-  setInterval(poll, OV.refreshMs);
+  OV.followMatch(m => { last = m; render(m); });
 </script>
 </body>
 </html>

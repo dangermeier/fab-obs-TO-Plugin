@@ -3,7 +3,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { EventEmitter } = require('events');
 
-const DATA_DIR      = path.join(__dirname, '..', 'data');
+const { DATA_DIR } = require('./paths');
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 const MATCH_FILE    = path.join(DATA_DIR, 'match.json');
 

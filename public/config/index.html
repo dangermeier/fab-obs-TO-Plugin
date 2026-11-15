@@ -551,20 +551,26 @@
   // original action is replayed once the PIN is accepted.
   const post = (path, body, retry) => OV.post(path, body, () => openGate(retry));
 
+  // Overlay URLs, by the id of the element that shows them.
   const origin = window.location.origin;
-  document.getElementById('url-pairings').textContent   = `${origin}/overlays/pairings.html`;
-  document.getElementById('url-standings').textContent  = `${origin}/overlays/standings.html`;
-  document.getElementById('url-pairings-tk').textContent  = `${origin}/overlays/pairings.html?mode=ticker`;
-  document.getElementById('url-standings-tk').textContent = `${origin}/overlays/standings.html?mode=ticker&top=16`;
-  document.getElementById('url-bracket').textContent    = `${origin}/overlays/bracket.html`;
-  document.getElementById('url-breakdown').textContent  = `${origin}/overlays/breakdown.html`;
-  document.getElementById('url-match').textContent      = `${origin}/overlays/match.html`;
-  document.getElementById('url-life').textContent       = `${origin}/overlays/life.html`;
-  document.getElementById('url-round').textContent      = `${origin}/overlays/round.html`;
-  document.getElementById('url-broadcast').textContent  = `${origin}/overlays/life.html?layout=broadcast`;
-  document.getElementById('url-card').textContent       = `${origin}/overlays/card.html`;
-  document.getElementById('url-winner-l').textContent   = `${origin}/overlays/winner.html?side=left`;
-  document.getElementById('url-winner-r').textContent   = `${origin}/overlays/winner.html?side=right`;
+  const OVERLAY_URLS = {
+    'url-pairings':     'pairings.html',
+    'url-standings':    'standings.html',
+    'url-pairings-tk':  'pairings.html?mode=ticker',
+    'url-standings-tk': 'standings.html?mode=ticker&top=16',
+    'url-bracket':      'bracket.html',
+    'url-breakdown':    'breakdown.html',
+    'url-match':        'match.html',
+    'url-life':         'life.html',
+    'url-round':        'round.html',
+    'url-broadcast':    'life.html?layout=broadcast',
+    'url-card':         'card.html',
+    'url-winner-l':     'winner.html?side=left',
+    'url-winner-r':     'winner.html?side=right'
+  };
+  for (const [id, page] of Object.entries(OVERLAY_URLS)) {
+    document.getElementById(id).textContent = `${origin}/overlays/${page}`;
+  }
 
   /* navigator.clipboard only exists in a secure context — localhost qualifies,
    * but this page opened from another computer via http://192.168.x.x does

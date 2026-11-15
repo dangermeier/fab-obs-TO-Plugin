@@ -409,5 +409,6 @@ async function fetchAllEvents(mode = 'judge') {
 module.exports = {
   fetchTournamentData, fetchHeroesCsv, fetchStandingsCsv,
   fetchCardByName, fetchHeroImage, fetchAllEvents,
-  fetchHeroInfo, isYoungFormat, searchCards
+  fetchHeroInfo, isYoungFormat, searchCards,
+  pickHeroCard, printingImageUrls
 };

@@ -2,7 +2,9 @@ const fetch = require('node-fetch');
 const fs = require('fs');
 const path = require('path');
 
-const SESSION_FILE = path.join(__dirname, '..', 'data', 'session.json');
+const { DATA_DIR } = require('./paths');
+
+const SESSION_FILE = path.join(DATA_DIR, 'session.json');
 const GEM_BASE = 'https://gem.fabtcg.com';
 
 let session = null;

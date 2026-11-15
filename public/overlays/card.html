@@ -27,26 +27,13 @@
   const ALIGN = OV.params.get('align');
   if (ALIGN === 'left' || ALIGN === 'right') document.body.classList.add(ALIGN);
 
-  let last = null;
-
   // Life taps arrive on the same channel; the stage ignores an unchanged card.
   function render(m) {
     stage.set((m && m.card) || null);
     OV.badgeOk();
   }
 
-  OV.onMatch(m => { last = m; render(m); });
-  OV.onLiveState(s => { if (s === 'offline') OV.badge('Reconnecting…', true); });
-
-  // Fallback if the live channel never connects.
-  function poll() {
-    fetch('/api/match')
-      .then(r => r.json())
-      .then(m => { if (!last || m.rev >= last.rev) { last = m; render(m); } })
-      .catch(() => {});
-  }
-  poll();
-  setInterval(poll, OV.refreshMs);
+  OV.followMatch(render);
 </script>
 </body>
 </html>
