@@ -5,8 +5,8 @@
   <title>FAB Round Status</title>
   <link rel="stylesheet" href="/shared/overlay.css">
   <style>
-    /* The board carries the background, not the body — otherwise a hidden
-       overlay would still paint a solid rectangle over the camera feed. */
+    /* background is on the board, not the body: a hidden overlay would
+       otherwise still paint a solid rectangle over the camera */
     .overlay-frame {
       position: absolute;
       inset: 0;
@@ -17,7 +17,7 @@
     .overlay-frame.show { opacity: 1; }
     .overlay-frame.clear { background: transparent; }
 
-    /* A hidden overlay must be fully hidden — including the status badge. */
+    /* hidden means fully hidden, status badge included */
     #status-badge { visibility: hidden; }
     body.visible #status-badge { visibility: visible; }
   </style>
@@ -41,8 +41,8 @@
 <script src="/shared/overlay.js"></script>
 <script>
   const P = OV.params;
-  // Fresher than the other boards: this is on screen exactly while everyone
-  // waits for the remaining tables to finish.
+  // polls faster than the other boards: it's on screen exactly while
+  // everyone waits for the last tables
   const POLL = (parseInt(P.get('refresh'), 10) || 15) * 1000;
   const HERO = P.get('hero') ? (parseInt(P.get('hero'), 10) || 38) * OV.scale : '2.1em';
 
@@ -50,7 +50,7 @@
   const list  = OV.scroller(document.getElementById('vp'), document.getElementById('tr'), { speed: 40, fit: true });
   const $ = id => document.getElementById(id);
 
-  // Solid by default, being a full board; ?bg=transparent drops the backing.
+  // solid by default (full board); ?bg=transparent drops the backing
   if (P.get('bg') === 'transparent' || P.get('bg') === 'none') board.classList.add('clear');
 
   function playerHtml(name, hero, cls, right) {
@@ -67,8 +67,8 @@
       const w1 = p.winner === 'p1', w2 = p.winner === 'p2';
       const n  = OV.tableNo(p);
 
-      // Running tables say so; finished ones rely on the green name alone,
-      // except when GEM gave us no winner at all.
+      // running tables say so; finished ones rely on the green name,
+      // unless GEM gave no winner at all
       const mid = !p.done        ? `<div class="p-mid running">${OV.t('running')}</div>`
                 : (!w1 && !w2)   ? `<div class="p-mid">${OV.t('finished')}</div>`
                 :                  '<div class="p-mid"></div>';
@@ -129,7 +129,7 @@
     }
   }
 
-  // GEM is only polled while the board is actually on screen.
+  // only poll GEM while the board is on screen
   let timer = null;
   function setVisible(next) {
     if (next === visible) return;
@@ -145,9 +145,8 @@
   }
 
   OV.initSettings(() => { if (visible) render(); });
-  // Normally the board waits for the featured match to be confirmed over on
-  // the tablet. ?always=1 keeps it up regardless — for a scene of its own, or
-  // simply to see it while setting things up.
+  // normally waits until the featured match is confirmed on the tablet.
+  // ?always=1 keeps it up: for a scene of its own, or during setup.
   const ALWAYS = ['1', 'true'].includes(P.get('always') || '');
   const wanted = m => ALWAYS || !!(m && m.ended);
 
@@ -155,7 +154,7 @@
   OV.onLiveState(s => { if (s === 'offline' && visible) OV.badge('Reconnecting…', true); });
   OV.onRefresh(() => { if (visible) loadRounds(); });
 
-  // Fallback if SSE never establishes.
+  // fallback if SSE never connects
   const pollMatch = () =>
     fetch('/api/match').then(r => r.json()).then(m => setVisible(wanted(m))).catch(() => { if (ALWAYS) setVisible(true); });
   setInterval(pollMatch, 30000);

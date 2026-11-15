@@ -31,7 +31,6 @@ function parseTournamentHtml(html, eventId) {
   const playersM = html.match(/(\d+)\s+(?:registrierte Spieler|registered player)/);
   if (playersM) result.meta.playerCount = parseInt(playersM[1]);
 
-  // Players list
   const playerListM = html.match(/(?:Registrierte Spieler|Registered Players?)[\s\S]*?<ol[^>]*>([\s\S]*?)<\/ol>/);
   if (playerListM) {
     const liRe = /<li[^>]*>([\s\S]*?)<\/li>/g;
@@ -50,7 +49,7 @@ function parseTournamentHtml(html, eventId) {
     }
   }
 
-  // Rounds
+  // one content-card per round
   const roundBlocks = html.split(/(?=<div class="content-card">)/);
   roundBlocks.forEach(block => {
     if (!block.includes('match-row')) return;
@@ -114,12 +113,8 @@ function parseTournamentHtml(html, eventId) {
   return result;
 }
 
-/* Parses one CSV line respecting RFC 4180 quoting: a field wrapped in `"..."`
- * may contain commas, and a literal `"` inside it is escaped as `""`. GEM
- * quotes the name field whenever it holds a comma (it writes "Ironsong,
- * Dorinthea") or a quote (a player-entered nickname, `Rhinar, Katsu "Rhino"`).
- * A naive `.split(',')` misreads the field boundaries on the first and leaves
- * the escaping quotes in the value on the second. */
+// RFC 4180 quoting. GEM quotes names with a comma ("Ironsong, Dorinthea") or a
+// nickname (`Rhinar, Katsu "Rhino"`), so a plain split(',') is not enough.
 function parseCsvLine(line) {
   const fields = [];
   let cur = '', inQuote = false;
@@ -127,7 +122,7 @@ function parseCsvLine(line) {
     const ch = line[i];
     if (inQuote) {
       if (ch !== '"') { cur += ch; continue; }
-      if (line[i + 1] === '"') { cur += '"'; i++; }   // escaped literal quote
+      if (line[i + 1] === '"') { cur += '"'; i++; }   // "" = literal quote
       else inQuote = false;
     } else if (ch === '"') {
       inQuote = true;
@@ -175,14 +170,14 @@ function parseHeroesCsv(csv) {
   return heroes;
 }
 
-// ── EVENT LIST PARSING ────────────────────────────────────────────────────────
+// --- event lists ---
 
 function findMaxPage(html) {
   const matches = [...html.matchAll(/[?&]page=(\d+)/g)];
   return matches.length ? Math.max(...matches.map(m => parseInt(m[1]))) : 1;
 }
 
-// Parse profile history HTML — returns only judge/scorekeeper events
+// Profile history. Judge/scorekeeper events only, player entries are skipped.
 function parseProfileEventsFromHtml(html) {
   const events = [];
   const parts = html.split(/<div class="event" id="/);
@@ -226,7 +221,7 @@ function parseProfileEventsFromHtml(html) {
   return events;
 }
 
-// Parse store tournament listing HTML — marks all as 'store-owner'
+// Store tournament listing, every event gets role 'store-owner'.
 function parseStoreEventsFromHtml(html) {
   const events = [];
   const parts = html.split(/<div class="event" id="/);

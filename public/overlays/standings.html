@@ -5,8 +5,7 @@
   <title>FAB Standings</title>
   <link rel="stylesheet" href="/shared/overlay.css">
   <style>
-    /* Width-capped and centred, so rank, name and record stay one line the eye
-       can follow instead of spanning the whole frame. */
+    /* width-capped and centred, so rank, name and record stay one line the eye can follow */
     .srow {
       display: flex;
       align-items: center;
@@ -18,7 +17,7 @@
       background: var(--surface);
       box-shadow: var(--lift);
     }
-    /* The leaders: an accent edge and a glow, not a tinted stripe. */
+    /* top 3: accent edge and glow, no tinted stripe */
     .srow.top { box-shadow: var(--lift), inset 0.22em 0 0 var(--accent), var(--glow); }
 
     .rank {
@@ -78,19 +77,19 @@
 <script>
   const REFRESH = OV.refreshMs;
   const $ = id => document.getElementById(id);
-  // ?mode=ticker: the same data as a one-line strip instead of the board.
+  // ?mode=ticker: one-line strip instead of the board
   const ticker = OV.initTicker();
   const list = ticker || OV.scroller($('vp'), $('tr'), { speed: OV.speed });
-  // ?top=16 lists only the leading places — a 128-player ticker takes minutes.
+  // ?top=16: leading places only, a 128-player ticker takes minutes
   const TOP = parseInt(OV.params.get('top'), 10) || 0;
 
-  // Number of fully completed Swiss rounds — the basis for the loss column,
-  // which GEM's standings CSV does not carry.
+  // fully completed Swiss rounds: basis for the loss column, which GEM's
+  // standings CSV lacks
   function completedSwissRounds(tdata) {
     return tdata.rounds.filter(r => !r.elimination && r.total > 0 && r.done >= r.total).length;
   }
 
-  // Fallback when the coverage CSV is empty: count wins off the run page.
+  // fallback when the coverage CSV is empty: count wins off the run page
   function calcStandings(tdata) {
     const wins = {}, gids = {};
     tdata.rounds.filter(r => !r.elimination).forEach(r => r.pairings.forEach(p => {
@@ -124,7 +123,7 @@
       </div>`).join('');
   }
 
-  // Ticker cell: two places under each other, like a table in the pairings.
+  // ticker cell: two places stacked, like a table in the pairings
   function tickerHtml(rows) {
     if (!rows.length) return `<div class="tk-empty">${OV.t('noStandings')}</div>`;
 
@@ -152,10 +151,9 @@
     const roundsDone = completedSwissRounds(tdata);
 
     const base = standings.length ? standings : calcStandings(tdata);
-    /* GEM's CSV has the rank and the wins (byes included), nothing else. Losses
-     * and draws are counted off the pairings; "rounds minus wins" is only the
-     * fallback for a player the pairings do not know — it turned every drop
-     * and every draw into a growing row of losses. */
+    // GEM's CSV has rank and wins (byes included), nothing else. Losses and
+    // draws come from the pairings. "rounds minus wins" is only for a player
+    // the pairings don't know: it turned every drop and draw into more losses.
     const recOf = OV.records(tdata);
     const all = base.map((s, i) => {
       const wins  = s.wins || 0;
@@ -197,7 +195,7 @@
     }
   }
 
-  // Name mode and language switch live, without an OBS reload.
+  // live name mode and language, no OBS reload
   OV.initSettings(render).then(refresh);
   setInterval(refresh, REFRESH);
   OV.onRefresh(refresh);

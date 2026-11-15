@@ -1,7 +1,6 @@
 const path = require('path');
 
-// Where settings, the match state and the GEM session are kept. DATA_DIR lets
-// the tests (or an unusual install) point somewhere else.
+// settings, match state and GEM session live here. Tests override DATA_DIR.
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
 
 module.exports = { DATA_DIR };

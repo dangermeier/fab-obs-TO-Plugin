@@ -15,7 +15,6 @@
       padding: 0.9em 2.4em 1.2em;
     }
 
-    /* One column per round */
     .round-col {
       flex: 1 1 0;
       max-width: 32em;
@@ -35,8 +34,7 @@
 
     .round-matches { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 
-    /* Equal slots per column, the card centred in its slot — so a card in the
-       next round sits exactly between the two that feed it. */
+    /* equal slots, card centred: a next-round card lands exactly between its two feeders */
     .match-slot {
       position: relative;
       flex: 1 1 0;
@@ -47,7 +45,7 @@
       padding: 0.3em 0;
     }
 
-    /* Connectors. Drawn only where one round really halves into the next. */
+    /* connectors, only where a round really halves into the next */
     .round-col.feeds .match-slot::after,
     .round-col.fed   .match-slot::before {
       content: '';
@@ -81,7 +79,7 @@
       padding: 0.35em 0.8em;
       overflow: hidden;
     }
-    /* Between the two players: the fading divider with its star. */
+    /* divider with the star, between the two players */
     .match-card { position: relative; }
     .match-card::after {
       content: '';
@@ -134,18 +132,16 @@
 
   const byTable = (a, b) => (OV.tableNo(a) || 999) - (OV.tableNo(b) || 999);
 
-  // Same player? The gemId decides when both sides have one, the name otherwise.
+  // gemId decides if both sides have one, else the name
   function samePlayer(g1, n1, g2, n2) {
     if (g1 && g2) return g1 === g2;
     const k = OV.nameKey(n1);
     return !!k && k === OV.nameKey(n2);
   }
 
-  /* GEM numbers the tables of each round on its own, so table 1 of the
-   * quarterfinals does not necessarily feed table 1 of the semifinals. Walk
-   * back from the last round and put each match next to the one its winner
-   * went on to — otherwise the connectors would join the wrong cards.
-   */
+  // GEM numbers tables per round, so QF table 1 need not feed SF table 1.
+  // Walk back from the final and put each match next to the one its winner
+  // went on to, or the connectors join the wrong cards.
   function orderRounds(elim) {
     const rounds = elim.map(r => [...r.pairings].sort(byTable));
 
@@ -215,7 +211,7 @@
       }).join('');
     }
 
-    // Untouched data is a no-op: no re-render, no artwork fading in again.
+    // same html: skip, or the artwork fades in again
     if (html !== shown) { grid.innerHTML = html; shown = html; }
   }
 
@@ -229,7 +225,7 @@
     }
   }
 
-  // Name mode and language switch live, without an OBS reload.
+  // name mode and language switch live, no OBS reload needed
   OV.initSettings(render).then(refresh);
   setInterval(refresh, REFRESH);
   OV.onRefresh(refresh);

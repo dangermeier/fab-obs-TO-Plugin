@@ -7,19 +7,16 @@ const { DATA_DIR } = require('./paths');
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 const MATCH_FILE    = path.join(DATA_DIR, 'match.json');
 
-// Overlays, the control page and the config UI all subscribe — no listener cap.
+// one listener per SSE client, so no cap
 const bus = new EventEmitter();
 bus.setMaxListeners(0);
 
 const NAME_MODES = ['full', 'short', 'initials'];
 const LANGS      = ['en', 'de'];
 
-/* Themes the overlays can wear. To add one: an entry here, and a
- * `.theme-<id>` block with the semantic tokens in public/shared/overlay.css.
- * `preview` is what the theme's entry in the config page's dropdown looks
- * like. Nothing else needs to know — the page lists whatever is in here,
- * in this order: newest set first. The order says nothing about the
- * default; that is DEFAULT_THEME below. */
+// New theme: add an entry here plus a `.theme-<id>` block in
+// public/shared/overlay.css. `preview` styles the dropdown entry on the config
+// page. Listed in this order, newest set first.
 const THEMES = [
   { id: 'mpa',   label: 'Mastery Pack Assassin',
     preview: { bg: 'linear-gradient(118deg, #02050b 0%, #0e4a68 52%, #5a1a5e 100%)', text: '#eaf3f8', accent: '#4fd8f5' } },
@@ -31,21 +28,19 @@ const THEMES = [
     preview: { bg: 'linear-gradient(120deg, #ffffff 0%, #e9edf4 100%)', text: '#14181f', accent: '#2456c7' } }
 ];
 
-// The theme a fresh install starts with — the current main set. A
-// supplementary set (Mastery Pack Assassin) is listed but never the default.
+// Current main set. Supplementary sets (Mastery Pack) are never the default.
 const DEFAULT_THEME = 'usurp';
 
-// Life can go below zero (overkill damage stays visible) and above the starting
-// total (Bravo, Prism and Oldhim all heal past it).
+// Life may go below zero (overkill) and above the start value (healing heroes).
 const LIFE_MIN = -50;
 const LIFE_MAX = 999;
 const HISTORY_MAX = 25;
 
 const DEFAULT_SETTINGS = {
   nameMode:     'short',
-  lang:         'en',   // language of the text viewers see on the overlays
+  lang:         'en',   // overlay language
   theme:        DEFAULT_THEME,
-  recentCards:  [],     // the last cards put on show, newest first
+  recentCards:  [],     // newest first
   pin:          null,
   controlToken: null
 };
@@ -54,8 +49,8 @@ const DEFAULT_MATCH = {
   table:       null,
   round:       null,
   followRound: true,   // re-resolve the same table every round
-  manual:      false,  // names/heroes entered by hand, GEM is not consulted
-  swapped:     false,  // physical seating is mirrored relative to GEM's p1/p2
+  manual:      false,  // names/heroes typed by hand, GEM not used
+  swapped:     false,  // seating is mirrored vs. GEM's p1/p2
 
   p1: null,            // { name, gemId, hero, heroInfo, startLife, wins, losses }
   p2: null,
@@ -63,18 +58,16 @@ const DEFAULT_MATCH = {
   life:  { p1: null, p2: null },
   start: { p1: null, p2: null },
 
-  // Set once the operator confirms the match is over — drives the round
-  // overlay in OBS. Cleared automatically as soon as a new match loads.
+  // operator confirmed the result, shows the round overlay. Reset on a new match.
   ended: false,
 
-  // The card put on show from the card search page, or null.
-  // { name, color, pitch, typeText, images: [url, …] }
+  // { name, color, pitch, typeText, images: [url] } or null
   card: null,
 
   history: [],
 
   matchKey:    null,
-  eventId:     null,   // the event the players below were read from
+  eventId:     null,   // event the players were read from
   eventTitle:  null,
   format:      null,
   roundLabel:  null,
@@ -86,14 +79,13 @@ const DEFAULT_MATCH = {
   updatedAt: 0
 };
 
-// ── persistence ───────────────────────────────────────────────────────────────
+// --- persistence ---
 
 function readJson(file, fallback) {
   try {
     if (fs.existsSync(file)) {
-      // Windows editors and PowerShell like to save a byte-order mark, which
-      // JSON.parse rejects — and a settings file that "cannot be read" would
-      // quietly come back as defaults, with a brand-new PIN.
+      // Windows editors and PowerShell add a BOM that JSON.parse rejects.
+      // Without the strip the settings silently reset, new PIN included.
       return { ...fallback, ...JSON.parse(fs.readFileSync(file, 'utf8').replace(/^﻿/, '')) };
     }
   } catch (err) {
@@ -102,13 +94,12 @@ function readJson(file, fallback) {
   return { ...fallback };
 }
 
-// Written to a temp file and renamed into place: a crash or power cut in the
-// middle of a write must not leave half a file, which would read back as
-// "no state" and reset the life totals mid-match.
+// Temp file + rename: a crash mid-write must not leave half a file, that
+// would reset the life totals.
 function writeJson(file, data) {
   try {
     fs.mkdirSync(path.dirname(file), { recursive: true });
-    const tmp = file.replace(/\.json$/, '.tmp.json');   // still matched by data/*.json in .gitignore
+    const tmp = file.replace(/\.json$/, '.tmp.json');   // still covered by data/*.json in .gitignore
     fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
     fs.renameSync(tmp, file);
   } catch (err) {
@@ -125,8 +116,7 @@ function randomToken() { return crypto.randomBytes(24).toString('hex'); }
 function loadState() {
   settings = readJson(SETTINGS_FILE, DEFAULT_SETTINGS);
 
-  // Keep only keys the current schema knows, so fields from removed features
-  // (the old best-of-3 counter) do not linger in the file forever.
+  // drop keys of removed features (old best-of-3 counter)
   const stored = readJson(MATCH_FILE, DEFAULT_MATCH);
   match = {};
   for (const k of Object.keys(DEFAULT_MATCH)) match[k] = stored[k];
@@ -136,12 +126,11 @@ function loadState() {
   if (!NAME_MODES.includes(settings.nameMode)) settings.nameMode = DEFAULT_SETTINGS.nameMode;
   if (!LANGS.includes(settings.lang))          settings.lang     = DEFAULT_SETTINGS.lang;
   if (!THEMES.some(t => t.id === settings.theme)) settings.theme  = DEFAULT_SETTINGS.theme;
-  delete settings.font;        // the typeface picker is gone; drop what it stored
+  delete settings.font;        // leftover of the removed typeface picker
   if (!Array.isArray(settings.recentCards)) settings.recentCards = [];
 
-  // CONTROL_PIN pins the value from the environment — the container variant
-  // needs this, because a PIN that only exists inside an ephemeral filesystem
-  // would change on every recreate. "off" runs without protection.
+  // CONTROL_PIN from the environment wins. Needed in a container, where a
+  // generated PIN would change on every recreate. "off" disables it.
   const envPin = (process.env.CONTROL_PIN || '').trim();
   if (envPin) {
     const wanted = /^(off|none|false|0)$/i.test(envPin) ? '' : envPin;
@@ -153,9 +142,8 @@ function loadState() {
     }
   }
 
-  // First run only: hand out a PIN so the control page is protected out of the
-  // box. An empty string means protection is off on purpose — null/undefined
-  // means we have never generated one.
+  // First run: generate a PIN. '' means switched off on purpose, null means
+  // never generated.
   if (settings.pin == null) {
     settings.pin = randomPin();
     settings.controlToken = randomToken();
@@ -167,8 +155,7 @@ function loadState() {
   return { settings, match };
 }
 
-// Life taps arrive in bursts, so the file write is debounced while the in-memory
-// state and the SSE broadcast stay immediate.
+// Life taps come in bursts: debounce the file write only, memory and SSE stay immediate.
 let writeTimer = null;
 function persistMatch() {
   clearTimeout(writeTimer);
@@ -182,11 +169,11 @@ function flushMatch() {
   writeJson(MATCH_FILE, match);
 }
 
-// ── settings ──────────────────────────────────────────────────────────────────
+// --- settings ---
 
 function getSettings() { return settings; }
 
-// The SSE channel is unauthenticated, so the PIN and token never leave here.
+// SSE is unauthenticated: no PIN, no token in here.
 function publicSettings() {
   return {
     nameMode: settings.nameMode,
@@ -222,8 +209,8 @@ function setTheme(theme) {
   return patchSettings({ theme });
 }
 
-// Passing null or '' disables protection and is remembered across restarts.
-// Any change invalidates the token, so already-paired tablets must re-enter it.
+// null or '' disables the PIN (persisted). Any change issues a new token, so
+// paired tablets have to enter the PIN again.
 function setPin(pin) {
   if (pin === null || pin === '') return patchSettings({ pin: '', controlToken: null });
   const clean = String(pin).trim();
@@ -233,12 +220,11 @@ function setPin(pin) {
 
 function regeneratePin() { return setPin(randomPin()); }
 
-// ── match state ───────────────────────────────────────────────────────────────
+// --- match state ---
 
 function getMatch() { return match; }
 
-// What clients receive: the undo stack itself is server business, they only
-// need to know whether the button should be enabled.
+// Clients get canUndo instead of the undo stack.
 function matchView() {
   const { history, ...rest } = match;
   return { ...rest, canUndo: (history || []).length > 0 };
@@ -257,7 +243,7 @@ function assertPlayer(player) {
   if (player !== 'p1' && player !== 'p2') throw new Error("player must be 'p1' or 'p2'");
 }
 
-// Every life mutation pushes an undo snapshot first.
+// pushes an undo snapshot, use for every life change
 function withUndo(patch) {
   const history = [
     ...(match.history || []),
@@ -273,8 +259,7 @@ function currentLife(player) {
   return Number.isFinite(s) ? s : 0;
 }
 
-// Deltas rather than absolute values: two taps can be in flight at once without
-// one clobbering the other.
+// Deltas, not absolute values: two taps in flight must not overwrite each other.
 function adjustLife(player, delta) {
   assertPlayer(player);
   const d = Math.trunc(Number(delta));
@@ -298,7 +283,7 @@ function undo() {
   return patchMatch({ life: { ...prev.life }, history });
 }
 
-// The card shown in the broadcast frame and the card overlay; null hides it.
+// null hides the card
 function setCard(card) {
   if (card === null) return patchMatch({ card: null });
 
@@ -313,12 +298,8 @@ function setCard(card) {
   return patchMatch({ card: shown });
 }
 
-/* The cards the operator has used lately, for the card page: during a match
- * the same handful come up again and again. Newest first, each card once —
- * showing one again moves it to the front. Kept with the settings so the list
- * survives a restart; written straight to the file, without the settings
- * broadcast, because no overlay cares.
- */
+// Recently shown cards, newest first, each once. Stored with the settings to
+// survive a restart, but written without the settings broadcast (no overlay needs it).
 const RECENT_CARDS = 10;
 
 function rememberCard(card) {
@@ -330,7 +311,7 @@ function rememberCard(card) {
 
 function recentCards() { return settings.recentCards || []; }
 
-// Confirmed by the operator once a player hits 0 — reveals the round overlay.
+// shows/hides the round overlay
 function setEnded(ended) { return patchMatch({ ended: !!ended }); }
 
 module.exports = {

@@ -5,13 +5,10 @@
   <title>FAB Card</title>
   <link rel="stylesheet" href="/shared/overlay.css">
   <style>
-    /* Nothing but the card, as tall as the source, on a transparent page —
-       for layouts that do not use the broadcast frame. Size and place the
-       source in OBS; ?align=left|right pins the card to that edge.
-
-       How the card arrives, changes and leaves is .card-stage in overlay.css
-       (OV.cardStage), the same as in the frame. The padding leaves room for
-       its shadow and for the swing of the entrance. */
+    /* Just the card, full source height, transparent page. For layouts without
+       the broadcast frame. ?align=left|right pins it to that edge.
+       Entrance/exit is .card-stage in overlay.css (OV.cardStage); the padding
+       leaves room for its shadow and the entrance swing. */
     #stage { position: fixed; inset: 0; padding: 4vh; }
     body.left  #stage { justify-items: start; }
     body.right #stage { justify-items: end; }
@@ -27,7 +24,7 @@
   const ALIGN = OV.params.get('align');
   if (ALIGN === 'left' || ALIGN === 'right') document.body.classList.add(ALIGN);
 
-  // Life taps arrive on the same channel; the stage ignores an unchanged card.
+  // life taps come in on the same channel; the stage ignores an unchanged card
   function render(m) {
     stage.set((m && m.card) || null);
     OV.badgeOk();

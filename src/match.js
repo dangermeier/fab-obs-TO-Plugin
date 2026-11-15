@@ -8,23 +8,22 @@ const { nameKey } = require('./name');
 const { isDemo } = require('./demo');
 
 const ROUND_LABELS = ['Round of 16', 'Quarterfinals', 'Semifinals', 'Finals'];
-const ROUND_STAGES = ['r16', 'qf', 'sf', 'f'];   // what the overlays translate
+const ROUND_STAGES = ['r16', 'qf', 'sf', 'f'];   // keys the overlays translate
 const REFRESH_MS = 20 * 1000;
 
-// pairing.table is a number when GEM's cell parsed cleanly and the raw string
-// otherwise — same normalisation the bracket overlay does.
+// pairing.table is a number, or the raw cell text if it did not parse.
 function tableNum(pairing) {
   if (typeof pairing.table === 'number') return pairing.table;
   return parseInt(String(pairing.table).replace(/\D/g, ''), 10) || null;
 }
 
-// Basis for the loss calculation: GEM's standings CSV has no usable loss column.
+// GEM's standings CSV has no usable loss column, losses are derived from this.
 function completedSwissRounds(tdata) {
   return tdata.rounds.filter(r => !r.elimination && r.total > 0 && r.done >= r.total).length;
 }
 
-// Position of an elimination round in ROUND_LABELS / ROUND_STAGES, derived
-// from how many tables the first top-cut round has. -1 for Swiss.
+// Index into ROUND_LABELS / ROUND_STAGES, from the table count of the first
+// top-cut round. -1 for Swiss.
 function stageIndex(tdata, round) {
   if (!round?.elimination) return -1;
 
@@ -47,23 +46,19 @@ function stageForRound(tdata, round) {
   return i < 0 ? null : ROUND_STAGES[i];
 }
 
-// Only broadcast when something actually differs — a background refresh every
-// 20 s must not churn every overlay for identical data.
+// The 20 s refresh must not re-broadcast identical data to every overlay.
 function hasChanges(patch) {
   const cur = getMatch();
   return Object.keys(patch).some(k => JSON.stringify(cur[k]) !== JSON.stringify(patch[k]));
 }
 
-/* True when the featured match was read from a different event than the one
- * selected now. Match states written before the event id was recorded only
- * have the title to go by. */
+// Old match states have no eventId, only the title to compare.
 function fromOtherEvent(m, eventId, title) {
   if (m.eventId) return String(m.eventId) !== String(eventId || '');
   return !!(m.eventTitle && title && m.eventTitle !== title);
 }
 
-// Forgets the featured match altogether: players, counters, the table chosen
-// and everything said about the event. The card on show is left alone.
+// Drops players, counters, table and event info. The shown card stays.
 function clearFeatured() {
   return patchMatch({
     table: null, round: null,
@@ -92,7 +87,7 @@ async function buildPlayer(name, gemId, ctx) {
     try {
       heroInfo = await fetchHeroInfo(hero, { young: ctx.young });
     } catch {
-      // Hero not in the card database (typo, brand-new set): fall back below.
+      // not in the card database (typo, new set), default life is used below
     }
   }
 
@@ -109,8 +104,8 @@ async function buildPlayer(name, gemId, ctx) {
   };
 }
 
-// The single place GEM data is turned into featured-match state. Every failure
-// path leaves life totals untouched — mid-stream that matters more than freshness.
+// Only place where GEM data becomes featured-match state. No failure path may
+// touch the life totals.
 async function refreshFeatured({ force = false } = {}) {
   const m = getMatch();
   if (m.manual || m.table == null) return m;
@@ -118,12 +113,11 @@ async function refreshFeatured({ force = false } = {}) {
   const session = getSession();
   const eventId = session?.eventId;
 
-  // Another event was selected: its table 3 is not this match. Without this
-  // the old players and event name would stay on screen — for good if the
-  // new event has no such table or GEM cannot be reached.
+  // Event changed: clear first, or the old players stay on screen if the new
+  // event has no such table or GEM is down.
   if (fromOtherEvent(m, eventId)) return clearFeatured();
 
-  // The demo event needs no GEM session.
+  // demo needs no GEM session
   if (!isDemo(eventId)) {
     if (!session?.sessionId) return setWarning('Not logged in to GEM');
     if (!eventId) return setWarning('No event selected');
@@ -137,8 +131,7 @@ async function refreshFeatured({ force = false } = {}) {
     ]);
     standings = await fetchStandingsCsv(eventId, { force }).catch(() => []);
   } catch (err) {
-    // A 4xx here almost always means the GEM session expired rather than the
-    // site being down — point the operator at the fix.
+    // 4xx from GEM is nearly always an expired session, not an outage
     if (err.sessionExpired) return setWarning(err.message);
     const expired = /HTTP 4\d\d/.test(err.message);
     return setWarning(expired
@@ -148,7 +141,7 @@ async function refreshFeatured({ force = false } = {}) {
 
   if (fromOtherEvent(m, eventId, tdata.meta?.title)) return clearFeatured();
 
-  // What is known about the event, whether or not the table can be found.
+  // event info, set even if the table is not found
   const about = {
     eventId:     String(eventId),
     eventTitle:  tdata.meta?.title ?? null,
@@ -209,15 +202,14 @@ async function refreshFeatured({ force = false } = {}) {
   };
 
   if (matchKey !== m.matchKey) {
-    // Different players at the table — new game, fresh counters, and the round
-    // overlay from the previous match disappears on its own.
+    // other players at the table: new game, reset the counters
     patch.life    = { p1: p1.startLife, p2: p2.startLife };
     patch.start   = { p1: p1.startLife, p2: p2.startLife };
     patch.ended   = false;
     patch.history = [];
   } else {
-    // Same match. Only backfill values that were never resolved — e.g. because
-    // the card lookup failed on an earlier pass. Never overwrite live counters.
+    // Same match: only fill values still missing (card lookup failed earlier).
+    // Never overwrite live counters.
     const start = { ...m.start }, life = { ...m.life };
     for (const [k, p] of [['p1', p1], ['p2', p2]]) {
       if (!Number.isFinite(start[k])) start[k] = p.startLife;
@@ -246,8 +238,7 @@ async function selectMatch({ round, table, followRound }) {
   return refreshFeatured({ force: true });
 }
 
-// Escape hatch: run the counter with hand-typed names when GEM is unavailable
-// or the match on stream is not in the tournament at all.
+// Hand-typed names, for when GEM is down or the match is not in the event.
 async function setManualMatch({ enabled, p1, p2, swapped }) {
   if (!enabled) {
     patchMatch({ manual: false, matchKey: null });
@@ -297,8 +288,7 @@ async function setManualMatch({ enabled, p1, p2, swapped }) {
   return patchMatch(patch);
 }
 
-// Polls GEM only while something is actually watching and a table is selected —
-// an idle server makes no requests at all.
+// Polls GEM only while a client is connected and a table is selected.
 let timer = null;
 function startAutoRefresh(hasClients) {
   if (timer) return;

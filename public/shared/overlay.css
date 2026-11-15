@@ -1,24 +1,15 @@
-/* ═══════════════════════════════════════════════════════════════════════════
-   Design system — "Royal on Cool White"
-
-   Two surfaces, one set of semantic token names:
-     light (default)  the White theme
-     .theme-dark      the Black theme
-     .theme-usurp     Usurp the Shadow Throne (at the end of this file)
+/* Design tokens. Components only use the semantic names, never the
+   primitives, so switching a page to dark is one class on <body>.
+     light (default)  White theme
+     .theme-dark      Black theme
+     .theme-usurp     Usurp the Shadow Throne (end of file)
      .theme-mpa       Mastery Pack Assassin (after it)
-     .surface-dark    the banner and badges floating over the camera feed,
-                      dark whatever the theme
+     .surface-dark    banner and badges over the camera, dark in every theme */
 
-   Components below only ever reference the semantic tokens, never the raw
-   primitives, so flipping a page to dark is a single class on <body>.
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-/* Oswald, the display typeface, lives in fonts/fonts.css and is shipped
-   with the project. */
 @import url('/shared/fonts/fonts.css');
 
 :root {
-  /* ── primitives ───────────────────────────────────────────────────────── */
+  /* primitives */
   --blue-700: #1b45a8;
   --blue-600: #2456c7;
   --blue-400: #5f8ae8;
@@ -43,13 +34,11 @@
   --danger-light: #c0392f;
   --danger-dark:  #f04a5c;
 
-  /* The display face — headlines, names in the frame, every figure. Oswald:
-     narrow and strong, the voice of sports graphics. Bahnschrift is the
-     closest thing Windows has, should the file ever fail to load. */
+  /* Bahnschrift: closest Windows has to Oswald if the font file fails to load. */
   --font-head: 'Oswald', 'Bahnschrift', 'Segoe UI Semibold', system-ui, sans-serif;
   --font-body: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 
-  /* ── semantic tokens: light surface ───────────────────────────────────── */
+  /* semantic tokens, light surface */
   --bg:        var(--paper-200);
   --bg-raised: var(--paper-100);
   --bg-sunken: var(--paper-300);
@@ -70,9 +59,7 @@
 
   --shadow: 0 2px 10px rgba(20, 24, 31, 0.1);
 
-  /* ── depth ────────────────────────────────────────────────────────────────
-     Surfaces are not flat: panels carry a faint top-to-bottom sheen and float
-     a little above the page, which has a soft vignette of its own. */
+  /* depth: page vignette, panel sheen, shadows */
   --page:    radial-gradient(130% 90% at 50% 0%, #ffffff 0%, #eef1f6 55%, #e3e8f0 100%);
   --surface: linear-gradient(180deg, #ffffff 0%, #f5f7fb 100%);
   --lift:        0 1px 2px rgba(20, 24, 31, 0.06), 0 0.45em 1.1em -0.4em rgba(20, 24, 31, 0.22);
@@ -80,28 +67,26 @@
   --glow:    0 0 0.9em rgba(36, 86, 199, 0.4);
   --ring:    rgba(20, 24, 31, 0.16);
 
-  /* Background animation: the drifting light and the motes in it. */
+  /* background animation (OV.fx) */
   --fx-light: rgba(36, 86, 199, 0.24);
   --fx-soft:  rgba(255, 255, 255, 0.95);
   --fx-mote:  rgba(36, 86, 199, 0.6);
   --fx-sheen: rgba(36, 86, 199, 0.11);
 
-  /* The ornament in the gap of a dividing line: a four-pointed star. */
+  /* ornament: four-pointed star, also sits in the gap of --sep-h / --sep-v */
   --orn-img: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%232456c7' d='M12 0C13 8 16 11 24 12 16 13 13 16 12 24 11 16 8 13 0 12 8 11 11 8 12 0Z'/%3E%3C/svg%3E");
 
-  /* ── sizing ───────────────────────────────────────────────────────────────
-     One unit for every full-frame board: 20px on a 1920-wide source, growing
-     with it up to 4K and never dropping below what a phone viewer can read.
-     Boards are laid out in em off this, so ?scale= resizes them as a whole. */
+  /* sizing: --u is 20px on a 1920-wide source, grows up to 4K, 14px floor
+     so it stays readable on a phone. Boards are in em off it, so ?scale=
+     resizes them as a whole. */
   --scale: 1;
   --u: calc(clamp(14px, 1.0417vw, 44px) * var(--scale));
 }
 
-/* ── themes ─────────────────────────────────────────────────────────────────
-   A theme is one block of semantic tokens under `.theme-<id>`, plus an entry
-   in THEMES in src/state.js — that is all it takes to add one. `theme-light`
-   needs no block: it is the :root default above. `.surface-dark` is the same
-   set of values for the overlays that are dark whatever the theme. */
+/* --- themes ---
+   Adding one: a block of semantic tokens under `.theme-<id>` plus an entry in
+   THEMES in src/state.js. `theme-light` is the :root default, no block needed.
+   `.surface-dark` reuses the dark values for overlays that ignore the theme. */
 .surface-dark,
 .theme-dark {
   --bg:        var(--slate-900);
@@ -136,19 +121,14 @@
   --fx-mote:  rgba(186, 208, 255, 0.85);
   --fx-sheen: rgba(170, 196, 255, 0.13);
 
-  /* The ornament in the gap of a dividing line: a four-pointed star. */
   --orn-img: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%2386a9f5' d='M12 0C13 8 16 11 24 12 16 13 13 16 12 24 11 16 8 13 0 12 8 11 11 8 12 0Z'/%3E%3C/svg%3E");
 }
 
-/* ── tokens derived from a theme's colours ─────────────────────────────────
-   One declaration for every theme scope. They cannot simply sit on :root: a
-   custom property resolves the var()s inside it where it is declared, so
-   each scope has to compute its own from its --accent, --line-strong and
-   --orn-img.
-
-     --rule    an accent rule that fades out towards both ends
-     --sep-h   a dividing line: fades in, breaks in the middle for the
-     --sep-v   theme's ornament, and fades out again — never edge to edge */
+/* Tokens derived from a theme's colours. Not on :root alone: a custom property
+   resolves its var()s where it is declared, so each theme scope must recompute
+   them from its own --accent, --line-strong and --orn-img.
+     --rule           accent rule fading out at both ends
+     --sep-h, --sep-v dividing line with a gap in the middle for the ornament */
 :root,
 .surface-dark,
 [class*="theme-"] {
@@ -163,18 +143,16 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-body);
-  /* Lining figures everywhere: scores and records must sit on one line. */
+  /* lining figures, so scores and records sit on one line */
   font-feature-settings: 'lnum' 1;
-  /* Some display faces come in one weight only. Use that as it is rather than
-     letting the browser smear a fake bold over it. */
+  /* no fake bold on display faces that ship a single weight */
   font-synthesis-weight: none;
   width: 100vw;
   height: 100vh;
   overflow: hidden;
 }
 
-/* ── full-frame board ───────────────────────────────────────────────────────
-   One decisive accent rule along the top instead of a border inside a border. */
+/* --- full-frame board --- */
 .overlay-frame {
   position: relative;
   width: 100%;
@@ -194,9 +172,7 @@ body {
 
 body.board { font-size: var(--u); }
 
-/* ── board header ───────────────────────────────────────────────────────────
-   What the board shows is the headline; the event name is context underneath.
-   Numbers sit on the right, and a progress rule can run along the bottom edge. */
+/* --- board header --- */
 .board-head {
   position: relative;
   flex-shrink: 0;
@@ -251,9 +227,9 @@ body.board { font-size: var(--u); }
 .bh-bar { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; }
 .bh-fill { height: 100%; width: 0; background: var(--accent); transition: width 0.6s ease; }
 
-/* ── pairing rows (Pairings and Round Status) ───────────────────────────────
-   Centred and width-capped: on a 1920 px source the two names would otherwise
-   sit a metre apart and stop reading as one pairing. */
+/* --- pairing rows (Pairings and Round Status) ---
+   Centred and width-capped, otherwise the two names end up too far apart on a
+   1920px source to read as one pairing. */
 .prow {
   display: flex;
   align-items: center;
@@ -287,11 +263,11 @@ body.board { font-size: var(--u); }
 .p-nm, .p-hero { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .p-nm   { font-size: 1.2em; line-height: 1.2; color: var(--text); }
 .p-hero { font-size: 0.75em; line-height: 1.25; color: var(--text-dim); }
-/* The green name alone says who won — no extra label needed. */
+/* winner is marked by the green name only, no label */
 .p-pl.win  .p-nm { color: var(--win); font-weight: 700; }
 .p-pl.lose .p-nm { color: var(--text-dim); }
 
-/* "vs", "running": set as a quiet italic aside rather than a caps label. */
+/* "vs" / "running" */
 .p-mid {
   width: 5.2em;
   flex-shrink: 0;
@@ -317,8 +293,7 @@ body.board { font-size: var(--u); }
   top: 0; left: 0; right: 0;
   will-change: transform;
 }
-/* When the list is shorter than the frame, spread the rows over the height
-   instead of leaving a large empty block underneath. */
+/* Short list: spread the rows over the height instead of leaving a gap below. */
 .scroll-track.fit {
   bottom: 0;
   display: flex;
@@ -327,11 +302,10 @@ body.board { font-size: var(--u); }
 }
 .scroll-track.fit > * { flex: 1 1 auto; max-height: 4.6em; }
 
-/* Once a list is on screen, later content swaps show their portraits at once
-   instead of fading every one of them in again. */
+/* After the first render, swapped-in rows skip the portrait fade-in. */
 .quiet .hero-img { opacity: 1; transition: none; }
 
-/* Hero portrait — placeholder letter behind, artwork fades in on top */
+/* Hero portrait: placeholder letter behind, artwork fades in on top */
 .hero-wrap {
   position: relative;
   border-radius: 2px;
@@ -364,8 +338,8 @@ body.board { font-size: var(--u); }
   transition: opacity 0.3s;
 }
 
-/* ── overlays that float over the camera ────────────────────────────────────
-   The page paints nothing; only the panels are visible in OBS. */
+/* --- overlays floating over the camera ---
+   Page itself is transparent, only the panels show in OBS. */
 body.ov-transparent { background: transparent; }
 
 .ov-panel {
@@ -374,7 +348,7 @@ body.ov-transparent { background: transparent; }
   border-top: 4px solid var(--accent);
   border-radius: 2px;
 }
-/* Without a panel the text carries its own contrast over bright footage. */
+/* No panel behind it: the shadow keeps text readable over bright footage. */
 .ov-floating {
   text-shadow: 0 2px 5px rgba(0, 0, 0, 0.95), 0 0 2px rgba(0, 0, 0, 0.9);
 }
@@ -410,14 +384,13 @@ body.ov-transparent { background: transparent; }
   z-index: 200;
 }
 #status-badge.error { color: var(--danger); }
-/* Healthy sources show nothing on stream; ?debug=1 brings the badge back. */
+/* Hidden on stream while healthy, ?debug=1 brings it back. */
 #status-badge.ok { display: none; }
 .debug #status-badge.ok { display: block; }
 
-/* ── ornament ───────────────────────────────────────────────────────────────
-   A small four-pointed star, the mark that recurs through the whole system. It sits
-   between two things that belong together — the two life totals, a label and
-   its line. Never more than one per group. */
+/* --- ornament ---
+   Sits between two things that belong together (the two life totals, a label
+   and its line). One per group at most. */
 .orn {
   flex-shrink: 0;
   width: 0.72em;
@@ -430,14 +403,10 @@ body.ov-transparent { background: transparent; }
   50%      { transform: scale(0.62) rotate(45deg); opacity: 0.55; }
 }
 
-/* ── ticker (?mode=ticker on Pairings and Standings) ────────────────────────
-   A band running across the frame, one cell per table (or per two places):
-   a heading, then two players under each other with portrait and record.
-
-   Everything is sized off the source's HEIGHT — a band is defined by how tall
-   it is, not how wide. It is 5.5em tall, so 18.2vh makes it fill a source of
-   any height up to about 143px exactly; in a taller source it keeps that
-   height and sits on the bottom edge. */
+/* --- ticker (?mode=ticker on Pairings and Standings) ---
+   One cell per table (or per two places). Sized off the source HEIGHT: the
+   band is 5.5em tall, so 18.2vh fills a source up to about 143px exactly.
+   In a taller source it keeps that height and sits on the bottom edge. */
 .tk { display: none; }
 
 body.ticker {
@@ -458,7 +427,7 @@ body.ticker .tk {
 }
 body.ticker.pos-top .tk { top: 0; bottom: auto; }
 
-/* What is running. The cells disappear behind it. */
+/* Label. Opaque and above the track, the cells scroll away behind it. */
 .tk-label {
   position: relative;
   z-index: 1;
@@ -549,19 +518,13 @@ body.ticker.pos-top .tk { top: 0; bottom: auto; }
 }
 .tk-empty { display: flex; align-items: center; padding: 0 1.4em; color: var(--text-dim); }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   Depth and flourish
-
-   Everything above describes structure. This layer is what makes the boards
-   feel made rather than generated: floating panels, soft shadows, rules that
-   fade at their ends, a glint that travels along the top edge, rows that
-   arrive one after the other. It only uses the depth tokens, so every theme
-   gets it for free.
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* --- depth and flourish ---
+   Overrides on top of the structural rules above. Uses the depth tokens only,
+   so it applies to every theme. */
 
 .overlay-frame { background: var(--page); }
 
-/* The top rule fades at both ends, and now and then a glint runs along it. */
+/* top rule fades at both ends, ::after is the glint running along it */
 .overlay-frame::before { background: var(--rule); }
 .overlay-frame::after {
   content: '';
@@ -585,7 +548,7 @@ body.ticker.pos-top .tk { top: 0; bottom: auto; }
   background: var(--surface);
   box-shadow: var(--lift-strong);
 }
-/* The star between a title and its tag. */
+/* ornament between title and tag */
 .bh-tag:not(:empty)::before {
   content: '';
   display: inline-block;
@@ -599,7 +562,7 @@ body.ticker.pos-top .tk { top: 0; bottom: auto; }
 .bh-bar  { height: 3px; }
 .bh-fill { background: linear-gradient(90deg, var(--accent-deep), var(--accent)); box-shadow: var(--glow); }
 
-/* Rows are cards floating on the page rather than stripes of a table. */
+/* Rows as separate cards, not table stripes. */
 .prow {
   width: min(100% - 3.2em, 68em);
   margin: 0.5em auto 0;
@@ -621,7 +584,7 @@ body.ticker.pos-top .tk { top: 0; bottom: auto; }
   box-shadow: 0 0 0 1px var(--ring), 0 0.18em 0.5em rgba(0, 0, 0, 0.3);
 }
 
-/* The first list on screen arrives row by row; later updates just appear. */
+/* Only the first list staggers in (.fresh is set once by OV.scroller). */
 .fresh > * { animation: rise 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
 .fresh > :nth-child(2)  { animation-delay: 0.05s; }
 .fresh > :nth-child(3)  { animation-delay: 0.10s; }
@@ -640,7 +603,7 @@ body.ticker.pos-top .tk { top: 0; bottom: auto; }
   to   { opacity: 1; transform: none; }
 }
 
-/* Panels over the camera: rounded, lit from above, lifted off the picture. */
+/* Panels over the camera */
 .ov-panel {
   border: 0;
   border-radius: 0.5em;
@@ -678,12 +641,10 @@ body.ticker .tk::before {
   pointer-events: none;
 }
 
-/* ── background animation ───────────────────────────────────────────────────
-   OV.fx() puts a .fx layer behind the content of a host: motes of light rising
-   through it and, on the full-frame boards, four large patches of light
-   drifting about. Floating panels — board header, ticker band, the frame's
-   bar and side panels, the banner and badges — also get a band of light
-   passing across them. Everything animates transform and opacity only. */
+/* --- background animation ---
+   OV.fx() inserts a .fx layer behind a host's content: motes, plus four glow
+   patches on full-frame boards. Panels also get a sweep of light across them.
+   transform and opacity only, to keep it cheap in OBS. */
 
 .fx-host { isolation: isolate; }
 
@@ -716,8 +677,7 @@ body.ticker .tk::before {
 @keyframes drift-c { to { transform: translate(24vmax, -34vmax) scale(1.25); } }
 @keyframes drift-d { to { transform: translate(-46vmax, -20vmax) scale(1.4); } }
 
-/* A mote rises the height of its host (--rise, set by OV.fx), swaying a
-   little, and glimmers on the way. */
+/* --rise is the host height and --sway the drift, both set by OV.fx. */
 .fx-mote {
   position: absolute;
   bottom: -8px;
@@ -737,9 +697,9 @@ body.ticker .tk::before {
   100% { transform: translate3d(var(--sway, 0px), calc(-1 * var(--rise, 100vh)), 0); opacity: 0; }
 }
 
-/* A band of light crossing a panel. It moves as a background rather than as
-   an element, so the panel does not have to clip its contents — the life
-   change flies out of a badge and drops out of the frame's bar. */
+/* Sweep of light across a panel. Animated as a background, not as an element,
+   so the panel doesn't need overflow clipping: the life change flies out of a
+   badge and drops out of the frame's bar. */
 .board-head::after,
 body.ticker .tk::after,
 .ov-panel::after {
@@ -752,15 +712,13 @@ body.ticker .tk::after,
   animation: sweep-bg var(--sweep-every) ease-in-out infinite;
   pointer-events: none;
 }
-/* A rare event: the band takes about five seconds to cross and then stays
-   away for the rest of the minute. --sweep-every is the whole cycle; the
-   crossing is the first 8% of it. */
+/* --sweep-every is the whole cycle, the crossing is its first 8% (about 5s). */
 :root { --sweep-every: 60s; }
 @keyframes sweep-bg {
   0%       { background-position: -90% 0; }
   8%, 100% { background-position: 280% 0; }
 }
-/* The same band as a moving element, for panels that clip anyway. */
+/* Same sweep as a moving element, for panels that clip anyway. */
 @keyframes sweep {
   0%       { transform: translateX(-110%); }
   8%, 100% { transform: translateX(330%); }
@@ -770,16 +728,9 @@ html.no-fx .fx, html.no-fx .board-head::after, html.no-fx body.ticker .tk::after
 html.no-fx .ov-panel::after { display: none; }
 html.no-fx .orn, html.no-fx .bh-tag::before { animation: none; }
 
-/* ── the card on show (OV.cardStage) ────────────────────────────────────────
-   One cell that every card image shares, so the old and the new one can be on
-   stage together while they change places. Three movements:
-
-     in        dealt — up from below at an angle, a touch past, then settles
-     flip-out  turned over: the old card swings away edge-on …
-     flip-in   … and the new one swings in from the other side
-     out       drawn away downwards
-
-   Each ends on `transform: none`: the card comes to rest perfectly straight. */
+/* --- card on show (OV.cardStage) ---
+   All card images share one grid cell, so old and new can overlap while they
+   swap. Every animation ends on `transform: none`. */
 .card-stage {
   display: grid;
   grid-template: minmax(0, 1fr) / minmax(0, 1fr);
@@ -790,17 +741,15 @@ html.no-fx .orn, html.no-fx .bh-tag::before { animation: none; }
   grid-area: 1 / 1;
   max-width: 100%;
   max-height: 100%;
-  /* The corner of a real card — 3 mm on 63 x 88 — so it is right at any size. */
+  /* real card corner: 3 mm on 63 x 88 mm, in percent so it holds at any size */
   border-radius: 4.7% / 3.4%;
   filter: drop-shadow(0 0.6em 1em rgba(0, 0, 0, 0.55));
   backface-visibility: hidden;
   will-change: transform, opacity;
 }
-/* Every card fills its stage, whatever the pixel size of the scan behind it:
-   as wide as the stage or as tall, whichever is reached first, always in the
-   proportions of a card. Without this a 450 px scan would sit next to a
-   546 px one at two different sizes. (Container units; an old browser keeps
-   the max-width / max-height above and shows scans at their own size.) */
+/* Fill the stage in card proportions whatever the scan's pixel size, or a
+   450px scan sits next to a 546px one at two sizes. Needs container units;
+   older browsers keep the max-width / max-height above. */
 @supports (width: 1cqw) {
   .card-stage { container-type: size; }
   .card-img {
@@ -837,14 +786,8 @@ html.no-fx .orn, html.no-fx .bh-tag::before { animation: none; }
   100% { transform: none; }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   Theme: Usurp the Shadow Throne
-
-   The colours of the set — the violet dark of i'Arathael, magenta fire, a
-   trace of spectral teal — and a background of its own: arcane circles
-   turning slowly behind the content, shards of rock adrift, embers rising.
-   Colours and motifs only; none of the set's artwork is in here.
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* --- theme: Usurp the Shadow Throne ---
+   Violet dark, magenta accent, a trace of teal. No set artwork in here. */
 .theme-usurp {
   --bg:        #0d0716;
   --bg-raised: #1a0f2b;
@@ -878,17 +821,16 @@ html.no-fx .orn, html.no-fx .bh-tag::before { animation: none; }
   --fx-mote:  rgba(255, 128, 232, 0.9);
   --fx-sheen: rgba(240, 150, 255, 0.14);
 
-  /* The ornament in the gap of a dividing line: a four-pointed star. */
   --orn-img: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23f06bff' d='M12 0C13 8 16 11 24 12 16 13 13 16 12 24 11 16 8 13 0 12 8 11 11 8 12 0Z'/%3E%3C/svg%3E");
 }
 
-/* ── its background ─────────────────────────────────────────────────────── */
+/* usurp background */
 .fx-sigil, .fx-shard { display: none; }
 
-/* A third colour in the drifting light: the teal of the gate. */
+/* third glow in teal */
 .theme-usurp .fx-glow.c { background: radial-gradient(closest-side, rgba(64, 214, 226, 0.2), transparent); }
 
-/* Two arcane circles, far larger than the frame, turning against each other. */
+/* Two sigils, larger than the frame, counter-rotating. */
 .theme-usurp .fx-sigil {
   display: block;
   position: absolute;
@@ -910,7 +852,7 @@ html.no-fx .orn, html.no-fx .bh-tag::before { animation: none; }
 }
 @keyframes sigil { to { transform: rotate(360deg); } }
 
-/* Shards of rock, lit from one side, tumbling slowly where they hang. */
+/* rock shards, position and drift come from OV.fx */
 .theme-usurp .fx-shard {
   display: block;
   position: absolute;
@@ -928,23 +870,16 @@ html.no-fx .orn, html.no-fx .bh-tag::before { animation: none; }
   to   { transform: translate3d(var(--dx, 0), var(--dy, 0), 0) rotate(var(--r1, 40deg)); }
 }
 
-/* Embers rather than motes: a little larger, with a hotter core. */
+/* motes become embers */
 .theme-usurp .fx-mote {
   background: #ffd6f6;
   box-shadow: 0 0 10px 3px var(--fx-mote), 0 0 22px 6px rgba(190, 60, 255, 0.35);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   Theme: Mastery Pack Assassin
-
-   After the set's key art, at night: cranes, girders and slack cables
-   looming in a haze gone almost black — a dim core of cyan behind the
-   middle, blood red and magenta low on the ground — torn banners hanging in
-   from above, the corners closing in, and blood-red petals falling through
-   all of it. Cyan is the accent. (No gold — that is the Mastery Pack
-   lettering, not the Assassin.)
-   Colours and motifs only; none of the set's artwork is in here.
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* --- theme: Mastery Pack Assassin ---
+   Near-black haze with a cyan core, red and magenta along the floor. Cyan is
+   the accent. No gold: that's the Mastery Pack lettering, not the Assassin.
+   No set artwork in here. */
 .theme-mpa {
   --bg:        #05070c;
   --bg-raised: #0f1420;
@@ -979,19 +914,17 @@ html.no-fx .orn, html.no-fx .bh-tag::before { animation: none; }
   --fx-mote:  rgba(255, 50, 70, 0.4);
   --fx-sheen: rgba(150, 230, 255, 0.13);
 
-  /* The ornament in the gap of a dividing line: the point of a blade. */
+  /* ornament: blade point instead of the star */
   --orn-img: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23e6f6fc' d='M12 0 16.5 12 12 24Z'/%3E%3Cpath fill='%2378b4cc' d='M12 0 7.5 12 12 24Z'/%3E%3C/svg%3E");
 }
 
-/* ── its background ─────────────────────────────────────────────────────── */
+/* mpa background */
 .fx-mist, .fx-slash { display: none; }
 
-/* A third colour in the drifting light: a low red, as on the steel. */
+/* third glow in red */
 .theme-mpa .fx-glow.c { background: radial-gradient(closest-side, rgba(200, 20, 40, 0.26), transparent); }
 
-/* The yard: towers, beams and cables in the haze (themes/mpa-scene.svg, drawn
-   for this project). It breathes very slowly, as if seen through moving air;
-   the petals, the mist and the light move in front of it. */
+/* Backdrop: themes/mpa-scene.svg, drifting slowly behind petals, mist and light. */
 .theme-mpa .fx-sigil.a {
   display: block;
   position: absolute;
@@ -1001,7 +934,7 @@ html.no-fx .orn, html.no-fx .bh-tag::before { animation: none; }
   animation: mpa-scene 48s ease-in-out infinite alternate;
   will-change: transform;
 }
-/* The corners close in: whatever the board shows is the brightest thing. */
+/* vignette, keeps the board content the brightest thing on screen */
 .theme-mpa .fx-sigil.b {
   display: block;
   position: absolute;
@@ -1013,7 +946,7 @@ html.no-fx .orn, html.no-fx .bh-tag::before { animation: none; }
   to   { transform: scale(1.05) translate3d(0.8%, -0.8%, 0); }
 }
 
-/* Mist along the ground, creeping sideways: magenta, with one green wisp. */
+/* Ground mist: magenta, plus one green wisp (m2). */
 .theme-mpa .fx-mist {
   display: block;
   position: absolute;
@@ -1032,8 +965,8 @@ html.no-fx .orn, html.no-fx .bh-tag::before { animation: none; }
 @keyframes mpa-mist-a { to { transform: translate(34vmax, -5vmax) scale(1.2); } }
 @keyframes mpa-mist-b { to { transform: translate(-30vmax, -3vmax) scale(0.85); } }
 
-/* The glint of a blade: a hairline of light drawn across the frame, then
-   nothing for a good while. Position, angle and rhythm come from OV.fx. */
+/* Blade glint: visible for the first 6% of the cycle only. Position, angle
+   and period come from OV.fx. */
 .theme-mpa .fx-slash {
   display: block;
   position: absolute;
@@ -1053,10 +986,8 @@ html.no-fx .orn, html.no-fx .bh-tag::before { animation: none; }
   6%, 100% { transform: rotate(var(--a, -24deg)) translateX(290vmax); opacity: 0; }
 }
 
-/* Petals rather than motes: blood red, leaf-shaped — and they fall. A mote
-   sits just below its host and rises by --rise; a petal starts that far up
-   and sinks back down to where the mote would have begun, swaying sideways
-   and turning over on the way. */
+/* Petals instead of motes, and they fall: a petal starts --rise above the
+   mote's origin and sinks back down to it. */
 .theme-mpa .fx-mote {
   border-radius: 85% 0 85% 0;
   background: linear-gradient(135deg, #ff5a6a 0%, #c2142c 55%, #6e0715 100%);

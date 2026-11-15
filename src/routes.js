@@ -13,17 +13,14 @@ const { refreshFeatured, selectMatch, setManualMatch, startAutoRefresh } = requi
 const { lanAddresses } = require('./lan');
 const demo = require('./demo');
 
-// ── access control ───────────────────────────────────────────────────────────
-//
-// Reading is open: OBS browser sources must never face a prompt, and the
-// tournament data is semi-public anyway. Every write — config page and tablet
-// alike — needs the PIN. There is deliberately no localhost exemption: it would
-// not stop anyone on the venue Wi-Fi, and relying on the source IP breaks the
-// moment the server runs in a container behind a bridge.
+// --- access control ---
+// Reads are open (OBS browser sources cannot answer a prompt). Every write
+// needs the PIN. No localhost exemption on purpose: source IPs are useless
+// behind a container bridge.
 
 function isAuthed(req) {
   const { pin, controlToken } = getSettings();
-  if (!pin) return true;                       // protection turned off
+  if (!pin) return true;                       // PIN disabled
   const token = req.get('X-Control-Token') || req.query.token || '';
   return !!controlToken && token === controlToken;
 }
@@ -33,18 +30,13 @@ function requireControl(req, res, next) {
   res.status(403).json({ error: 'PIN required' });
 }
 
-/* Is this request coming from the machine the server runs on?
- *
- * Used only to decide whether the one-click GEM login can be offered — it
- * drives a browser on the *server's* desktop, so from any other computer the
- * window opens somewhere the operator cannot see. This is a usability hint,
- * never an access decision; the PIN is the only thing guarding writes.
- */
+// Only decides whether the one-click GEM login is offered (the browser opens
+// on the server's desktop). Not an access check, that is the PIN.
 function isLocalRequest(req) {
   const raw = req.ip || req.socket?.remoteAddress || '';
   const ip = raw.replace(/^::ffff:/, '');
   if (ip === '127.0.0.1' || ip === '::1') return true;
-  // Same machine reached through its own LAN address rather than localhost.
+  // same machine via its own LAN address
   return lanAddresses().some(e => e.address === ip);
 }
 
@@ -56,9 +48,8 @@ router.get('/status', async (req, res) => {
     email:           session?.email   || null,
     eventId:         session?.eventId || null,
     loginInProgress: isLoginInProgress(),
-    // The one-click login needs a desktop browser *and* someone sitting at the
-    // machine that browser opens on. Either missing and the config page offers
-    // the manual session cookie instead — `browserLoginBlocked` says which.
+    // Needs a desktop browser and a local request. browserLoginBlocked says
+    // which one is missing.
     canBrowserLogin:     canBrowserLogin() && isLocalRequest(req),
     browserLoginBlocked: !canBrowserLogin() ? 'no-browser'
                        : !isLocalRequest(req) ? 'remote' : null,
@@ -66,14 +57,12 @@ router.get('/status', async (req, res) => {
   });
 });
 
-// Launch Puppeteer browser for GEM login — runs async, frontend polls /status
 router.post('/launch-login', requireControl, (req, res) => {
   if (!canBrowserLogin()) {
     return res.status(501).json({
       error: 'No desktop browser available on the machine running the server — use the manual session cookie instead.'
     });
   }
-  // Refusing here rather than opening a window nobody is sitting in front of.
   if (!isLocalRequest(req)) {
     return res.status(409).json({
       error: 'The login window would open on the computer running the server, not on this one — use the manual session cookie instead.'
@@ -81,12 +70,12 @@ router.post('/launch-login', requireControl, (req, res) => {
   }
   if (isLoginInProgress()) return res.json({ success: true, message: 'Already in progress' });
 
-  // Fire and forget — frontend polls /api/status
+  // not awaited, the frontend polls /api/status
   launchGemLogin().catch(err => console.error('[auth] Login failed:', err.message));
   res.json({ success: true });
 });
 
-// Fallback: manual session cookie paste
+// fallback: pasted session cookie
 router.post('/login', requireControl, async (req, res) => {
   const { sessionId } = req.body;
   if (!sessionId) return res.status(400).json({ error: 'Session ID required' });
@@ -113,21 +102,15 @@ router.post('/event', requireControl, (req, res) => {
   res.json({ success: true, eventId: String(eventId).trim() });
 });
 
-// Tells every open board to re-read its data now instead of on its next poll,
-// and re-resolves the featured match against the new data.
+// Overlays reload now instead of on their next poll.
 function eventChanged() {
   refreshFeatured({ force: true }).catch(() => {});
   bus.emit('refresh');
 }
 
-// ── DEMO TOURNAMENT ──────────────────────────────────────────────────────────
-//
-// A made-up 128-player event (src/demo.js) for trying things out without GEM.
-// "On" selects the event id "demo" and remembers the real one; "off" puts it
-// back. The other actions advance the tournament.
-//
-// All of it exists only with DEMO_MODE=on (see demo.enabled); otherwise the
-// config page hides its card and every action is refused.
+// --- demo tournament ---
+// See src/demo.js. "on" selects event id "demo" and remembers the real one,
+// "off" restores it. Refused unless DEMO_MODE=on.
 
 function demoState() {
   if (!demo.enabled()) return { enabled: false, active: false };
@@ -175,7 +158,7 @@ router.post('/demo', requireControl, (req, res) => {
 router.get('/events', async (req, res) => {
   const session = getSession();
   if (!session?.sessionId) return res.status(401).json({ error: 'Not authenticated' });
-  // Anything else would fall through to scraping both, which takes a while.
+  // unknown mode would end up as 'all', which scrapes both and is slow
   const mode = ['judge', 'store', 'all'].includes(req.query.mode) ? req.query.mode : 'judge';
   try {
     res.json(await fetchAllEvents(mode));
@@ -184,14 +167,8 @@ router.get('/events', async (req, res) => {
   }
 });
 
-/* Compact summary of whatever event the backend is currently set to.
- *
- * Exists because "I set the event and the overlays stayed empty" is almost
- * always an event that has not been paired yet — the config page polls this so
- * the operator can see that at a glance, including changes made from another
- * browser. Uses the same 15 s cached scrape as everything else, so polling it
- * costs no extra GEM traffic.
- */
+// Polled by the config page. Empty overlays usually mean the event is not
+// paired yet, this makes that visible. Uses the cached scrape, no extra GEM traffic.
 router.get('/event/summary', async (req, res) => {
   const session = getSession();
   const eventId = req.query.eventId || session?.eventId || null;
@@ -222,7 +199,6 @@ router.get('/event/summary', async (req, res) => {
       roundsSeen:  rounds.length,
       currentRound: last ? last.round : 0,
       tables,
-      // The single thing that answers "why are my overlays empty?"
       hasData: rounds.length > 0 && tables > 0
     });
   } catch (err) {
@@ -230,8 +206,7 @@ router.get('/event/summary', async (req, res) => {
   }
 });
 
-/* Which event a data request is about — or null once the error went out.
- * The demo event is the one thing that works without a GEM session. */
+// Returns null after sending the error. Demo works without a GEM session.
 function eventFor(req, res) {
   const session = getSession();
   const eventId = req.query.eventId || session?.eventId;
@@ -243,7 +218,6 @@ function eventFor(req, res) {
   return eventId;
 }
 
-// The three views of an event, each straight from the fetcher.
 for (const [path, load] of [
   ['/tournament', fetchTournamentData],
   ['/heroes',     fetchHeroesCsv],
@@ -260,8 +234,8 @@ for (const [path, load] of [
   });
 }
 
-// Convenience: card lookup + image proxy in one request — use as <img src="/api/hero-image?name=Fai">
-// &young=1 picks the Blitz/Limited printing; without it the adult hero wins.
+// Card lookup + image proxy, e.g. <img src="/api/hero-image?name=Fai">
+// &young=1 picks the Blitz/Limited printing, default is the adult hero.
 router.get('/hero-image', async (req, res) => {
   const { name, young } = req.query;
   if (!name) return res.status(400).json({ error: 'name param required' });
@@ -271,7 +245,7 @@ router.get('/hero-image', async (req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=86400');
     res.send(img.buffer);
   } catch (err) {
-    // Not cacheable: the overlay retries, and the next attempt may well work.
+    // no-store: the overlay retries and the next try may work
     res.setHeader('Cache-Control', 'no-store');
     res.status(404).send('');
   }
@@ -287,11 +261,8 @@ router.get('/card', async (req, res) => {
   }
 });
 
-// ── CARD ON SHOW ─────────────────────────────────────────────────────────────
-//
-// The card page searches the card database and puts one card on stream; it
-// travels inside the match state, so every overlay gets it over the live
-// channel like a life total.
+// --- card on show ---
+// The shown card is part of the match state, so overlays get it over SSE.
 
 router.get('/cards/search', async (req, res) => {
   try {
@@ -301,7 +272,6 @@ router.get('/cards/search', async (req, res) => {
   }
 });
 
-// The last ten cards put on show, newest first.
 router.get('/cards/recent', (req, res) => res.json(recentCards()));
 
 router.post('/card/show', requireControl, (req, res) => {
@@ -318,9 +288,9 @@ router.post('/card/clear', requireControl, (req, res) => {
   res.json({ success: true, match: matchView() });
 });
 
-// ── FEATURED MATCH / LIFE COUNTER ────────────────────────────────────────────
+// --- featured match / life counter ---
 
-// A 4-digit PIN is only 10 000 combinations, so unlock attempts are throttled.
+// 4-digit PIN = 10 000 combinations, so throttle the attempts.
 const authAttempts = new Map(); // ip -> { count, until }
 const AUTH_MAX_TRIES = 5;
 const AUTH_LOCKOUT   = 30 * 1000;
@@ -349,7 +319,7 @@ router.post('/control/auth', (req, res) => {
 });
 
 router.get('/settings', (req, res) => {
-  // The PIN and the tablet addresses are only handed out once unlocked.
+  // PIN and tablet addresses only when unlocked
   if (!isAuthed(req)) return res.json(publicSettings());
 
   const full = getSettings();
@@ -374,8 +344,8 @@ router.post('/settings', requireControl, (req, res) => {
   }
 });
 
-// Changing the PIN requires the current one. Locked yourself out? The server
-// prints the PIN on every start (`docker logs` in the container variant).
+// Needs the current PIN. Locked out: the server prints it on every start
+// (`docker logs` in a container).
 router.post('/settings/pin', requireControl, (req, res) => {
   try {
     const s = req.body?.regenerate ? regeneratePin() : setPin(req.body?.pin ?? null);
@@ -385,7 +355,7 @@ router.post('/settings/pin', requireControl, (req, res) => {
   }
 });
 
-// ── SSE: one stream carries both match and settings updates ──────────────────
+// --- SSE: one stream for match and settings updates ---
 
 const liveClients = new Set();
 
@@ -426,14 +396,14 @@ router.get('/live', (req, res) => {
     liveClients.delete(res);
   });
 
-  // A newly opened overlay should not wait for the next background tick.
+  // don't make a new overlay wait for the next tick
   refreshFeatured().catch(() => {});
 });
 
-// GEM is only polled while at least one overlay or tablet is watching.
+// GEM is polled only while a client is connected.
 startAutoRefresh(() => liveClients.size > 0);
 
-// ── match state ──────────────────────────────────────────────────────────────
+// --- match state ---
 
 router.get('/match', async (req, res) => {
   if (req.query.refresh === '1') {
@@ -472,8 +442,7 @@ router.post('/match/life', requireControl, (req, res) => {
 router.post('/match/swap', requireControl, (req, res) => respond(res, () => swapSides()));
 router.post('/match/undo', requireControl, (req, res) => respond(res, () => undo()));
 
-// { ended: true } after a player hits 0 and the operator confirms; { ended: false }
-// hides the round overlay again.
+// { ended: true } once the operator confirms the result, false hides the round overlay again
 router.post('/match/end', requireControl, (req, res) => {
   const { ended } = req.body || {};
   respond(res, () => setEnded(ended === undefined ? true : ended));

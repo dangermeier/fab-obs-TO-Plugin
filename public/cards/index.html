@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FAB OBS TO Plugin — Cards</title>
   <style>
-    /* Same values as the config page (see design_idea.md). Like that page this
-       one scrolls, so it cannot link overlay.css, whose body is a fixed frame. */
+    /* Config page colours (design_idea.md), copied. overlay.css cannot be linked:
+       its body is a fixed frame and this page scrolls. */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
@@ -93,7 +93,7 @@
     .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .r-name { font-size: 13px; font-weight: 600; line-height: 1.3; }
     .r-meta { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #6d7581; }
-    /* Pitch colour is a property of the card, not decoration. */
+    /* Pitch colour; class name is the card's colour value from the API */
     .pitch { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; background: #6d7581; }
     .pitch.Red    { background: #c0392f; }
     .pitch.Yellow { background: #d9a520; }
@@ -136,9 +136,8 @@
   const $ = id => document.getElementById(id);
   const HINT = $('hint').textContent;
 
-  // ── PIN ────────────────────────────────────────────────────────────────────
-  // Putting a card on stream is a change like any other, so it needs the PIN.
-  // A plain prompt is enough here; the action is replayed once unlocked.
+  // --- PIN ---
+  // Writes need the PIN. Plain prompt(), then the call is repeated.
   function guarded(path, body) {
     return OV.post(path, body, () => {
       const pin = prompt('PIN (printed in the server console):');
@@ -154,7 +153,7 @@
     $('hint').className = 'hint' + (isError ? ' err' : '');
   }
 
-  // ── what is on stream ──────────────────────────────────────────────────────
+  // --- on stream now ---
 
   let onShow = null, results = [], recent = [];
 
@@ -180,14 +179,14 @@
     markResults();
   }
 
-  // Outline whichever tile — in either grid — is the card on stream.
+  // Highlight the tile of the card on stream, in both grids.
   function markResults() {
     [['grid', results], ['recent', recent]].forEach(([id, list]) =>
       $(id).querySelectorAll('.result').forEach((el, i) =>
         el.classList.toggle('on', !!onShow && !!list[i] && list[i].images.join('|') === onShow)));
   }
 
-  // Search results and the recent cards are the same tiles in two places.
+  // Used for the search results and the recent list.
   function renderTiles(host, list) {
     host.innerHTML = list.map((c, i) => `
       <button class="result" data-i="${i}">
@@ -210,16 +209,16 @@
       .catch(err => { if (!err.denied) setHint(err.message, true); });
   }
 
-  // ── recently used ──────────────────────────────────────────────────────────
-  // Kept by the server, so it is the same list on every device. Re-read
-  // whenever the card on stream changes — which is exactly when it changes.
+  // --- recently used ---
+  // Stored server-side. Only changes when the card on stream does, so it is
+  // re-read on every match event.
 
   let recentKey = null;
   function loadRecent() {
     fetch('/api/cards/recent').then(r => r.json()).then(list => {
       if (!Array.isArray(list)) return;
       const key = list.map(c => c.images.join('|')).join('~');
-      if (key === recentKey) { markResults(); return; }     // same list: leave the tiles alone
+      if (key === recentKey) { markResults(); return; }     // unchanged, keep the tiles
       recentKey = key;
       recent = list;
       $('recent-card').hidden = !list.length;
@@ -235,7 +234,7 @@
   OV.onMatch(m => { renderNow(m && m.card); loadRecent(); });
   fetch('/api/match').then(r => r.json()).then(m => renderNow(m.card)).catch(() => renderNow(null));
 
-  // ── search ─────────────────────────────────────────────────────────────────
+  // --- search ---
 
   let timer = null, seq = 0;
 
@@ -253,7 +252,7 @@
     try {
       const res  = await fetch('/api/cards/search?q=' + encodeURIComponent(q));
       const list = await res.json();
-      if (mine !== seq) return;                       // a newer search overtook this one
+      if (mine !== seq) return;                       // stale, a newer search is running
       if (!res.ok) throw new Error(list.error || 'HTTP ' + res.status);
 
       renderResults(list);

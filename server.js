@@ -1,5 +1,4 @@
-// A .env next to the server is read when there is one (Docker Compose passes
-// the same file in by itself). Variables already set in the environment win.
+// Optional .env next to the server. Real environment variables win.
 try { if (process.loadEnvFile && require('fs').existsSync('.env')) process.loadEnvFile('.env'); } catch { /* not fatal */ }
 
 const express = require('express');
@@ -11,8 +10,7 @@ const { lanAddresses, needsPublicHost } = require('./src/lan');
 const routes = require('./src/routes');
 
 const PORT = process.env.PORT || 3000;
-// Bind to every interface so a tablet on the same network can reach the control
-// page. Set HOST=127.0.0.1 to go back to local-only.
+// All interfaces, so the tablet can reach /control/. HOST=127.0.0.1 for local-only.
 const HOST = process.env.HOST || '0.0.0.0';
 
 const app = express();
@@ -25,11 +23,9 @@ app.use('/api', routes);
 
 app.get('/', (req, res) => res.redirect('/config/'));
 
-// Loaded before the socket opens so the very first request already sees the
-// saved session and the PIN guard.
+// Load before listen(): the first request must already see the session and PIN.
 let session = loadSession();
-// The demo was left on, but is switched off now: put the real event back, as
-// "Leave demo" would have.
+// Demo event still selected but DEMO_MODE is off now: restore the real event.
 if (!demo.enabled() && session && demo.isDemoId(session.eventId)) {
   const { demoPrevEventId, ...rest } = session;
   session = { ...rest, eventId: demoPrevEventId || null };
@@ -40,10 +36,8 @@ const { settings } = loadState();
 app.listen(PORT, HOST, () => {
   const lan = HOST === '127.0.0.1' ? [] : lanAddresses(PORT);
 
-  /* Inside a container PORT is the port *within* it — the published one on the
-   * host can differ, and printing `localhost:3000` then sends the operator
-   * somewhere else entirely. PUBLIC_HOST is the address that actually works,
-   * so the printed URLs use it whenever it is set. */
+  // In a container PORT is the inner port and the published one can differ,
+  // so print PUBLIC_HOST when it is set.
   const pub  = (process.env.PUBLIC_HOST || '').trim();
   const base = !pub                         ? `http://localhost:${PORT}`
              : /^https?:\/\//.test(pub)     ? pub.replace(/\/+$/, '')
@@ -90,8 +84,7 @@ app.listen(PORT, HOST, () => {
     console.log('');
   }
 
-  // The PIN now gates the config page too, so it belongs in the banner
-  // regardless of whether a tablet address was found.
+  // PIN also guards the config page, so print it even without a tablet address.
   console.log(`  PIN (config page + tablet): ${settings.pin || 'disabled — everyone can change settings'}`);
 
   if (needsPublicHost()) {
@@ -125,15 +118,12 @@ app.listen(PORT, HOST, () => {
   process.exit(1);
 });
 
-// This runs unattended next to OBS for a whole tournament day. A stray promise
-// rejection in one request is worth a log line, not the life counter going
-// dark in the middle of a featured match.
+// Runs unattended all day: log a stray rejection, don't take the server down.
 process.on('unhandledRejection', err => {
   console.error('[server] Unhandled rejection:', err?.stack || err);
 });
 
-// Life totals are written to disk with a short debounce — make sure the last
-// taps survive a Ctrl+C mid-round.
+// Life totals are saved debounced, so flush the last taps on Ctrl+C.
 for (const sig of ['SIGINT', 'SIGTERM']) {
   process.on(sig, () => { flushMatch(); process.exit(0); });
 }

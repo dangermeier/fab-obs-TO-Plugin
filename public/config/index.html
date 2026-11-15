@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FAB OBS TO Plugin — Config</title>
-  <!-- Oswald, for the theme entries: they are shown the way the theme looks. -->
+  <!-- Oswald, used by the theme dropdown entries -->
   <link rel="stylesheet" href="/shared/fonts/fonts.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -136,14 +136,13 @@
     .mode-btn:hover    { border-color: #2456c766; color: #14181f; }
     .mode-btn.active   { background: #2456c722; border-color: #2456c799; color: #1b45a8; }
 
-    /* Tablet address — big enough to type off the screen onto a tablet */
+    /* Tablet address: large, it gets typed off this screen */
     .lan-row {
       display: flex; align-items: center; gap: 10px;
       padding: 10px 12px; margin-bottom: 6px;
       background: #2456c70a; border: 1px solid #2456c733; border-radius: 3px;
     }
-    /* Active event — permanently visible, so "did my change land?" is never a
-       question, and a change made in another browser shows up here too. */
+    /* Active event */
     .active-event { display: flex; align-items: flex-start; gap: 14px; }
     .ae-main { flex: 1; min-width: 0; }
     .ae-title {
@@ -172,8 +171,7 @@
     .ae-state.err      { background: #c0392f22; color: #c0392f; border: 1px solid #c0392f44; }
     .ae-checked { font-size: 11px; color: #6d7581; margin-top: 12px; }
 
-    /* PIN gate — the config page changes settings, so it is guarded exactly
-       like the tablet. Nobody else on the venue Wi-Fi gets to reconfigure it. */
+    /* PIN gate */
     .gate {
       position: fixed; inset: 0; z-index: 500;
       display: none; align-items: center; justify-content: center;
@@ -206,8 +204,7 @@
     .gate-box input:focus { border-color: #2456c7; }
     .gate-err { font-size: 12.5px; color: #c0392f; min-height: 18px; margin: 8px 0 12px; }
 
-    /* Theme dropdown. Every entry wears its theme: background, text colour,
-       accent rule and star, in the overlays' display face. */
+    /* Theme dropdown. Entries are coloured inline from each theme's preview. */
     .theme-dd { position: relative; margin-bottom: 14px; }
     .theme-opt {
       display: flex; align-items: center; gap: 12px;
@@ -240,7 +237,7 @@
     .theme-dd-list .theme-opt:hover { filter: brightness(1.12); }
     .theme-dd-list .theme-opt.current { box-shadow: 0 0 0 2px #2456c7; }
 
-    /* Demo tournament controls */
+    /* Demo tournament */
     .demo-status { font-size: 13px; color: #6d7581; line-height: 1.6; margin-bottom: 14px; }
     .demo-status b { color: #14181f; }
     .demo-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -286,7 +283,7 @@
     <p>Tournament overlay for OBS Studio</p>
   </div>
 
-  <!-- Which event the backend is actually serving. Always visible, polled. -->
+  <!-- Active event: what the backend serves right now, polled -->
   <div class="card" id="active-card">
     <h2><span class="dot" id="ae-dot"></span> Active event — what the overlays serve</h2>
     <div id="ae-body">
@@ -294,13 +291,13 @@
     </div>
   </div>
 
-  <!-- Auth Card -->
+  <!-- Auth -->
   <div class="card" id="auth-card">
     <h2><span class="dot" id="auth-dot"></span> GEM Session</h2>
     <div id="auth-body">Loading…</div>
   </div>
 
-  <!-- Demo tournament: works without a GEM login -->
+  <!-- Demo tournament, hidden unless DEMO_MODE=on -->
   <div class="card" id="demo-card" style="display:none">
     <h2><span class="dot" id="demo-dot"></span> Demo tournament</h2>
     <div id="demo-body">
@@ -308,7 +305,7 @@
     </div>
   </div>
 
-  <!-- Event Card -->
+  <!-- Event -->
   <div class="card" id="event-card" style="display:none">
     <h2>
       <span class="dot"></span> Select Event
@@ -340,7 +337,7 @@
     </details>
   </div>
 
-  <!-- Overlays Card -->
+  <!-- Overlay URLs -->
   <div class="card" id="overlays-card" style="display:none">
     <h2><span class="dot"></span> OBS Overlay Sources</h2>
     <div class="overlay-row">
@@ -440,7 +437,7 @@
     </div>
   </div>
 
-  <!-- Featured match, life counter, name privacy -->
+  <!-- Tablet address, PIN, names, language, theme, cards -->
   <div class="card" id="live-card">
     <h2><span class="dot" style="background:#a8621b"></span> Featured Match &amp; Life Counter</h2>
 
@@ -512,9 +509,8 @@
 
 <script src="/shared/overlay.js"></script>
 <script>
-  // ── PIN gate ───────────────────────────────────────────────────────────────
-  // Reading is open everywhere; this page only writes, so it unlocks once and
-  // then sends the token with every change.
+  // --- PIN gate ---
+  // GETs are open, every write needs the token from OV.login.
 
   const gate = document.getElementById('gate');
   let onUnlock = null;
@@ -547,11 +543,10 @@
     if (e.key === 'Enter') submitGate();
   });
 
-  // Every guarded call goes through here: a 403 re-opens the gate and the
-  // original action is replayed once the PIN is accepted.
+  // On 403 the gate opens and `retry` runs once the PIN is accepted.
   const post = (path, body, retry) => OV.post(path, body, () => openGate(retry));
 
-  // Overlay URLs, by the id of the element that shows them.
+  // element id -> overlay page
   const origin = window.location.origin;
   const OVERLAY_URLS = {
     'url-pairings':     'pairings.html',
@@ -572,9 +567,8 @@
     document.getElementById(id).textContent = `${origin}/overlays/${page}`;
   }
 
-  /* navigator.clipboard only exists in a secure context — localhost qualifies,
-   * but this page opened from another computer via http://192.168.x.x does
-   * not, and the button would throw. Fall back to selecting the text. */
+  // navigator.clipboard needs a secure context. localhost is one, http://192.168.x.x
+  // is not, so fall back to selecting the text + execCommand.
   function copyUrl(id) {
     const el   = document.getElementById(id);
     const btn  = document.querySelector(`[onclick="copyUrl('${id}')"]`);
@@ -601,9 +595,7 @@
     }
   }
 
-  // ── Active event ───────────────────────────────────────────────────────────
-  // Permanently on screen and polled, so you can always see what the backend is
-  // actually serving — including a change someone made in another browser.
+  // --- active event ---
 
   let aeLastChecked = null;
   let aeLastSignature = null;
@@ -637,7 +629,7 @@
               : /upcoming|scheduled|bevor/.test(st)      ? 'upcoming' : 'live';
     dot.className = 'dot ' + (s.hasData ? 'green' : '');
 
-    // The line that answers "why are my overlays empty?"
+    // Event is fine but unpaired: say why the overlays are blank.
     const hint = s.hasData ? '' : `
       <div class="alert info" style="margin-top:14px">
         <strong>This event has no pairings yet</strong> — ${OV.esc(s.playerCount)} players,
@@ -685,7 +677,7 @@
       renderActiveEvent(s);
       loadDemo();
 
-      // A change from another browser also has to refresh the rest of the page.
+      // Event changed elsewhere (other browser, demo): reload auth + event list too.
       const sig = JSON.stringify([s.eventId, s.ok, s.reason]);
       if (aeLastSignature !== null && sig !== aeLastSignature) loadStatus().catch(() => {});
       aeLastSignature = sig;
@@ -695,7 +687,7 @@
     }
   }
 
-  // ── Featured match / life counter settings ─────────────────────────────────
+  // --- settings: tablet address, PIN, names, language, theme ---
 
   let liveSettings = null;
 
@@ -721,7 +713,7 @@
            or this machine is not on a network — the tablet cannot connect.
          </div>`;
 
-    // `pin` only comes down once unlocked, so it doubles as the lock indicator.
+    // `pin` is only sent to unlocked clients, undefined means still locked.
     document.getElementById('pin-row').style.display = s.pin === undefined ? 'none' : 'flex';
     document.getElementById('pin-value').textContent = s.pin || 'off';
     document.getElementById('pin-toggle').textContent = s.pinRequired ? 'Disable' : 'Enable';
@@ -731,7 +723,7 @@
     document.querySelectorAll('#lang-modes .mode-btn').forEach(b =>
       b.classList.toggle('active', b.dataset.lang === s.lang));
 
-    // The server owns the list of themes; whatever it knows is offered here.
+    // Theme list comes from the server.
     const themes  = s.themes || [];
     const current = themes.find(t => t.id === s.theme) || themes.find(t => t.id === s.defaultTheme) || themes[0];
     const look = t => {
@@ -743,7 +735,6 @@
         <span class="theme-name">${OV.esc(t.label)}</span>
         ${t.id === s.defaultTheme ? '<span class="theme-note">Default</span>' : ''}`;
 
-    // The closed dropdown shows the active theme; the list offers all of them.
     document.getElementById('theme-modes').innerHTML = current ? `
       <button type="button" class="theme-opt theme-dd-btn" id="theme-toggle" aria-haspopup="listbox" aria-expanded="false" ${look(current)}>
         ${inner(current)}<span class="theme-caret">▼</span>
@@ -767,7 +758,7 @@
   async function savePin(body) {
     try {
       await post('/api/settings/pin', body, () => savePin(body));
-      // Changing the PIN invalidates our own token — unlock again with the new one.
+      // A new PIN invalidates our own token too.
       if (body.regenerate || body.pin) OV.setToken('');
       await loadLiveSettings();
     } catch (err) { if (!err.denied) alert(err.message); }
@@ -775,12 +766,11 @@
 
   document.getElementById('pin-new').addEventListener('click', () => savePin({ regenerate: true }));
   document.getElementById('pin-toggle').addEventListener('click', () => {
-    // Turning it back on issues a fresh PIN; either way already-paired tablets
-    // have to enter it again.
+    // Re-enabling issues a fresh PIN, so paired tablets must log in again.
     savePin(liveSettings && liveSettings.pinRequired ? { pin: null } : { regenerate: true });
   });
 
-  // One handler for both pickers: post the setting, confirm, fade the note.
+  // Name and language pickers.
   function wireSetting(selector, alertId, bodyOf) {
     document.querySelectorAll(selector).forEach(btn => {
       const apply = async () => {
@@ -801,7 +791,7 @@
   wireSetting('#name-modes .mode-btn', 'name-alert', b => ({ nameMode: b.dataset.mode }));
   wireSetting('#lang-modes .mode-btn', 'lang-alert', b => ({ lang: b.dataset.lang }));
 
-  // Opening and closing the theme dropdown.
+  // Theme dropdown open/close.
   (() => {
     const dd = document.getElementById('theme-modes');
     const set = open => {
@@ -814,7 +804,7 @@
     document.addEventListener('keydown', e => { if (e.key === 'Escape') set(false); });
   })();
 
-  // The theme entries are rebuilt from the server's list, so listen on the row.
+  // Entries get rebuilt by renderLive, so delegate from the container.
   ['theme'].forEach(kind => document.getElementById(kind + '-modes').addEventListener('click', e => {
     const btn = e.target.closest('[data-' + kind + ']');
     if (!btn) return;
@@ -835,9 +825,8 @@
 
   loadLiveSettings();
 
-  // ── Demo tournament ────────────────────────────────────────────────────────
-  // A made-up 128-player event served by the backend itself. It needs no GEM
-  // login, so the overlay list has to be reachable while it is on.
+  // --- demo ---
+  // Needs no GEM login, so the overlay URLs must show while it is active.
 
   let demoActive = false, authOk = false, demoShown = null;
 
@@ -847,14 +836,14 @@
   }
 
   function renderDemo(d) {
-    // Only there when the server was started with DEMO_MODE=on.
+    // enabled = server started with DEMO_MODE=on
     document.getElementById('demo-card').style.display = d.enabled ? '' : 'none';
     demoActive = !!(d.enabled && d.active);
     if (!d.enabled) { syncOverlays(); return; }
     syncOverlays();
     document.getElementById('demo-dot').className = 'dot' + (d.active ? ' green' : '');
-    // This runs on every 15 s poll. Writing identical markup again would
-    // rebuild the card and close a "Jump to…" list the operator has open.
+    // Called on every 15 s poll. Skip identical markup, a rebuild would close
+    // an open "Jump to" select.
     const host = document.getElementById('demo-body');
     const body = {
       set innerHTML(html) {
@@ -917,7 +906,7 @@
     }
   }
 
-  // The card is re-rendered on every change, so the handlers sit on its body.
+  // Delegated: the card body is re-rendered.
   document.getElementById('demo-body').addEventListener('click', e => {
     const btn = e.target.closest('[data-act]');
     if (btn && !btn.disabled) demoAction({ action: btn.dataset.act });
@@ -978,10 +967,8 @@
     } else {
       stopPolling();
       dot.className = 'dot red';
-      // The one-click login drives a browser on the *server's* desktop. If
-      // there is none, or you are sitting at a different computer, that window
-      // would open where you cannot see it — so offer the cookie instead and
-      // say plainly why.
+      // One-click login opens a browser on the server's desktop. No desktop
+      // (Docker) or a remote client: offer the cookie path and say why.
       const blockedNote = browserLoginBlocked === 'remote'
         ? `You are connected from another computer. The one-click login would
            open a browser window on the machine running the server, not on this
@@ -1041,7 +1028,7 @@
 
     try {
       await post('/api/launch-login', {}, doGemLogin);
-      // Immediately re-render to show spinner + start polling
+      // show the spinner now, renderAuth starts the polling
       renderAuth({ authenticated: false, loginInProgress: true });
     } catch (err) {
       if (!err.denied) {
@@ -1077,15 +1064,14 @@
     await loadStatus();
   }
 
-  // ── Event list ────────────────────────────────────────────────────────────
+  // --- event list ---
 
   let currentEventId = null;
   const EVENT_MODES = ['judge', 'store'];
   let currentMode = localStorage.getItem('fab-event-mode');
   if (!EVENT_MODES.includes(currentMode)) currentMode = 'judge';
 
-  // Scoped to the event card: the name and language pickers further down use
-  // the same button style and must not switch the event list.
+  // #event-modes only: the name and language pickers are .mode-btn as well.
   function initModeButtons() {
     const buttons = document.querySelectorAll('#event-modes .mode-btn');
     buttons.forEach(btn => {
@@ -1105,10 +1091,8 @@
       const data = await post('/api/event', { eventId }, () => saveEventId(eventId));
       currentEventId = eventId;
       document.getElementById('event-id').value = eventId;
-      renderEventList(lastEventList); // re-render to update selection
+      renderEventList(lastEventList); // moves the selection highlight
 
-      // Confirm it landed in the backend, and refresh the permanent panel so
-      // the operator sees what that event actually contains.
       const al = document.getElementById('event-alert');
       al.innerHTML = `<div class="alert ok"><strong>Event ${OV.esc(data.eventId)} is now active in the backend.</strong>
         See the panel at the top of this page for what it contains.</div>`;
@@ -1180,18 +1164,16 @@
     saveEventId(eventId);
   });
 
-  // ── boot ──────────────────────────────────────────────────────────────────
-  // Ask for the PIN up front rather than letting the first change fail. If the
-  // stored token is stale, the first guarded call re-opens the gate anyway.
+  // --- boot ---
   (async () => {
     const status = await loadStatus().catch(() => null);
     loadActiveEvent();
 
-    // Poll so a change made elsewhere — another browser, the tablet, a restart —
-    // shows up here without a reload. Rides the 15 s server-side cache, so this
-    // costs no extra GEM traffic.
+    // Picks up changes from other browsers or a restart. Served from the
+    // 15 s server cache, so no extra GEM requests.
     setInterval(loadActiveEvent, 15000);
 
+    // Ask for the PIN up front. A stale token re-opens the gate on the first write.
     if (status && status.unlocked === false) {
       openGate(async () => {
         await loadStatus();

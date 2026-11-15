@@ -5,9 +5,8 @@
   <title>FAB Featured Match</title>
   <link rel="stylesheet" href="/shared/overlay.css">
   <style>
-    /* ═══ layout 1 (default): the matchup screen ════════════════════════════
-       A full frame introducing the featured match: each player's hero card,
-       large, on either side; between them what is being played.
+    /* layout 1 (default): matchup screen. Hero cards left and right, what is
+       being played in between.
 
          +---------------------+-----------+---------------------+
          |                     |  event    |                     |
@@ -38,7 +37,7 @@
       padding: 2.4em 2em 1.8em;
     }
 
-    /* The card, with a soft pool of light behind it. */
+    /* soft pool of light behind the card */
     .mu-card {
       position: relative;
       flex: 1;
@@ -76,7 +75,7 @@
       text-overflow: ellipsis;
     }
 
-    /* The player's record (room for more facts, a fading divider between them). */
+    /* just the record for now; the divider is there for further stats */
     .mu-stats { display: flex; justify-content: center; margin-top: 0.9em; min-height: 3.3em; }
     .mu-stat {
       position: relative;
@@ -109,7 +108,7 @@
       font-variant-numeric: tabular-nums;
     }
 
-    /* The column in the middle: one floating panel with what is being played. */
+    /* middle column: one floating panel */
     .mu-mid { display: flex; align-items: center; min-height: 0; }
     .mu-panel {
       width: 100%;
@@ -142,8 +141,8 @@
       line-height: 1.2;
     }
 
-    /* ═══ layout 2 (?layout=banner): a lower third over the camera ══════════
-       Everything sizes off --scale so ?scale= works without touching it. */
+    /* layout 2 (?layout=banner): lower third over the camera.
+       Sizes off --scale, so ?scale= just works. */
 
     body.lower {
       display: flex;
@@ -155,9 +154,9 @@
     body.pos-top    { align-items: flex-start; }
     body.pos-center { align-items: center; }
 
-    /* Fixed width rather than shrink-to-fit: long hero names like
-       "Kayo, Armed and Dangerous" need the room, and a lower third that
-       changes width every round looks wrong on stream. */
+    /* fixed width, not shrink-to-fit: long hero names ("Kayo, Armed and
+       Dangerous") need the room, and a lower third that changes width every
+       round looks wrong on stream */
     .banner {
       display: flex;
       align-items: stretch;
@@ -185,7 +184,7 @@
     .phero { font-size: 1.05em; }
     .rec   { font-size: 0.85em; }
 
-    /* Centre column: round, table, and either VS or the live life totals */
+    /* centre: round, table, then VS or the live life totals */
     .center {
       flex-shrink: 0;
       display: flex;
@@ -197,7 +196,6 @@
       padding: 0 1.1em;
       min-width: 8em;
     }
-    /* Fading dividers with the star, either side of the centre column. */
     .center::before, .center::after {
       content: '';
       position: absolute;
@@ -209,8 +207,8 @@
     .center::before { left:  -0.36em; }
     .center::after  { right: -0.36em; }
 
-    /* The banner's content is re-rendered on every update; it lives in this
-       wrapper so the animation layer next to it survives. */
+    /* banner content is re-rendered on every update; this wrapper keeps the
+       animation layer next to it alive */
     #content { display: contents; }
     .round {
       font-family: var(--font-head);
@@ -256,7 +254,7 @@
   const P = OV.params;
   const BANNER = P.get('layout') === 'banner';
 
-  // ═══ layout 1: matchup screen ══════════════════════════════════════════════
+  // --- layout 1: matchup screen ---
 
   function matchupLayout() {
     const b = document.body;
@@ -270,7 +268,7 @@
         <div class="mu-stats"></div>
       </div>`;
 
-    // The page shell is built once; only texts and cards change afterwards.
+    // shell built once, only texts and cards change afterwards
     const frame = document.createElement('div');
     frame.className = 'overlay-frame mu';
     frame.innerHTML = side('l') +
@@ -292,13 +290,13 @@
 
     function update(s, p, life) {
       const hero = (p && p.hero) || null;
-      // The whole hero card, dealt in; a new match turns it over.
+      // whole hero card; a new match turns it over
       s.stage.set(hero ? { images: [OV.heroImageUrl(hero)] } : null);
       s.name.textContent = OV.fmtName(p && p.name);
       s.hero.textContent = hero || '';
 
-      // The record is the only figure here: life and class are both printed
-      // on the card right above. 0–0 says nothing, so it is left out.
+      // record only: life and class are printed on the card right above.
+      // 0-0 is left out.
       const stats = [
         p && (p.wins || p.losses) ? [OV.t('lblRecord'), `${p.wins}–${p.losses}`] : null
       ].filter(Boolean);
@@ -320,7 +318,7 @@
     };
   }
 
-  // ═══ layout 2: lower-third banner ══════════════════════════════════════════
+  // --- layout 2: lower-third banner ---
 
   function bannerLayout() {
     const SOLID    = P.get('bg') === 'solid';
@@ -328,7 +326,7 @@
     const POS      = ['top', 'center', 'bottom'].includes(P.get('pos')) ? P.get('pos') : 'bottom';
     const HERO_PX  = Math.round((parseInt(P.get('hero'), 10) || 84) * OV.scale);
 
-    // Floats over the camera feed, so it always uses the dark surface.
+    // floats over the camera, so always the dark surface
     document.documentElement.style.setProperty('--margin', (parseInt(P.get('margin'), 10) || 48) + 'px');
     document.body.classList.add('surface-dark', 'lower', 'pos-' + POS);
     if (!SOLID) document.body.classList.add('ov-transparent');
@@ -342,7 +340,7 @@
 
     function playerHtml(p, right) {
       const hero = (p && p.hero) || null;
-      // 0–0 says nothing — before round 1 and in manual mode it is just noise.
+      // no 0-0, it's noise before round 1 and in manual mode
       const rec  = p && (p.wins || p.losses)
         ? `<div class="rec ov-prec">${p.wins}–${p.losses}</div>` : '';
 
@@ -369,8 +367,8 @@
     }
 
     return {
-      // An unconfigured source stays invisible rather than burning text into
-      // the stream — the status badge says why.
+      // unconfigured source stays invisible instead of burning text into
+      // the stream; the status badge says why
       hide() { banner.classList.remove('show'); },
       draw(m, l, r) {
         content.innerHTML = playerHtml(m[l], false) + centerHtml(m, l, r) + playerHtml(m[r], true);
@@ -379,7 +377,7 @@
     };
   }
 
-  // ═══ shared wiring ═════════════════════════════════════════════════════════
+  // --- shared wiring ---
 
   const view = BANNER ? bannerLayout() : matchupLayout();
   let last = null;

@@ -1,8 +1,5 @@
-/* Shared helpers for every overlay and the control page.
- *
- * Loaded as a plain <script> — no modules, no build step, matching the rest of
- * the project. Everything hangs off the global `OV`.
- */
+// Shared helpers for the overlays and the control page.
+// Plain <script>, no modules or build step. Everything hangs off global `OV`.
 (function () {
   'use strict';
 
@@ -36,17 +33,14 @@
     young:     false
   };
 
-  // Every board and floating overlay sizes itself in em off this, so ?scale=
-  // works everywhere without touching a layout.
+  // Layouts are in em off --scale, so ?scale= works on every overlay.
   document.documentElement.style.setProperty('--scale', OV.scale);
   if (OV.debug) document.documentElement.classList.add('debug');
   if (P.get('fx') === '0') document.documentElement.classList.add('no-fx');
 
-  /* Themes. Boards, tickers and the broadcast frame wear the global theme as a
-   * `theme-<id>` class on <body>; the tokens behind it live in overlay.css.
-   * The banner and badges that float over the camera keep their dark surface
-   * whatever the theme, and so does anything else that does not opt in.
-   */
+  // Boards, tickers and the broadcast frame get `theme-<id>` on <body> (tokens
+  // in overlay.css). Banner, badges and anything else that doesn't opt in
+  // stay dark regardless of theme.
   OV.paintTheme = function () {
     var b = document.body;
     if (!b) return;
@@ -59,19 +53,9 @@
   };
   OV.paintTheme();
 
-  /* Background animation, on every overlay.
-   *
-   *   OV.fx(host, { motes: 30, glows: true })
-   *
-   * puts a layer behind the content of `host`: motes of light rising through
-   * it, and — for the full-frame boards — large soft patches of light
-   * drifting slowly. Panels that float over the camera get the motes only,
-   * plus the band of light their stylesheet gives them. It should read as
-   * "alive", never as something to look at; ?fx=0 turns it off for a source.
-   *
-   * Only transform and opacity are animated and nothing is blurred live (the
-   * softness is in the gradients), so it costs next to nothing in OBS.
-   */
+  // Background animation: OV.fx(host, { motes: 30, glows: true })
+  // Motes everywhere, glow patches on full-frame boards only. ?fx=0 turns it off.
+  // Animates transform and opacity only, no live blur, so it's cheap in OBS.
   OV.fxOff = P.get('fx') === '0';
 
   OV.fx = function (host, opts) {
@@ -91,7 +75,7 @@
       ? '<i class="fx-glow a"></i><i class="fx-glow b"></i><i class="fx-glow c"></i><i class="fx-glow d"></i>' : '';
     for (var i = 0; i < n; i++) {
       var size = 2.5 + Math.random() * 5.5;                // px
-      // 28–62 px a second, but never a flicker: a low panel gets a slow rise.
+      // 28-62 px/s, but at least 7s so a low panel doesn't flicker
       var dur  = Math.max(7, h / (28 + Math.random() * 34));
       var sway = (Math.random() * 2 - 1) * Math.min(150, h * 0.45);
       html += '<i class="fx-mote" style="' +
@@ -102,9 +86,8 @@
         'animation-delay:-' + (Math.random() * dur).toFixed(1) + 's"></i>';   // already under way
     }
 
-    // Scenery that only some themes show (see "Usurp the Shadow Throne" in
-    // overlay.css): two arcane circles turning against each other, and shards
-    // of rock adrift. Hidden — and costing nothing — everywhere else.
+    // Theme-specific scenery, display:none unless the theme's CSS turns it on.
+    // Usurp: two sigils and drifting shards.
     if (o.glows) {
       html += '<i class="fx-sigil a"></i><i class="fx-sigil b"></i>';
       for (var k = 0; k < 10; k++) {
@@ -116,8 +99,8 @@
           '--dx:' + (Math.random() * 6 - 3).toFixed(1) + 'vmax;--dy:' + (Math.random() * 8 - 4).toFixed(1) + 'vmax;' +
           'animation-duration:' + dur2.toFixed(1) + 's;animation-delay:-' + (Math.random() * dur2).toFixed(1) + 's"></i>';
       }
-      // "Mastery Pack Assassin": mist along the floor and the glint of a
-      // blade — each on a rhythm of its own, so they never come as a volley.
+      // MPA: floor mist and blade glints, each with its own period so they
+      // never fire together.
       html += '<i class="fx-mist m1"></i><i class="fx-mist m2"></i><i class="fx-mist m3"></i>';
       for (var s = 0; s < 3; s++) {
         var every = 19 + s * 8 + Math.random() * 6;        // seconds between glints
@@ -143,7 +126,7 @@
   // Appended to /api/* calls so an overlay can pin a different event.
   OV.query = OV.eventId ? '?eventId=' + encodeURIComponent(OV.eventId) : '';
 
-  // ── text ───────────────────────────────────────────────────────────────────
+  // Text helpers
 
   var ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 
@@ -151,17 +134,11 @@
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ESC[c]; });
   };
 
-  /* GEM writes "Ironsong, Dorinthea"; the CSVs sometimes write "Dorinthea
-   * Ironsong". Players also fill a nickname into their own GEM profile, which
-   * arrives as part of the name: 'Rhinar, Katsu "Rhino"'.
-   *
-   * The nickname is stripped, not abbreviated — otherwise its opening quote
-   * contributes a bogus initial ("K. \". R."), being just another
-   * whitespace-separated token. Same rule as abbreviateName in the
-   * fab-analyser-extension. Apostrophes are deliberately not delimiters, they
-   * belong to O'Brien and D'Angelo. src/name.js strips the same pattern to
-   * join heroes and standings across GEM's two spellings.
-   */
+  // GEM writes "Ironsong, Dorinthea", the CSVs sometimes "Dorinthea Ironsong".
+  // A nickname from the GEM profile arrives inside the name ('Rhinar, Katsu
+  // "Rhino"') and is stripped, else its quote becomes an initial ("K. \". R.").
+  // Apostrophes are not delimiters: O'Brien, D'Angelo. Same pattern as
+  // src/name.js and abbreviateName in fab-analyser-extension.
   var NICK_RE = /\s*["“„«(\[][^"“”„«»()\[\]]*["”“»)\]]\s*/g;
 
   function normalizeName(n) {
@@ -174,12 +151,11 @@
     return s.replace(/\s+/g, ' ').trim();
   }
 
-  /* Name display, GDPR-relevant:
-   *              "Ironsong, Dorinthea"   'Rhinar, Katsu "Rhino"'
-   *   full     → Dorinthea Ironsong      Katsu Rhinar
-   *   short    → Dorinthea I.            Katsu R.              (default)
-   *   initials → D. I.                   K. R.
-   */
+  // Name modes (GDPR):
+  //              "Ironsong, Dorinthea"   'Rhinar, Katsu "Rhino"'
+  //   full     → Dorinthea Ironsong      Katsu Rhinar
+  //   short    → Dorinthea I.            Katsu R.              (default)
+  //   initials → D. I.                   K. R.
   OV.fmtName = function (n, mode) {
     var s = normalizeName(n);
     if (!s) return '–';
@@ -197,11 +173,8 @@
     return parts[0] + ' ' + initials(parts.slice(1));
   };
 
-  /* Join key that survives word order, nicknames, punctuation and accents —
-   * the run page writes "Ironsong, Dorinthea", the coverage CSVs "Dorinthea
-   * Ironsong". Must stay in step with nameKey in src/name.js (the test suite
-   * runs both against the same cases).
-   */
+  // Join key that ignores word order, nicknames, punctuation and accents.
+  // Keep in sync with nameKey in src/name.js, the tests run both on the same cases.
   var FOLD = { '\u0131': 'i', '\u0130': 'i', '\u00f8': 'o', '\u0153': 'oe', '\u00e6': 'ae',
                '\u00df': 'ss', '\u0142': 'l', '\u0111': 'd', '\u00f0': 'd', '\u00fe': 'th' };
   var FOLD_RE = new RegExp('[' + Object.keys(FOLD).join('') + ']', 'g');
@@ -219,9 +192,8 @@
       .join(' ');
   };
 
-  /* heroes CSV rows -> lookup(gemId, name). The gemId wins; the name key is
-   * the fallback for rows GEM delivers without one.
-   */
+  // heroes CSV rows -> lookup(gemId, name). gemId wins, the name key is the
+  // fallback for rows GEM delivers without one.
   OV.heroIndex = function (heroes) {
     var byId = {}, byKey = {};
     (Array.isArray(heroes) ? heroes : []).forEach(function (h) {
@@ -235,12 +207,9 @@
     };
   };
 
-  /* Everyone's record, counted off the pairings themselves:
-   *   recOf(gemId, name) -> { w, l, d } or null
-   * This is the one place that knows losses and draws — GEM's standings CSV
-   * carries wins only. `upTo` leaves out rounds from that number on, for the
-   * record a player brought INTO a round.
-   */
+  // Records counted from the pairings: recOf(gemId, name) -> { w, l, d } or null.
+  // Only source for losses and draws, GEM's standings CSV has wins only.
+  // `upTo` skips rounds from that number on (record going INTO that round).
   OV.records = function (tdata, upTo) {
     var byId = {}, byKey = {};
     var slot = function (gemId, name) {
@@ -265,23 +234,21 @@
     };
   };
 
-  // "7–1", or "7–1–1" once there is a draw to report.
+  // W-L, with a third figure only when there are draws
   OV.fmtRecord = function (r) {
     if (!r) return '';
     return r.w + '–' + r.l + (r.d ? '–' + r.d : '');
   };
 
-  // pairing.table is a number when GEM's cell parsed cleanly, the raw string
-  // otherwise.
+  // pairing.table: number if GEM's cell parsed cleanly, else the raw string
   OV.tableNo = function (p) {
     if (typeof p.table === 'number') return p.table;
     return parseInt(String(p.table).replace(/\D/g, ''), 10) || null;
   };
 
-  // ── language ───────────────────────────────────────────────────────────────
-  //
-  // Only what viewers see on stream is translated. The status badge is an
-  // operator diagnostic and stays English.
+  // Language
+  // Only viewer-facing text is translated. The status badge is for the
+  // operator and stays English.
 
   var T = {
     en: {
@@ -347,8 +314,7 @@
     return m.roundLabel || '';
   };
 
-  // The round as a bare value for a "Round" fact: "6 / 7" for Swiss, while a
-  // top-cut stage is its own name.
+  // Value for a "Round" field: "6 / 7" in Swiss, the stage name in the top cut.
   OV.matchRoundValue = function (m) {
     if (!m) return '';
     if (m.roundStage) return OV.matchRoundName(m);
@@ -356,32 +322,28 @@
     return m.roundLabel || '';
   };
 
-  // A labelled value ("ROUND" over "6 / 7") as the frame and the matchup and
-  // winner screens show it; nothing at all for an empty value.
+  // Label over value ("ROUND" / "6 / 7"). Empty value renders nothing.
   OV.kv = function (label, value) {
     return value ? '<div class="k">' + OV.esc(label) + '</div><div class="v">' + OV.esc(value) + '</div>' : '';
   };
 
-  // ── hero artwork ───────────────────────────────────────────────────────────
+  // Hero artwork
 
-  // Young heroes (Blitz, Draft, Sealed, Commoner) have their own printing and
-  // artwork; Classic Constructed uses the adult one.
+  // Young heroes (Blitz, Draft, Sealed, Commoner) have their own artwork,
+  // Classic Constructed uses the adult one.
   OV.setFormat = function (format) {
     OV.young = /blitz|draft|sealed|versiegelt|booster|commoner|limited/i.test(String(format || ''));
   };
 
   OV.heroImageUrl = function (name, young) {
     var y = (young === undefined) ? OV.young : young;
-    // The answer is cached for a day by the browser. `v` is bumped whenever
-    // the server starts choosing a different picture for the same hero, so an
-    // OBS that has been running does not go on showing the old one.
+    // Cached for a day by the browser. Bump `v` when the server picks a
+    // different picture for a hero, or a running OBS keeps showing the old one.
     return '/api/hero-image?v=2&name=' + encodeURIComponent(name) + (y ? '&young=1' : '');
   };
 
-  /* Square hero portrait: placeholder letter behind, artwork fades in on top.
-   * `size` is a pixel number or any CSS length ("2.4em"); pass null to size it
-   * from the stylesheet instead.
-   */
+  // Square portrait: placeholder letter behind, artwork fades in on top.
+  // `size`: px number or CSS length ("2.4em"), null to size it from the stylesheet.
   OV.hw = function (name, size, opts) {
     var o = opts || {};
     var len  = typeof size === 'number' ? size + 'px' : size;
@@ -397,11 +359,8 @@
       'onload="this.style.opacity=1" onerror="OV.imgRetry(this)"></div>';
   };
 
-  /* A portrait that failed to load gets a few more tries before the
-   * placeholder letter is left standing. Boards skip re-rendering unchanged
-   * data, so without this one hiccup of the artwork host would stick until
-   * the pairings change.
-   */
+  // Retry a failed portrait up to 3 times. Boards skip re-rendering unchanged
+  // data, so one hiccup of the artwork host would stick until the pairings change.
   OV.imgRetry = function (img) {
     var n = parseInt(img.getAttribute('data-try'), 10) || 0;
     if (n >= 3) { img.style.display = 'none'; return; }
@@ -412,10 +371,8 @@
     }, 4000 * (n + 1));
   };
 
-  /* Shows a card from a list of candidate image URLs — several printings on
-   * different hosts, not all of them alive — moving on whenever one fails.
-   * `done(ok)` is optional.
-   */
+  // Tries the candidate URLs in order (several printings on different hosts,
+  // not all of them alive). `done(ok)` is optional.
   OV.loadCardImage = function (img, urls, done) {
     var list = (urls || []).slice();
     var token = (img.__token = (img.__token || 0) + 1);       // a newer call wins
@@ -429,18 +386,12 @@
     next();
   };
 
-  /* The card on show, with its entrances and exits:
-   *
-   *   var stage = OV.cardStage(host);   stage.set(card | null);
-   *
-   *   nothing -> card   dealt: comes up from below at an angle and settles
-   *   card -> card      turned over: the old one flips away, the new one flips in
-   *   card -> nothing   drawn away downwards
-   *
-   * Whatever the entrance, the card ends up lying perfectly straight. A new
-   * card only starts moving once its picture has loaded, so nothing ever
-   * animates in empty; setting the same card again does nothing.
-   */
+  // var stage = OV.cardStage(host);   stage.set(card | null);
+  //   nothing -> card   .in
+  //   card -> card      .flip-out on the old one, .flip-in on the new
+  //   card -> nothing   .out
+  // The new card waits for its image to load before animating. Setting the
+  // same card again is a no-op.
   OV.cardStage = function (host) {
     host.classList.add('card-stage');
     var shown = null;        // the <img> on screen
@@ -486,7 +437,7 @@
     };
   };
 
-  // ── status badge ───────────────────────────────────────────────────────────
+  // Status badge
 
   var cdTimer = null;
   function badgeEl() { return document.getElementById('status-badge'); }
@@ -511,10 +462,7 @@
     sb.className = isError ? 'error' : '';
   };
 
-  /* Healthy state. The badge is hidden then — a ticking counter has no place
-   * on a broadcast — unless the source is opened with ?debug=1. Problems
-   * (OV.badge) always show.
-   */
+  // Healthy: hidden on stream unless ?debug=1. Errors (OV.badge) always show.
   OV.badgeOk = function (sec) {
     var sb = badgeEl();
     if (!sb) return;
@@ -523,12 +471,10 @@
     if (sec) OV.startCountdown(sec); else sb.textContent = 'OK';
   };
 
-  // ── event data ─────────────────────────────────────────────────────────────
+  // Event data
 
-  /* One call for what every board needs. Resolves to
-   *   { tdata, heroes, heroOf(gemId, name), standings }
-   * and rejects with a readable message; the caller keeps its last good frame.
-   */
+  // Resolves to { tdata, heroes, heroOf(gemId, name), standings }.
+  // Rejects with a readable message, the caller keeps its last good frame.
   OV.loadEvent = function (opts) {
     var q = OV.query;
     var reqs = [fetch('/api/tournament' + q), fetch('/api/heroes' + q)];
@@ -553,30 +499,21 @@
     });
   };
 
-  // ── auto-scrolling list ────────────────────────────────────────────────────
+  // Auto-scrolling list
 
-  /* Scrolls `track` inside `viewport` when the content does not fit, wrapping
-   * seamlessly — vertically for the boards, horizontally for the tickers.
-   *
-   * show(html, count):
-   *   - identical content is a no-op: no re-render, no artwork flicker
-   *   - same `count` of rows as on screen (a result came in, the next round was
-   *     paired): swapped in place, the scroll carries on where it was
-   *   - a different count is a different list (another stage, another event):
-   *     shown at once, starting from the beginning. It used to wait for the
-   *     seam — on a 64-table ticker that is minutes of showing the old round.
-   *
-   * opts.axis   'y' (default) or 'x'
-   * opts.speed  px per second at scale 1 (default 48)
-   * opts.fit    add class "fit" to the track when everything fits
-   */
+  // Scrolls `track` inside `viewport` when it overflows, wrapping seamlessly.
+  // show(html, count): same html is a no-op (no artwork flicker), same count
+  // swaps in place and keeps scrolling, a different count restarts from the
+  // top at once. Waiting for the seam took minutes on a 64-table ticker.
+  // opts: axis 'y'|'x', speed in px/s at scale 1 (default 48), fit adds
+  // class "fit" when everything fits.
   OV.scroller = function (viewport, track, opts) {
     var o = opts || {};
     var horiz = o.axis === 'x';
     var speed = (o.speed || 48) * OV.scale;
     var pos = 0, size = 0, measuring = false, prev = null;
     var current = null, currentCount = null, queued = null;
-    var first = true;      // the first list makes an entrance (.fresh), later ones do not
+    var first = true;      // only the first list gets .fresh
 
     function natural() { return horiz ? track.scrollWidth : track.scrollHeight; }
     function room()    { return horiz ? viewport.clientWidth : viewport.clientHeight; }
@@ -585,8 +522,8 @@
     }
 
     function show(html, count) {
-      // Measuring takes two frames (and as long as it likes in a hidden tab);
-      // whatever arrives meanwhile is applied right after — the latest wins.
+      // Measuring takes two frames (much longer in a hidden tab). Queue
+      // whatever arrives meanwhile, latest wins.
       if (measuring) { queued = { html: html, count: count }; return; }
       if (html === current) return;
       if (size > 0 && count != null && count === currentCount) swap(html, count);
@@ -609,8 +546,7 @@
           size = n;
           track.innerHTML = html + html;        // second copy for the wrap
         }
-        // From here on portraits appear without the fade-in: content swaps
-        // must not make the whole list blink.
+        // No portrait fade-in from here on, or every swap makes the list blink.
         track.classList.add('quiet');
         measuring = false;
         if (queued) { var q = queued; queued = null; show(q.html, q.count); }
@@ -643,13 +579,11 @@
     return { show: show };
   };
 
-  // ── ticker mode ────────────────────────────────────────────────────────────
+  // Ticker mode
 
-  /* ?mode=ticker turns Pairings and Standings into a band that runs across the
-   * frame, one cell per table — sized off the source's height, so a 1920x140
-   * browser source is all it needs. It wears the global theme (?theme= overrides it).
-   * ?pos=top pins it to the top edge when the source is taller than the strip.
-   */
+  // ?mode=ticker: Pairings and Standings as a band, one cell per table. Sized
+  // off the source height, so a 1920x140 browser source is enough.
+  // ?pos=top pins it to the top edge of a taller source.
   OV.ticker = P.get('mode') === 'ticker';
   OV.speed  = parseFloat(P.get('speed')) || null;   // px per second, either mode
 
@@ -665,7 +599,7 @@
                        { axis: 'x', speed: OV.speed || 90 });
   };
 
-  // ── live channel (SSE) ─────────────────────────────────────────────────────
+  // Live channel (SSE)
 
   var es = null;
   var handlers = { match: [], settings: [], state: [], refresh: [] };
@@ -676,19 +610,14 @@
     });
   }
 
-  /* One stream for all pages.
-   *
-   * A browser allows six connections per host, and an open EventSource keeps
-   * one of them for good. OBS runs every browser source in the same browser,
-   * so with seven or more overlays the first six streams took every slot and
-   * no page could fetch anything any more — all sources stayed blank.
-   *
-   * So only one page per browser — the "leader", whoever holds the Web Lock —
-   * opens the stream and passes each event on over a BroadcastChannel. When
-   * the leader goes away the lock falls to the next page, which takes over.
-   * Where those APIs are missing (the tablet on plain http is not a secure
-   * context) the page simply opens its own stream, as before.
-   */
+  // One stream per browser, not per page. A browser allows six connections per
+  // host and an EventSource holds one for good. OBS runs all browser sources
+  // in one browser, so with 7+ overlays the streams took every slot and all
+  // sources stayed blank.
+  // The page holding the Web Lock (leader) opens the stream and relays events
+  // over a BroadcastChannel. When it goes away the next page gets the lock.
+  // Without those APIs (tablet on plain http is not a secure context) each
+  // page opens its own stream.
   var started = false, leader = false, channel = null;
   var last = { match: null, settings: null, state: null };   // for late joiners
   var heard = 0;                                             // last sign of the leader
@@ -698,8 +627,8 @@
     emit(kind, data);
   }
 
-  // EventSource reconnects on its own using the server's `retry:` hint, so a
-  // dropped Wi-Fi link or an OBS scene switch heals without any code here.
+  // EventSource reconnects by itself (server sends `retry:`), so dropped Wi-Fi
+  // or an OBS scene switch needs no handling here.
   function openStream(relay) {
     if (es) return;
     try { es = new EventSource('/api/live'); } catch (err) { return; }
@@ -736,7 +665,7 @@
       } else if (m.t === 'beat' && !leader) {
         heard = Date.now();
       } else if (m.t === 'hello' && leader) {
-        // A page that just loaded: hand it the current state right away.
+        // Newly loaded page: send it the current state.
         ['state', 'settings', 'match'].forEach(function (k) {
           if (last[k] !== null) post({ t: 'event', kind: k, data: last[k] });
         });
@@ -753,8 +682,8 @@
     heard = Date.now();
     post({ t: 'hello' });
 
-    // Safety net: a follower that hears nothing from a leader for a while
-    // stops trusting the shared channel and opens its own stream.
+    // Safety net: a follower that hears nothing from the leader for 20s opens
+    // its own stream.
     setInterval(function () {
       if (!leader && !es && Date.now() - heard > 20000) openStream(null);
     }, 5000);
@@ -763,14 +692,13 @@
   OV.onMatch    = function (fn) { handlers.match.push(fn);    connectLive(); };
   OV.onSettings = function (fn) { handlers.settings.push(fn); connectLive(); };
   OV.onLiveState = function (fn) { handlers.state.push(fn);   connectLive(); };
-  // The event itself changed (another one selected, or the demo advanced):
-  // re-read now rather than on the next poll.
+  // Event changed (another one selected, or the demo advanced): re-read now,
+  // don't wait for the next poll.
   OV.onRefresh  = function (fn) { handlers.refresh.push(fn);  connectLive(); };
 
-  /* Everything an overlay of the featured match needs: fn(match) on every
-   * change from the live channel, a badge while that is down, and a slow poll
-   * as the fallback should it never connect. A polled state older than what
-   * the channel already delivered is dropped. */
+  // Featured match: fn(match) on every live change, error badge while the
+  // channel is down, slow poll as fallback. A polled state older than what the
+  // channel already delivered is dropped.
   OV.followMatch = function (fn) {
     var rev = -1;
     function take(m) { rev = m && m.rev != null ? m.rev : rev; fn(m); }
@@ -788,10 +716,9 @@
     setInterval(poll, OV.refreshMs);
   };
 
-  // ── control token ──────────────────────────────────────────────────────────
-  //
-  // Reading is always open — OBS browser sources must never face a prompt.
-  // Every write goes through here, on the config page and the tablet alike.
+  // Control token
+  // Reads are always open: OBS browser sources must never hit a prompt.
+  // Writes from the config page and the tablet all go through here.
 
   var TOKEN_KEY = 'fab-control-token';
 
@@ -817,8 +744,8 @@
     });
   };
 
-  // Header bag for reads that return more once unlocked (/api/status,
-  // /api/settings). Reads never fail without it, they just say less.
+  // For reads that return more once unlocked (/api/status, /api/settings).
+  // Without a token they still succeed, just with less.
   OV.authHeaders = function () {
     var t = OV.getToken();
     return t ? { 'X-Control-Token': t } : {};
@@ -828,8 +755,8 @@
     return fetch(path, { headers: OV.authHeaders() }).then(function (r) { return r.json(); });
   };
 
-  /* POST helper for every guarded endpoint. On 403 it clears the stale token
-   * and calls `onDenied` so the page can re-open its PIN prompt. */
+  // POST to a guarded endpoint. On 403 the stale token is cleared and
+  // `onDenied` is called so the page can reopen its PIN prompt.
   OV.post = function (path, body, onDenied) {
     var token = OV.getToken();
     var headers = { 'Content-Type': 'application/json' };
@@ -840,8 +767,7 @@
         if (res.status === 403) {
           OV.setToken('');
           if (onDenied) onDenied();
-          // Callers test `err.denied`: the PIN prompt is already open, so
-          // there is nothing left to report.
+          // Callers check `err.denied` and stay quiet, the PIN prompt is already open.
           var denied = new Error('PIN required');
           denied.denied = true;
           throw denied;
@@ -853,7 +779,7 @@
       });
   };
 
-  // ── settings ───────────────────────────────────────────────────────────────
+  // Settings
 
   function applySettings(s, onChange) {
     var mode = urlMode || s.nameMode || OV.nameMode;  // ?names= always wins
@@ -872,10 +798,8 @@
     if (onChange) onChange();
   }
 
-  /* Picks up the global name mode and language and keeps listening, so
-   * switching either in the config UI re-renders every open overlay without
-   * an OBS refresh.
-   */
+  // Loads the global settings and keeps listening, so a change in the config
+  // UI re-renders open overlays without an OBS refresh.
   OV.initSettings = function (onChange) {
     OV.onSettings(function (s) { applySettings(s, onChange); });
     return fetch('/api/settings')

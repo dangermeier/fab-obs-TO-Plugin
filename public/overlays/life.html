@@ -5,7 +5,7 @@
   <title>FAB Life Counter</title>
   <link rel="stylesheet" href="/shared/overlay.css">
   <style>
-    /* ═══ shared by both layouts: the life number and its hit animation ═════ */
+    /* shared by both layouts: life number and hit animation */
 
     .lifewrap { position: relative; display: flex; align-items: center; }
 
@@ -44,7 +44,7 @@
       100% { transform: scale(1); }
     }
 
-    /* ═══ layout 1 (default): two badges floating over the camera ═══════════ */
+    /* layout 1 (default): two badges over the camera */
 
     body.badges { font-size: calc(20px * var(--scale)); }
 
@@ -89,9 +89,9 @@
     .badge .phero { font-size: 0.9em; }
     .badge .rec   { font-size: 0.8em; }
 
-    /* ═══ layout 2 (?layout=broadcast): a full frame around three cameras ═══
-       The page paints only the panels. The table camera and the two player
-       cameras sit in OBS underneath this source and show through the holes.
+    /* layout 2 (?layout=broadcast): full frame around three cameras.
+       Only the panels are painted; the cameras sit under this source in OBS
+       and show through the holes.
 
          +--------- player ----- life | life ----- player ---------+
          | player cam |                              | player cam  |
@@ -100,11 +100,9 @@
          | card       |                              | event info  |
          +------------+------------------------------+-------------+
 
-       ?cams=0 fills the two player windows with hero artwork instead, for a
-       setup with a table camera only.
-
-       Everything is in em off --u (20px on a 1920-wide source), so the frame
-       keeps its proportions on any 16:9 source and ?scale= is not needed. */
+       ?cams=0: hero artwork in the two player windows (table camera only).
+       All in em off --u (20px on a 1920-wide source), so any 16:9 source
+       works without ?scale=. */
 
     body.bc { font-size: var(--u); background: transparent; }
 
@@ -124,7 +122,7 @@
     }
     .frame.show { opacity: 1; }
 
-    /* ── the bar across the top ──────────────────────────────────────────── */
+    /* top bar */
     .bar {
       grid-column: 1 / -1;
       display: flex;
@@ -134,7 +132,7 @@
       background: var(--surface);
       box-shadow: var(--lift-strong);
     }
-    /* Accent rule along the top, fading at both ends. */
+    /* accent rule along the top edge */
     .bar::before {
       content: '';
       position: absolute;
@@ -169,8 +167,7 @@
       font-variant-numeric: tabular-nums;
     }
 
-    /* The life totals: the largest type in the frame, set off by nothing but
-       a hairline either side and the diamond between them. */
+    /* life totals: hairline either side, diamond in between */
     .score {
       flex-shrink: 0;
       display: flex;
@@ -201,7 +198,7 @@
       font-variant-numeric: tabular-nums;
       text-shadow: var(--glow);
     }
-    /* The bar is too low for the change to rise inside it; it drops out below. */
+    /* bar is too low for the delta to rise inside it, so it drops out below */
     .score .delta {
       top: auto;
       bottom: -1.75em;
@@ -218,11 +215,10 @@
       100% { opacity: 0; transform: translate(-50%, 0.5em); }
     }
 
-    /* Background animation: a band of light drifting across each panel, the
-       three of them out of step. */
+    /* sheen: a band of light drifting across each panel, the three out of step */
     .low { position: relative; overflow: hidden; }
-    /* The bar must not clip — the life change drops out below it — so its
-       band of light moves as a background instead of an element. */
+    /* the bar must not clip (the delta drops out below it), so its sheen
+       moves as a background, not as an element */
     .bar::after {
       inset: 0;
       width: auto !important;
@@ -239,17 +235,16 @@
       animation: sweep var(--sweep-every) ease-in-out infinite;
       pointer-events: none;
     }
-    /* A third of a cycle apart, so the three panels never light up together. */
+    /* a third of a cycle apart */
     .col.l .low::after { animation-delay: calc(var(--sweep-every) / -3); }
     .col.r .low::after { animation-delay: calc(var(--sweep-every) / -1.5); }
     html.no-fx .bar::after, html.no-fx .low::after { display: none; }
 
-    /* ── side columns ────────────────────────────────────────────────────── */
+    /* side columns */
     .col { display: flex; flex-direction: column; min-height: 0; }
 
-    /* A hole is simply nothing: OBS shows the camera underneath. A soft inner
-       shadow darkens the picture towards its edges, so it sits in the frame
-       rather than being cut out of it. */
+    /* a hole is just nothing, OBS shows the camera underneath. The inner
+       shadow darkens the edges so the picture sits in the frame. */
     .hole { position: relative; flex: 1; min-height: 0; }
     .hole::after {
       content: '';
@@ -266,15 +261,13 @@
       background: var(--surface);
       box-shadow: inset 0 1px 0 var(--ring);
     }
-    /* The player cameras get a frame in the panel colour, so their window
-       reads as part of the column rather than a gap in it. */
+    /* frame in the panel colour, so the camera window reads as part of the column */
     .col .hole { border: 0.3em solid var(--bg-raised); border-top: 0; }
     .col.l .low { border-right: 1px solid var(--line); }
     .col.r .low { border-left:  1px solid var(--line); }
 
-    /* ?cams=0: no player cameras. Their windows are filled with the heroes'
-       artwork instead, and the small portraits in the bar — now redundant —
-       give their room to the names. */
+    /* ?cams=0: hero artwork in the camera windows. The bar portraits are
+       redundant then and give their room to the names. */
     .art { position: relative; flex: 1; min-height: 0; background: var(--bg-sunken); overflow: hidden; }
     .art::after {
       content: '';
@@ -288,12 +281,10 @@
     .art .heroslot { height: 100%; }
     .art .hero-wrap { width: 100%; height: 100%; border: 0; border-radius: 0; }
     .art .hero-ph { font-size: 6em; }
-    /* Show the illustration only — no name banner, no rules text. On a hero
-       card it sits between 12% and 55% of the card's height, so the scan is
-       blown up until that band fills the panel (about 100 / 43, a touch more to
-       lose the frame's edge), pulled up
-       by the part above it and centred sideways; the panel
-       being narrower than the art, the sides are cut, never the top. */
+    /* illustration only, no name banner or rules text. It sits at 12%-55% of
+       a hero card's height, so scale until that band fills the panel (100 / 43,
+       a touch more to lose the frame's edge), pull up and centre. The panel is
+       narrower than the art: the sides get cut, never the top. */
     .art .hero-img {
       inset: auto;
       top: -30%;
@@ -308,13 +299,12 @@
     body.no-cams .who { padding: 0 1.3em; }
     body.no-cams .who .rc { padding-right: 1.1em; padding-left: 1.1em; }
 
-    /* Card slot: stays an empty panel until a card is put on show. */
-    /* The card itself, and how it arrives and leaves, is .card-stage in
-       overlay.css (OV.cardStage). */
+    /* card slot: empty panel until a card is shown. The card and its
+       entrance/exit: .card-stage in overlay.css (OV.cardStage). */
     .card { padding: 0.8em; }
     body.no-card .card { display: none; }
 
-    /* Event facts: four equal rows, label over value. */
+    /* event facts: equal rows, label over value */
     .info { display: flex; flex-direction: column; }
     .fact {
       flex: 1 1 0;
@@ -353,8 +343,7 @@
       -webkit-line-clamp: 2;       /* long event titles wrap once, then cut */
     }
 
-    /* ?debug=1: outline the holes and say how big they are, for lining up the
-       cameras in OBS. */
+    /* ?debug=1: outline the holes and print their size, for lining up the cameras in OBS */
     .debug .hole { outline: 2px dashed var(--danger); outline-offset: -2px; }
     .debug .guide {
       display: block;
@@ -371,8 +360,8 @@
     }
   </style>
 </head>
-<!-- The badges float over the camera feed and always use the dark surface;
-     the broadcast frame swaps that for the global theme. -->
+<!-- badges float over the camera and always use the dark surface;
+     the broadcast frame swaps that for the global theme -->
 <body class="surface-dark">
 <div id="status-badge">Loading…</div>
 
@@ -381,11 +370,11 @@
   const P = OV.params;
   const BROADCAST = P.get('layout') === 'broadcast';
 
-  // ── the life number, shared by both layouts ────────────────────────────────
+  // --- life number, both layouts ---
 
   function flash(b, diff) {
     b.life.classList.remove('punch-up', 'punch-down');
-    void b.life.offsetWidth;                       // force the animation to restart
+    void b.life.offsetWidth;                       // reflow, restarts the animation
     b.life.classList.add(diff < 0 ? 'punch-down' : 'punch-up');
 
     b.delta.textContent = (diff > 0 ? '+' : '') + diff;
@@ -402,10 +391,10 @@
     b.lastLife = v;
   }
 
-  // 0–0 says nothing — before round 1 and in manual mode it is just noise.
+  // 0-0 says nothing: before round 1 and in manual mode it's just noise
   const record = p => (p && (p.wins || p.losses) ? `${p.wins}–${p.losses}` : '');
 
-  // ═══ layout 1: badges ══════════════════════════════════════════════════════
+  // --- layout 1: badges ---
 
   function badgesLayout() {
     const SOLID = P.get('bg') === 'solid';
@@ -418,8 +407,8 @@
     document.body.classList.add('badges', 'pos-' + POS);
     if (!SOLID) document.body.classList.add('ov-transparent');
 
-    // The DOM is built once and then patched in place — re-rendering it would
-    // restart the punch animation and wipe the damage flash mid-flight.
+    // built once, then patched in place: a re-render would restart the punch
+    // animation and wipe the damage flash mid-flight
     function makeBadge(side) {
       const el = document.createElement('div');
       el.className = 'badge ' + side + (SOLID ? ' ov-panel' : ' ov-floating');
@@ -477,7 +466,7 @@
     };
   }
 
-  // ═══ layout 2: broadcast frame ═════════════════════════════════════════════
+  // --- layout 2: broadcast frame ---
 
   function broadcastLayout() {
     const off  = name => ['0', 'off', 'false'].includes(P.get(name) || '');
@@ -502,8 +491,8 @@
     const cam  = () => (CAMS ? hole('cam') : '<div class="art"><div class="heroslot"></div></div>');
 
     const facts = (...ids) => ids.map(id => `<div class="fact" id="f-${id}"></div>`).join('');
-    // Neither cameras nor a card: the left column would be nothing but a very
-    // tall strip of artwork, so it takes half of the facts instead.
+    // no cameras and no card: the left column would be one very tall strip
+    // of artwork, so it takes half of the facts
     const split   = !CAMS && !CARD;
     const lowLeft = split ? `<div class="low info">${facts('event', 'format')}</div>`
                           : '<div class="low card"></div>';
@@ -517,7 +506,6 @@
        <div class="col r">${cam()}<div class="low info">${split ? '' : facts('event', 'format')}${facts('round', 'table')}</div></div>`;
     b.appendChild(frame);
 
-    // Background animation in each panel of the frame.
     OV.fx(frame.querySelector('.bar'), { motes: 22 });
     frame.querySelectorAll('.low').forEach(el => OV.fx(el, { motes: 16 }));
 
@@ -548,12 +536,11 @@
 
     const fact = (id, label, value) => { frame.querySelector('#' + id).innerHTML = OV.kv(label, value); };
 
-    // The card: dealt in, turned over on a change, drawn away — see OV.cardStage.
     const slot  = frame.querySelector('.card');
     const stage = slot ? OV.cardStage(slot) : null;
     const drawCard = card => { if (stage) stage.set(card); };
 
-    // ?debug=1: where the cameras go, in the pixels of this very source.
+    // ?debug=1: camera positions in this source's own pixels
     function guides() {
       if (!OV.debug) return;
       frame.querySelectorAll('.hole').forEach(h => {
@@ -570,7 +557,7 @@
         update(sides[0], m[l], m.life[l], animate);
         update(sides[1], m[r], m.life[r], animate);
 
-        // "4 / 7" for Swiss; a top-cut stage is its own name.
+        // "4 / 7" for Swiss; a top-cut stage goes by its name
         const round = m.roundStage ? OV.matchRoundName(m)
                     : m.round ? m.round + (m.totalRounds ? ' / ' + m.totalRounds : '')
                     : (m.roundLabel || '');
@@ -586,7 +573,7 @@
     };
   }
 
-  // ═══ shared wiring ═════════════════════════════════════════════════════════
+  // --- shared wiring ---
 
   const view = BROADCAST ? broadcastLayout() : badgesLayout();
 
@@ -602,7 +589,7 @@
     OV.setFormat(m.format);
     const [l, r] = m.swapped ? ['p2', 'p1'] : ['p1', 'p2'];
 
-    // A new match is a reset, not a hit — don't punch the numbers for it.
+    // new match = reset, not a hit: don't punch the numbers
     const key = `${m.matchKey}|${m.swapped}`;
     const animate = key === lastKey;
     lastKey = key;

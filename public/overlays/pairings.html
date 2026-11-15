@@ -32,7 +32,7 @@
 <script>
   const REFRESH = OV.refreshMs;
   const $ = id => document.getElementById(id);
-  // ?mode=ticker: the same data as a one-line strip instead of the board.
+  // ?mode=ticker: same data as a one-line strip
   const ticker = OV.initTicker();
   const list = ticker ||
     OV.scroller($('vp'), $('tr'), { fit: true, speed: OV.speed });
@@ -53,8 +53,8 @@
     return pairings.map(p => {
       const w1 = p.winner === 'p1', w2 = p.winner === 'p2';
       const n  = OV.tableNo(p);
-      // Finished tables rely on the green name; only a result without a
-      // winner (draw, double loss) needs a word.
+      // finished tables rely on the green name; only a result without a
+      // winner (draw, double loss) needs a word
       const mid = !p.done ? OV.t('vs') : (!w1 && !w2) ? OV.t('finished') : '';
 
       return `<div class="prow">
@@ -66,8 +66,8 @@
     }).join('');
   }
 
-  // Ticker cell: the table, then the two players under each other, each with
-  // portrait and the record they brought into this round.
+  // ticker cell: table, then both players stacked, each with portrait and
+  // the record they brought into this round
   function tickerHtml(pairings, heroOf, recOf) {
     if (!pairings.length) return `<div class="tk-empty">${OV.t('noPairings')}</div>`;
 
@@ -122,7 +122,7 @@
     $('fill').style.width = (total ? done / total * 100 : 0) + '%';
 
     const sorted = [...round.pairings].sort((a, b) => (OV.tableNo(a) || 999) - (OV.tableNo(b) || 999));
-    // Records as they stood before this round — what "7–1" next to a name means.
+    // records as of before this round, that's what "7-1" next to a name means
     list.show(ticker ? tickerHtml(sorted, heroOf, OV.records(tdata, round.elimination ? 0 : round.round))
                      : rowsHtml(sorted, heroOf), sorted.length);
   }
@@ -137,7 +137,7 @@
     }
   }
 
-  // Name mode and language switch live, without an OBS reload.
+  // name mode / language change applies live, no OBS reload
   OV.initSettings(render).then(refresh);
   setInterval(refresh, REFRESH);
   OV.onRefresh(refresh);

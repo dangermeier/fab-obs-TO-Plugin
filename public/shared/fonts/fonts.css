@@ -1,6 +1,5 @@
-/* Oswald, the display typeface: headlines, names in the frame, every figure.
-   Served from this folder so the overlays look the same on any machine and
-   at a venue without internet. SIL Open Font License — see licenses/. */
+/* Oswald, the display face. Self-hosted so overlays look the same on any
+   machine and work at a venue without internet. SIL Open Font License, see licenses/. */
 
 @font-face {
   font-family: 'Oswald';

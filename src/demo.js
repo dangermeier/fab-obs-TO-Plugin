@@ -1,16 +1,6 @@
-/* Demo tournament — a made-up 128-player event that lives entirely in memory.
- *
- * It exists so every overlay and the tablet can be tried out, and a stream
- * layout built, without a GEM login or a running event. Selecting the event id
- * "demo" makes the fetcher serve this instead of scraping GEM; the data has
- * exactly the shape parser.js produces, so nothing downstream knows the
- * difference.
- *
- * The tournament is advanced by hand from the config page: report a few
- * results, finish the round, pair the next one, or jump straight to a stage.
- * Everything is driven by a seeded generator, so "reset" always replays the
- * same event.
- */
+// Demo tournament: fake 128-player event, in memory only, for trying the
+// overlays without a GEM login. Event id "demo" makes the fetcher serve this.
+// Output has the same shape as parser.js. Seeded, so reset replays the same event.
 
 const DEMO_ID      = 'demo';
 const PLAYER_COUNT = 128;
@@ -29,8 +19,7 @@ const LAST = ['Schauer', 'Müller', 'Kılıç', "O'Brien", 'Hoffmann', 'Wagner',
   'Krüger', 'Hartmann', 'Lange', 'Werner', 'Lehmann', 'Krause', 'Meier', 'Huber',
   'Kaiser', 'Fuchs', 'Peters', 'Scholz', 'Möller', 'Weiß', 'Jung', 'von Hohenlohe-Langenburg'];
 
-// [hero, weight] — a plausible metagame: a few popular heroes, a long tail.
-// All of these resolve in the card database, so the portraits are real.
+// [hero, weight]. Names must exist in the card database or the portraits break.
 const META = [
   ['Cindra, Dracai of Retribution', 14], ['Gravy Bones, Shipwrecked Looter', 12],
   ['Verdance, Thorn of the Rose', 11],   ['Fang, Dracai of Blades', 10],
@@ -46,7 +35,7 @@ const META = [
   ['Betsy, Skin in the Game', 1]
 ];
 
-// The stages the config page can jump to, in tournament order.
+// Stages the config page can jump to, in order
 const STAGES = [
   ...Array.from({ length: SWISS_ROUNDS }, (_, i) => ({ key: `r${i + 1}`, label: `Round ${i + 1}` })),
   { key: 'qf', label: 'Quarterfinals' },
@@ -55,10 +44,7 @@ const STAGES = [
   { key: 'done', label: 'Finished' }
 ];
 
-/* The demo is off unless the configuration turns it on: DEMO_MODE=on in the
- * environment (or in .env). While it is off the id "demo" means nothing —
- * no overlay can show it and the config page does not offer it. Read on
- * every call rather than once, so the tests can flip it. */
+// Off unless DEMO_MODE=on. Read on every call so the tests can flip it.
 function enabled() {
   return /^(1|true|on|yes)$/i.test(String(process.env.DEMO_MODE || '').trim());
 }
@@ -66,7 +52,7 @@ function enabled() {
 function isDemoId(eventId) { return String(eventId || '').toLowerCase() === DEMO_ID; }
 function isDemo(eventId)   { return enabled() && isDemoId(eventId); }
 
-// ── seeded randomness ────────────────────────────────────────────────────────
+// --- seeded randomness ---
 
 function mulberry32(seed) {
   let a = seed >>> 0;
@@ -97,22 +83,22 @@ function pickHero() {
   return META[0][0];
 }
 
-// ── building the event ───────────────────────────────────────────────────────
+// --- building the event ---
 
 function reset() {
   rand = mulberry32(20261115);
 
   players = Array.from({ length: PLAYER_COUNT }, (_, i) => {
     const first = FIRST[i % FIRST.length];
-    // Offsetting the surname per block of 32 keeps all 128 combinations unique.
+    // surname offset per block of 32 keeps all 128 names unique
     const last  = LAST[(i * 7 + Math.floor(i / FIRST.length) * 5) % LAST.length];
     return {
       first, last,
       gemId: String(48000000 + i * 7919),
       hero:  pickHero(),
-      // A handful of players carry a nickname, like real GEM profiles do.
+      // a few nicknames, as on real GEM profiles
       nick:  i % 37 === 5 ? ' "Ace"' : '',
-      skill: 0.6 + rand() * 0.8,    // makes some players actually win more
+      skill: 0.6 + rand() * 0.8,    // win-chance weight
       wins:  0
     };
   });
@@ -121,7 +107,7 @@ function reset() {
   pairSwiss();
 }
 
-// GEM's run page writes "Last, First"; its coverage CSVs write "First Last".
+// GEM run page: "Last, First". Coverage CSVs: "First Last".
 const runName = p => `${p.last}, ${p.first}${p.nick}`;
 const csvName = p => `${p.first} ${p.last}`;
 
@@ -131,12 +117,12 @@ function pairing(table, a, b) {
     p1: runName(a), p1GemId: a.gemId,
     p2: runName(b), p2GemId: b.gemId,
     result: '', winner: null, done: false,
-    _a: a, _b: b                      // stripped again before anything leaves here
+    _a: a, _b: b                      // internal, stripped in tournament()
   };
 }
 
 function ranked() {
-  // Shuffle first, then a stable sort by wins: ties come out in random order.
+  // shuffle, then stable sort by wins: ties end up in random order
   return shuffled(players).sort((x, y) => y.wins - x.wins);
 }
 
@@ -153,7 +139,7 @@ function pairElimination() {
   let list;
 
   if (!last) {
-    // 1 v 8, 4 v 5, 2 v 7, 3 v 6 — tables 1+2 and 3+4 meet in the semifinals.
+    // 1v8, 4v5, 2v7, 3v6. Tables 1+2 and 3+4 meet in the semis.
     const top = standingsOrder().slice(0, CUT);
     list = [[0, 7], [3, 4], [1, 6], [2, 5]].map(([x, y], i) => pairing(i + 1, top[x], top[y]));
   } else {
@@ -165,7 +151,7 @@ function pairElimination() {
 }
 
 function standingsOrder() {
-  // Stable on the player index, so the table does not reshuffle between reads.
+  // tie-break on player index so the order is stable between reads
   return [...players].sort((x, y) => y.wins - x.wins || players.indexOf(x) - players.indexOf(y));
 }
 
@@ -177,7 +163,7 @@ function decide(p, round) {
   if (!round.elimination) (p.winner === 'p1' ? p._a : p._b).wins++;
 }
 
-// ── state queries ────────────────────────────────────────────────────────────
+// --- state queries ---
 
 function current()  { return rounds[rounds.length - 1]; }
 function running(r) { return r.pairings.filter(p => !p.done); }
@@ -192,9 +178,9 @@ function stageKey() {
 
 function isFinished() { return stageKey() === 'done'; }
 
-// ── actions ──────────────────────────────────────────────────────────────────
+// --- actions ---
 
-// Finish a share of the tables still playing — at least one.
+// Finishes a share of the open tables, at least one.
 function reportResults(share = 0.25) {
   const r = current();
   const open = running(r);
@@ -211,7 +197,7 @@ function finishRound() {
   return open.length > 0;
 }
 
-// Pair the next round; a round still being played is finished first.
+// Finishes the running round first.
 function nextRound() {
   if (isFinished()) return false;
   finishRound();
@@ -221,7 +207,7 @@ function nextRound() {
   return true;
 }
 
-// Replay from the start up to the given stage, freshly paired.
+// Replays from the start up to the given stage.
 function goTo(key) {
   if (!STAGES.some(s => s.key === key)) throw new Error(`Unknown stage "${key}"`);
   reset();
@@ -232,7 +218,7 @@ function goTo(key) {
   }
 }
 
-// ── what the rest of the server reads ────────────────────────────────────────
+// --- output for the rest of the server ---
 
 function tournament() {
   const out = rounds.map(r => {
@@ -273,7 +259,7 @@ function standings() {
   }));
 }
 
-// Compact state for the config page.
+// for the config page
 function info() {
   const r   = current();
   const key = stageKey();

@@ -5,9 +5,8 @@
   <title>FAB Winner</title>
   <link rel="stylesheet" href="/shared/overlay.css">
   <style>
-    /* The winner screen. One half of the frame is a window onto the winner's
-       camera, the other half is their hero; between them a column says what
-       was won, and a plate across its foot says by whom.
+    /* Winner screen: one half is a window onto the winner's camera, the other
+       their hero. Middle column says what was won, the plate below by whom.
 
          ?side=left                          ?side=right
          +----------+-------+----------+     +----------+-------+----------+
@@ -17,8 +16,8 @@
          |          | WINNER|          |     |          | WINNER|          |
          +-------[ Player name ]-------+     +-------[ Player name ]-------+
 
-       "left" and "right" are the two players as the tablet has them seated.
-       ?side=auto picks whoever is still standing once the other is at zero.
+       left/right = the players as seated on the tablet. ?side=auto picks
+       whoever is still standing once the other is at zero.
        In em off --u (20px on a 1920-wide source), like every board. */
 
     body { font-size: var(--u); background: transparent; }
@@ -34,15 +33,15 @@
     }
     .wn.show { opacity: 1; }
 
-    /* Which half is the camera and which the hero. */
+    /* which half is camera, which hero */
     .wn-cam { grid-column: 1; grid-row: 1; }
     .wn-mid { grid-column: 2; grid-row: 1; }
     .wn-art { grid-column: 3; grid-row: 1; }
     .wn.right .wn-cam { grid-column: 3; }
     .wn.right .wn-art { grid-column: 1; }
 
-    /* The camera half is simply nothing — OBS shows the camera underneath —
-       with a soft inner shadow so the picture sits in the frame. */
+    /* camera half is empty, OBS shows the camera underneath; the inner shadow
+       makes the picture sit in the frame */
     .wn-cam { position: relative; }
     .wn-cam::after {
       content: '';
@@ -67,13 +66,12 @@
       white-space: nowrap;
     }
 
-    /* ── the hero half ───────────────────────────────────────────────────── */
+    /* hero half */
     .wn-art { position: relative; overflow: hidden; background: var(--bg); }
 
-    /* The card's illustration, blown up to fill the half and deliberately out
-       of focus: the scans are too small to show this large, but as a wash of
-       the hero's colours behind the sharp card they are just right. Same crop
-       as the art panels of the broadcast frame (the 12–55% band of the card). */
+    /* card illustration blown up and blurred on purpose: the scans are too
+       small for this size, but work as a wash of colour behind the sharp card.
+       Same crop as the art panels of the broadcast frame (12%-55% of the card). */
     .wn-wash {
       position: absolute;
       top: -30%;
@@ -96,7 +94,7 @@
 
     .wn-card { position: absolute; inset: 3.2em 4em 6.4em; z-index: 1; }
 
-    /* ── the column in the middle ────────────────────────────────────────── */
+    /* middle column */
     .wn-mid {
       position: relative;
       z-index: 2;
@@ -136,7 +134,6 @@
       font-weight: 600;
       line-height: 1.2;
     }
-    /* The word itself: the largest thing in the column, in the accent. */
     .wn-word {
       font-family: var(--font-head);
       font-size: 3em;
@@ -148,7 +145,7 @@
       text-shadow: var(--glow);
     }
 
-    /* ── the name plate ──────────────────────────────────────────────────── */
+    /* name plate */
     .wn-plate {
       position: absolute;
       left: 50%;
@@ -183,7 +180,6 @@
     .wn-hero { font-size: 0.9em; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .wn-hero:empty { display: none; }
 
-    /* The plate rises into place when the screen appears. */
     .wn.show .wn-plate { animation: plate 0.8s cubic-bezier(0.2, 0.75, 0.2, 1) 0.25s both; }
     @keyframes plate {
       from { opacity: 0; transform: translate(-50%, 1.6em); }
@@ -225,9 +221,8 @@
   OV.fx($('mid'), { motes: 22 });
   OV.fx($('art'), { motes: 26 });
 
-  /* Which seat won: 'left' / 'right' as asked for, or — with ?side=auto — the
-   * player still standing once the other one is at zero or below. null means
-   * there is no winner to show yet. */
+  // 'left' / 'right' as asked for; with ?side=auto the player still standing
+  // once the other is at zero or below. null: no winner to show yet.
   function winningSeat(m, l, r) {
     if (SIDE !== 'auto') return SIDE;
     const a = m.life[l], b = m.life[r];
@@ -259,7 +254,7 @@
     const p    = m[seat === 'left' ? l : r] || {};
     const hero = p.hero || null;
 
-    // The camera is on the winner's own side, the hero opposite.
+    // camera on the winner's own side, hero opposite
     frame.classList.toggle('right', seat === 'right');
 
     fact('f-event',  OV.t('lblEvent'),  m.eventTitle);
@@ -269,7 +264,7 @@
     $('name').textContent = OV.fmtName(p.name);
     $('hero').textContent = hero || '';
 
-    // Hero card, dealt in; behind it the same picture as a soft wash of colour.
+    // hero card, plus the same picture as a soft wash behind it
     const url = hero ? OV.heroImageUrl(hero) : null;
     stage.set(url ? { images: [url] } : null);
     if (url !== washFor) {
@@ -282,7 +277,7 @@
     frame.classList.add('show');
     if (m.warning) OV.badge(m.warning, true); else OV.badgeOk();
 
-    // ?debug=1: where the camera goes, in the pixels of this very source.
+    // ?debug=1: camera position in this source's own pixels
     if (OV.debug) {
       const c = document.querySelector('.wn-cam').getBoundingClientRect();
       $('guide').innerHTML = `${Math.round(c.width)} × ${Math.round(c.height)}<br>x ${Math.round(c.left)} · y ${Math.round(c.top)}`;

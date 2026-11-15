@@ -1,22 +1,12 @@
-/* Player-name helpers.
- *
- * GEM hands us the same person under two different spellings: the run page
- * writes "Ironsong, Dorinthea", the coverage CSVs write "Dorinthea Ironsong".
- * On top of that players may add the name they want to be called by:
- * 'Ironsong, Dorinthea "Dori"'. Joining heroes and standings on the raw string
- * therefore misses whenever a gemId is absent.
- *
- * OV.fmtName in public/shared/overlay.js strips the same pattern for display.
- */
+// GEM spells one person two ways: run page "Ironsong, Dorinthea", coverage CSV
+// "Dorinthea Ironsong", plus an optional nickname: 'Ironsong, Dorinthea "Dori"'.
+// OV.fmtName in public/shared/overlay.js strips the same pattern for display.
 
-/* Nicknames arrive in double quotes (straight, curly or German) or in brackets.
- * Apostrophes are deliberately not delimiters: they belong to O'Brien and
- * D'Angelo, and treating them as quotes would eat half those names. */
+// Nickname in double quotes (straight, curly, German) or brackets.
+// Apostrophes are not delimiters, they belong to O'Brien and D'Angelo.
 const NICK_RE = /\s*["“„«(\[][^"“”„«»()\[\]]*["”“»)\]]\s*/g;
 
-/* Letters NFD cannot take apart, because they are their own character rather
- * than a base plus an accent. Turkish dotless i shows up in German FAB events
- * often enough to matter. */
+// Letters NFD cannot decompose. Turkish dotless i is common at German events.
 const FOLD = {
   'ı': 'i', 'İ': 'i',            // ı İ
   'ø': 'o', 'œ': 'oe',           // ø œ
@@ -25,9 +15,8 @@ const FOLD = {
 };
 const FOLD_RE = new RegExp('[' + Object.keys(FOLD).join('') + ']', 'g');
 
-/* A join key that survives word order, nicknames, punctuation and accents, so
- * 'Ironsong, Dorinthea "Dori"' and "Dorinthea Ironsong" collapse onto one key.
- * Sorting the tokens is what makes the two GEM spellings agree. */
+// Join key that ignores word order, nicknames, punctuation and accents.
+// The token sort is what makes both GEM spellings match.
 function nameKey(name) {
   return String(name == null ? '' : name)
     .replace(NICK_RE, ' ')

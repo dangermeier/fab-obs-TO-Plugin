@@ -18,10 +18,8 @@ function gemFetch(url, opts = {}) {
   });
 }
 
-/* GEM answers an expired cookie with a redirect to its login page. node-fetch
- * follows it, so what comes back is a 200 that parses as an event with no
- * rounds — every overlay would quietly go blank instead of saying why.
- */
+// Expired cookie: GEM redirects to its login page and node-fetch follows, so
+// we get a 200 that parses as an event with no rounds. Catch it here.
 function assertSession(res) {
   if (res.redirected && /\/(accounts|login|signup)\b/i.test(res.url)) {
     const err = new Error('GEM session expired — log in again on the config page');
@@ -30,9 +28,9 @@ function assertSession(res) {
   }
 }
 
-// ── short-lived cache + single-flight ─────────────────────────────────────────
-// Six overlays, the control page and the featured-match refresh all want the
-// same three GEM pages. Without this, every one of them scrapes separately.
+// --- short-lived cache + single-flight ---
+// All overlays, the control page and the match refresh want the same three
+// GEM pages. Scrape once.
 
 const GEM_TTL  = 15 * 1000;
 const HERO_TTL = 24 * 60 * 60 * 1000;
@@ -56,8 +54,7 @@ function cached(key, ttl, producer, force = false) {
   return p;
 }
 
-// The demo event is served from memory and never cached: it changes the
-// moment someone presses a button on the config page.
+// Demo data is never cached, it changes on every button press in the config page.
 async function fetchTournamentData(eventId, { force = false } = {}) {
   if (demo.isDemo(eventId)) return demo.tournament();
   return cached(`tournament:${eventId}`, GEM_TTL, async () => {
@@ -94,17 +91,10 @@ async function fetchCardByName(name) {
   return res.json();
 }
 
-/* Card search for the operator's card page: every card whose name contains
- * the query, trimmed down to what the page shows and the overlay needs —
- *   { id, name, color, pitch, typeText, thumb, images: [url, …] }
- * Each pitch colour is its own entry.
- *
- * Two sources. The publisher's own card database comes first: it has every
- * card from the day it is revealed, and a picture for each. Its API is the
- * one behind cards.fabtcg.com and is not a documented, promised interface —
- * so if it fails or finds nothing, the community database (GoAgain) answers
- * instead.
- */
+// Card search. Result: { id, name, color, pitch, typeText, thumb, images: [url] },
+// one entry per pitch colour.
+// Official database first (the API behind cards.fabtcg.com, undocumented, has
+// new cards from reveal day). GoAgain is the fallback if it fails or finds nothing.
 const OFFICIAL_CARDS = 'https://api.cardvault.fabtcg.com/carddb/api/v1';
 const PITCH_COLOR = { 1: 'Red', 2: 'Yellow', 3: 'Blue' };
 
@@ -118,7 +108,7 @@ async function searchOfficialCards(q) {
 
   const seen = new Set();
   return (json.results || [])
-    .filter(c => !/^[A-Z]{2}_/.test(c.print_id || ''))        // FR_, JA_, … translations
+    .filter(c => !/^[A-Z]{2}_/.test(c.print_id || ''))        // skip translations (FR_, JA_ ...)
     .map(c => {
       const img = c.faces?.[0]?.image || {};
       return {
@@ -174,15 +164,13 @@ async function searchCards(query) {
   });
 }
 
-// Blitz, Draft, Sealed and Commoner are played with young heroes (20 life);
-// Classic Constructed and Living Legend use the adult printings.
+// Blitz, Draft, Sealed, Commoner: young heroes (20 life). CC and LL: adult.
 function isYoungFormat(format) {
   return /blitz|draft|sealed|versiegelt|booster|commoner|limited/i.test(String(format || ''));
 }
 
-// GoAgain returns every card matching the name, so "Fai" yields both the young
-// hero (20 life, Blitz artwork) and the adult one (40 life, CC artwork). Which
-// of the two is data[0] is arbitrary, hence the explicit pick.
+// GoAgain returns every name match, e.g. "Fai" gives the young and the adult
+// hero in arbitrary order. Don't trust data[0].
 function pickHeroCard(cards, wantYoung) {
   const heroes = cards.filter(c => (c.types || []).includes('Hero'));
   const pool   = heroes.length ? heroes : cards;
@@ -195,41 +183,25 @@ function pickHeroCard(cards, wantYoung) {
                    : (adult[0] || young[0] || pool[0]);
 }
 
-/* Every artwork URL of a card, best candidate first.
- *
- * The card database lists several printings per hero, hosted in different
- * places, and not all of those hosts are alive — one CDN that many "large"
- * images point at no longer resolves at all. So this is a list to try in
- * order, never a single pick.
- */
+// All artwork URLs of a card, best first. Some image hosts in the database
+// are dead, so callers try the list in order.
 const CARD_IMAGES = 'https://legendstory-production-s3-public.s3.amazonaws.com/media/cards';
 
 function printingImageUrls(card) {
   const listed = (card.printings || []).map(p => p.image_url).filter(Boolean)
-    // One CDN the database still points at is gone; the very same files are
-    // on the publisher's own bucket.
+    // the cloudfront CDN is gone, same files are on the publisher's bucket
     .map(u => u.replace(/^https:\/\/[a-z0-9]+\.cloudfront\.net\/media\/cards\//i, CARD_IMAGES + '/'));
 
-  // The publisher's bucket names its scans after the printing id, so every
-  // printing yields one more candidate even where the database lists only
-  // dead links (which is how a card ends up with no picture at all).
+  // Bucket files are named after the printing id: one extra candidate per
+  // printing, for cards where the database only lists dead links.
   const derived = (card.printings || []).map(p => p.id).filter(Boolean)
     .map(id => `${CARD_IMAGES}/large/${encodeURIComponent(id)}.webp`);
 
   const urls = [...new Set([...listed, ...derived])];
-  /* Two things decide the order.
-   *
-   * Which printing: the regular one from a booster set or a deck first. The
-   * others look different on stream — History Pack reprints (1HP, 2HP) have a
-   * white border, promos (HER, WIN, FAB, LGS, JDG, LSS …) and the foil,
-   * extended- and alternate-art variants (-RF, -EA, -MV, _MARVEL …) have
-   * their own frames — so two hero cards side by side would not match.
-   *
-   * Which file of it:
-   *   0  /cards/large/  small, clean scans — what the portrait crop was tuned on
-   *   1  /cardfaces/    clean too, but several hundred kB each
-   *   2  anything else  e.g. the "width-450" renditions, which carry a white margin
-   */
+  // Regular printings first: History Pack (white border), promos and
+  // foil/alt-art frames would not match the other hero on screen.
+  // Then by file: /cards/large/ (the portrait crop is tuned on these),
+  // /cardfaces/ (clean but heavy), rest (width-450 has a white margin).
   const file    = u => decodeURIComponent(u.split('/').pop().replace(/\.[a-z0-9]+$/i, ''));
   const special = u => /\/promos?\//i.test(u) ||
                        /^(1HP|2HP|HER|WIN|FAB|LGS|JDG|LSS|OXO|XXX)\d/i.test(file(u)) ||
@@ -239,15 +211,12 @@ function printingImageUrls(card) {
   return urls.sort((a, b) => rank(a) - rank(b));
 }
 
-/* Names the card database does not know (a typo in GEM, a brand-new set).
- * Remembered for a while, because every overlay asks again for the same
- * portrait on each refresh. Network failures are not remembered — those
- * should heal on the next try.
- */
+// Unknown hero names (GEM typo, new set) are remembered for a while, the
+// overlays ask again on every refresh. Network errors are not remembered.
 const HERO_MISS_TTL = 10 * 60 * 1000;
 const heroMisses = new Map(); // key -> timestamp
 
-// Hero stats + artwork in one lookup. `health` is the life counter's start value.
+// `health` is the start value of the life counter.
 async function fetchHeroInfo(name, { young = false } = {}) {
   const key = `hero:${String(name).toLowerCase()}|${young ? 'young' : 'adult'}`;
 
@@ -272,13 +241,8 @@ async function fetchHeroInfo(name, { young = false } = {}) {
   });
 }
 
-/* The portrait itself, as bytes: { buffer, contentType }.
- *
- * Walks the candidate URLs until one actually delivers an image, and keeps
- * the result in memory for the day. A 128-player board asks for the same two
- * dozen portraits hundreds of times; without this each of those would be a
- * fresh download from the artwork host.
- */
+// Portrait bytes: { buffer, contentType }. Tries the candidates until one is
+// an image, cached for a day (a big board requests the same portraits a lot).
 async function fetchHeroImage(name, { young = false } = {}) {
   const key = `img:${String(name).toLowerCase()}|${young ? 'young' : 'adult'}`;
   return cached(key, HERO_TTL, async () => {
@@ -293,14 +257,14 @@ async function fetchHeroImage(name, { young = false } = {}) {
         if (!/^image\//i.test(contentType)) throw new Error(`not an image (${contentType})`);
         return { buffer: await res.buffer(), contentType };
       } catch (err) {
-        lastError = err;       // dead host, missing file — try the next printing
+        lastError = err;       // dead host or missing file, try the next one
       }
     }
     throw lastError;
   });
 }
 
-// ── EVENT DISCOVERY ───────────────────────────────────────────────────────────
+// --- event discovery ---
 
 function sortByStatus(results) {
   const order = { active: 0, upcoming: 1, past: 2 };
@@ -317,7 +281,7 @@ async function fetchJudgeEvents() {
     }
   }
 
-  // Profile history pages — judge/scorekeeper events
+  // profile history: judge/scorekeeper events
   try {
     const firstRes  = await gemFetch(`${GEM_BASE}/profile/history/`);
     const firstHtml = await firstRes.text();
@@ -333,7 +297,7 @@ async function fetchJudgeEvents() {
     console.warn('[events] Profile history fetch failed:', err.message);
   }
 
-  // Active events from profile/player (catches currently running events)
+  // running events only show up on profile/player
   try {
     const html = await gemFetch(`${GEM_BASE}/profile/player/`).then(r => r.text());
     add(parseProfileEventsFromHtml(html).map(e => ({ ...e, status: 'active' })));
@@ -358,7 +322,7 @@ async function fetchStoreEvents() {
     console.log('[events] Store page status:', storeRes.status, storeRes.url);
     const storeHtml = await storeRes.text();
 
-    // Match /store/slug/anything — slug must end with digits, don't require closing quote immediately after
+    // /store/<slug>/..., slug ends in digits
     const re    = /href="\/store\/([a-z0-9][a-z0-9-]+-\d+)\//gi;
     const slugs = new Set();
     let m;
@@ -395,7 +359,7 @@ async function fetchAllEvents(mode = 'judge') {
   if (mode === 'store') return fetchStoreEvents();
   if (mode === 'judge') return fetchJudgeEvents();
 
-  // mode === 'all': merge both
+  // 'all': merge both
   const [judgeEvs, storeEvs] = await Promise.all([fetchJudgeEvents(), fetchStoreEvents()]);
   const seenIds = new Set();
   const results = [];

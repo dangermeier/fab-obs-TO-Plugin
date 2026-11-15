@@ -13,7 +13,7 @@ let loginInProgress = false;
 function loadSession() {
   try {
     if (fs.existsSync(SESSION_FILE)) {
-      // Tolerate a byte-order mark from a hand edit (see readJson in state.js).
+      // Strip a BOM left by a hand edit (same as readJson in state.js).
       session = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf8').replace(/^﻿/, ''));
       return session;
     }
@@ -43,11 +43,11 @@ function isLoginInProgress() { return loginInProgress; }
 
 function findBrowser() {
   const candidates = [
-    // Windows — Chrome
+    // Windows: Chrome
     process.env.PROGRAMFILES  && `${process.env.PROGRAMFILES}\\Google\\Chrome\\Application\\chrome.exe`,
     process.env['PROGRAMFILES(X86)'] && `${process.env['PROGRAMFILES(X86)']}\\Google\\Chrome\\Application\\chrome.exe`,
     process.env.LOCALAPPDATA  && `${process.env.LOCALAPPDATA}\\Google\\Chrome\\Application\\chrome.exe`,
-    // Windows — Edge (always present on Win10/11)
+    // Windows: Edge (ships with Win10/11)
     process.env['PROGRAMFILES(X86)'] && `${process.env['PROGRAMFILES(X86)']}\\Microsoft\\Edge\\Application\\msedge.exe`,
     process.env.PROGRAMFILES  && `${process.env.PROGRAMFILES}\\Microsoft\\Edge\\Application\\msedge.exe`,
     // Mac
@@ -67,8 +67,7 @@ function findBrowser() {
   return null;
 }
 
-// False in a container: no desktop browser to drive, so the config page points
-// at the manual session cookie instead of offering a button that cannot work.
+// False in a container (no desktop browser). Config page then offers the manual cookie only.
 function canBrowserLogin() { return !!findBrowser(); }
 
 async function launchGemLogin() {
@@ -97,13 +96,12 @@ async function launchGemLogin() {
     const [page] = await browser.pages();
     await page.goto(GEM_BASE, { waitUntil: 'domcontentloaded' });
 
-    // Poll until sessionid cookie appears on a non-login page
-    const TIMEOUT  = 5 * 60 * 1000; // 5 minutes
+    // Poll for the sessionid cookie
+    const TIMEOUT  = 5 * 60 * 1000;
     const INTERVAL = 1500;
     const start    = Date.now();
 
     while (Date.now() - start < TIMEOUT) {
-      // Check if browser was closed by the user
       if (!browser.connected) throw new Error('Browser was closed before login completed');
 
       const cookies = await page.cookies('https://gem.fabtcg.com');
@@ -111,12 +109,11 @@ async function launchGemLogin() {
 
       if (sid?.value && sid.value.length > 10) {
         const url = page.url();
-        // Make sure we're not still on an auth/login page
+        // GEM sets the cookie before login finishes: wait until we left the auth pages
         if (!url.includes('/accounts/') && !url.includes('/login') && !url.includes('/signup')) {
           await browser.close();
           browser = null;
-          // Spread the old session: re-logging in mid-tournament (expired
-          // cookie) must not drop the selected eventId and break every overlay.
+          // Keep the old session fields: a re-login mid-tournament must not drop eventId.
           saveSession({ ...session, sessionId: sid.value, savedAt: Date.now() });
           return session;
         }
@@ -146,7 +143,7 @@ async function setSessionCookie(sessionId) {
   if (res.status === 302) throw new Error('Session ID is invalid or expired');
   if (res.status !== 200) throw new Error(`GEM returned HTTP ${res.status}`);
 
-  // Spread the old session so a manually pasted cookie keeps the selected event.
+  // Same here, a pasted cookie keeps the selected event.
   saveSession({ ...session, sessionId: id, savedAt: Date.now() });
   return session;
 }

@@ -9,7 +9,7 @@
   <title>FAB Lebenspunkte</title>
   <link rel="stylesheet" href="/shared/overlay.css">
   <style>
-    /* Touch first: no double-tap zoom, no pull-to-refresh, no text selection. */
+    /* Touch: no pull-to-refresh, no text selection, no tap highlight */
     html, body {
       height: 100%;
       overscroll-behavior: none;
@@ -26,7 +26,7 @@
     }
     button, .tap { touch-action: manipulation; }
 
-    /* ── header ─────────────────────────────────────────────────────────── */
+    /* --- header --- */
     header {
       flex-shrink: 0;
       display: flex;
@@ -45,7 +45,7 @@
     .live.off .dot { background: var(--danger); }
     .live.off { color: var(--danger); }
 
-    /* ── the two player panels ──────────────────────────────────────────── */
+    /* --- player panels --- */
     main { flex: 1; display: flex; min-height: 0; }
 
     .panel {
@@ -72,7 +72,7 @@
     .who .nm  { font-size: 16px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .who .hr  { font-size: 13px; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    /* Primary targets: full-width, thumb-sized, impossible to miss. */
+    /* +1 / -1 */
     .big {
       width: 100%;
       max-width: 320px;
@@ -122,7 +122,7 @@
     }
     .quick button:active { background: var(--danger); color: #fff; border-color: var(--danger); }
 
-    /* ── full-window takeover once the match is confirmed over ──────────── */
+    /* --- "match over" takeover --- */
     .ended {
       position: fixed;
       inset: 0;
@@ -153,8 +153,8 @@
     }
     .ended-sub { font-size: clamp(17px, 3vw, 24px); color: rgba(255,255,255,0.92); line-height: 1.4; }
 
-    /* Parked in the corner and deliberately small: the finger was just in the
-       middle of the screen answering "Ja", so nothing dismissable belongs there. */
+    /* Small and in the corner on purpose: the finger just tapped "Ja" in the
+       middle of the screen and must not dismiss this by accident. */
     .ended-dismiss {
       position: absolute;
       right:  calc(18px + env(safe-area-inset-right));
@@ -176,7 +176,7 @@
     }
     .ended .act:active { background: rgba(255,255,255,0.2); }
 
-    /* Question dialog — deliberately just the question and two answers. */
+    /* "Match over?" dialog */
     .end-q {
       font-size: 21px;
       color: var(--text);
@@ -185,7 +185,7 @@
       margin-bottom: 22px;
     }
 
-    /* Fullscreen toggle in the header */
+    /* Fullscreen button */
     .icon-btn {
       flex-shrink: 0;
       width: 40px; height: 40px;
@@ -203,7 +203,7 @@
     body.fs .icon-btn .enter { display: none; }
     body.fs .icon-btn .exit  { display: block; }
 
-    /* ── action bar ─────────────────────────────────────────────────────── */
+    /* --- action bar --- */
     footer {
       flex-shrink: 0;
       display: flex;
@@ -228,7 +228,7 @@
     .act.accent { border-color: var(--accent); background: var(--accent); color: #fff; font-weight: 600; }
     .act.accent:active { background: var(--accent-deep); }
 
-    /* ── sheets (match picker, PIN) ─────────────────────────────────────── */
+    /* --- sheets (match picker, PIN) --- */
     .sheet {
       position: fixed; inset: 0;
       background: rgba(20, 24, 31, 0.55);
@@ -241,7 +241,7 @@
       backdrop-filter: blur(3px);
     }
     .sheet.open { display: flex; }
-    /* The PIN gate must sit above the end-of-match takeover. */
+    /* above .ended (350) */
     #sheet-pin { z-index: 400; }
     .sheet-box {
       width: 100%;
@@ -432,8 +432,8 @@
   const pend   = { p1: 0, p2: 0 };      // optimistic offset not yet on the server
   const inFly  = { p1: 0, p2: 0 };      // outstanding life requests per player
 
-  // ── networking ────────────────────────────────────────────────────────────
-  // Token handling lives in overlay.js and is shared with the config page.
+  // --- networking ---
+  // Token handling is in overlay.js.
 
   const post = (path, body) => OV.post(path, body, openPin);
 
@@ -446,14 +446,14 @@
     toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
   }
 
-  // ── state ─────────────────────────────────────────────────────────────────
+  // --- state ---
 
   function adopt(m) {
     if (!m) return;
     if (server && m.rev < server.rev) return;          // out-of-order response
 
-    // A player with taps still in flight keeps the value the optimistic offset
-    // was measured against; the last response to settle installs the truth.
+    // Taps still in flight: keep the base value `pend` was measured against.
+    // The last response to settle brings the real total.
     const life = Object.assign({}, m.life);
     if (server) {
       for (const p of ['p1', 'p2']) if (inFly[p] > 0) life[p] = server.life[p];
@@ -492,7 +492,7 @@
     catch (err) { if (!err.denied) toast(err.message); }
   }
 
-  // ── rendering ─────────────────────────────────────────────────────────────
+  // --- rendering ---
 
   const QUICK = [-2, -4, -5, -10];
   const panels = { left: document.getElementById('panel-left'), right: document.getElementById('panel-right') };
@@ -522,8 +522,7 @@
     };
   }
 
-  // pointerdown rather than click: no 300 ms wait, and it fires on the way down
-  // which is what makes rapid tapping feel right.
+  // pointerdown, not click: no 300 ms delay, and fast repeated taps all count.
   function onTap(el, fn) {
     el.addEventListener('pointerdown', e => { e.preventDefault(); fn(); });
   }
@@ -570,7 +569,7 @@
     renderPanel(built.left,  l);
     renderPanel(built.right, r);
 
-    // This page is German throughout, whatever language the overlays use.
+    // Always German here, independent of the overlay language.
     const STAGE = { r16: 'Achtelfinale', qf: 'Viertelfinale', sf: 'Halbfinale', f: 'Finale' };
     const bits = [];
     if (server && server.roundStage)      bits.push(STAGE[server.roundStage]);
@@ -586,11 +585,11 @@
     checkForZero();
   }
 
-  // ── end of match ──────────────────────────────────────────────────────────
+  // --- end of match ---
 
   const sheetEnd = document.getElementById('sheet-end');
-  // Set when the operator answers "no", so the dialog does not come back on
-  // every further tap. Cleared as soon as both players are above zero again.
+  // true after "Nein", so the dialog does not return on every tap.
+  // Reset once both players are above zero again.
   let zeroDismissed = false;
 
   function playersAtZero() {
@@ -603,7 +602,7 @@
   function checkForZero() {
     const dead = playersAtZero();
 
-    if (!dead.length) {                      // healed back up — arm it again
+    if (!dead.length) {                      // healed back up: re-arm
       zeroDismissed = false;
       sheetEnd.classList.remove('open');
       return;
@@ -618,8 +617,7 @@
   });
 
   onTap(document.getElementById('btn-end-yes'), async () => {
-    // Stays dismissed so hiding the overlay later does not re-ask while the
-    // loser is still sitting at zero.
+    // Keep it dismissed: "Weiter" must not re-ask while the loser is still at 0.
     zeroDismissed = true;
     sheetEnd.classList.remove('open');
     await act('/api/match/end', { ended: true });
@@ -630,7 +628,7 @@
   onTap(document.getElementById('btn-undo'), () => act('/api/match/undo'));
   onTap(document.getElementById('btn-swap'), () => act('/api/match/swap'));
 
-  // ── match picker ──────────────────────────────────────────────────────────
+  // --- match picker ---
 
   const sheetMatch = document.getElementById('sheet-match');
   const selRound   = document.getElementById('sel-round');
@@ -714,7 +712,7 @@
     } catch (err) { document.getElementById('match-err').textContent = err.message; }
   });
 
-  // ── PIN gate ──────────────────────────────────────────────────────────────
+  // --- PIN gate ---
 
   const sheetPin = document.getElementById('sheet-pin');
   let pinBuf = '';
@@ -758,7 +756,7 @@
     drawPin();
   }));
 
-  // ── live channel ──────────────────────────────────────────────────────────
+  // --- live channel ---
 
   OV.initSettings(render);
   OV.onMatch(adopt);
@@ -768,14 +766,13 @@
     document.getElementById('live-txt').textContent = s === 'live' ? 'Live' : 'Getrennt';
   });
 
-  // ── fullscreen ────────────────────────────────────────────────────────────
+  // --- fullscreen ---
 
   const fsBtn = document.getElementById('btn-fs');
   const docEl = document.documentElement;
   const canFullscreen = !!(docEl.requestFullscreen || docEl.webkitRequestFullscreen);
 
-  // Older iPads have no Fullscreen API for ordinary elements — hide the button
-  // rather than offer something that silently does nothing.
+  // Older iPads have no Fullscreen API for normal elements: hide the button.
   if (!canFullscreen) fsBtn.style.display = 'none';
 
   function fsElement() { return document.fullscreenElement || document.webkitFullscreenElement; }
@@ -792,7 +789,7 @@
     const run = fsElement()
       ? (document.exitFullscreen || document.webkitExitFullscreen).call(document)
       : (docEl.requestFullscreen || docEl.webkitRequestFullscreen).call(docEl);
-    // Chrome rejects if the gesture is not accepted; nothing to do but not crash.
+    // Chrome rejects the promise if it does not accept the gesture.
     if (run && run.catch) run.catch(err => toast('Vollbild nicht möglich: ' + err.message));
   });
 
@@ -800,9 +797,10 @@
     document.addEventListener(e, syncFsButton));
   syncFsButton();
 
-  // ── tablet housekeeping ───────────────────────────────────────────────────
+  // --- wake lock, boot ---
 
-  // Keeps the screen awake through a 50-minute round.
+  // Screen must stay on for a whole round. The lock is dropped when the tab
+  // is hidden, hence the visibilitychange re-request.
   let wakeLock = null;
   async function keepAwake() {
     if (!('wakeLock' in navigator)) return;
@@ -816,9 +814,8 @@
   fetch('/api/match').then(r => r.json()).then(adopt).catch(() => {});
   render();
 
-  // Ask for the PIN up front rather than letting the first tap fail. `unlocked`
-  // accounts for a stored token that is still valid, so a paired tablet does
-  // not get prompted again after a reload.
+  // Ask for the PIN up front. `unlocked` is true for a stored token that is
+  // still valid, so a paired tablet is not asked again after a reload.
   OV.getJson('/api/status')
     .then(s => { if (s.unlocked === false) openPin(); })
     .catch(() => {});

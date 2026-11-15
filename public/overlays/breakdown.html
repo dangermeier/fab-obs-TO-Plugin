@@ -5,9 +5,8 @@
   <title>FAB Hero Breakdown</title>
   <link rel="stylesheet" href="/shared/overlay.css">
   <style>
-    /* The rows share the frame's height: up to 4.4em each, and evenly thinner
-       once there are more heroes than fit — nothing scrolls and nothing is
-       scaled, so the board always fills the source edge to edge. */
+    /* rows share the frame height: up to 4.4em each, thinner once there are
+       more heroes than fit. No scrolling, no scaling. */
     .bars {
       flex: 1;
       min-height: 0;
@@ -23,7 +22,7 @@
       min-height: 0;
       padding: 0.28em 0;
     }
-    /* Portrait takes the row's height, whatever that turns out to be. */
+    /* portrait follows the row height */
     .bar-row .hero-wrap { align-self: stretch; aspect-ratio: 1 / 1; }
 
     .hero-name {
@@ -85,7 +84,7 @@
 <script src="/shared/overlay.js"></script>
 <script>
   const REFRESH  = OV.refreshMs;
-  // Beyond this the rows get too thin to read on stream; the tail is summed up.
+  // more rows than this get too thin to read on stream, the tail is summed up
   const MAX_ROWS = Math.max(4, parseInt(OV.params.get('max'), 10) || 18);
   const bars = document.getElementById('bars');
   const $ = id => document.getElementById(id);
@@ -98,7 +97,7 @@
 
     const counts = {};
     heroes.forEach(h => { if (h.hero) counts[h.hero] = (counts[h.hero] || 0) + 1; });
-    // Ties in a fixed order, so equal bars do not swap places between refreshes.
+    // fixed tie order, so equal bars don't swap places between refreshes
     let rows = Object.entries(counts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
 
     const kinds = rows.length;
@@ -133,7 +132,7 @@
       bars.style.gridTemplateRows = `repeat(${rows.length + (rest ? 1 : 0)}, minmax(0, 4.4em))`;
     }
 
-    // Untouched data is a no-op: no re-render, no artwork fading in again.
+    // unchanged: no re-render, the artwork would fade in again
     if (html !== shown) { bars.innerHTML = html; shown = html; }
   }
 
