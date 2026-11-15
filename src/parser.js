@@ -114,12 +114,39 @@ function parseTournamentHtml(html, eventId) {
   return result;
 }
 
+/* Parses one CSV line respecting RFC 4180 quoting: a field wrapped in `"..."`
+ * may contain commas, and a literal `"` inside it is escaped as `""`. GEM
+ * quotes the name field whenever it holds a comma (it writes "Ironsong,
+ * Dorinthea") or a quote (a player-entered nickname, `Rhinar, Katsu "Rhino"`).
+ * A naive `.split(',')` misreads the field boundaries on the first and leaves
+ * the escaping quotes in the value on the second. */
+function parseCsvLine(line) {
+  const fields = [];
+  let cur = '', inQuote = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuote) {
+      if (ch !== '"') { cur += ch; continue; }
+      if (line[i + 1] === '"') { cur += '"'; i++; }   // escaped literal quote
+      else inQuote = false;
+    } else if (ch === '"') {
+      inQuote = true;
+    } else if (ch === ',') {
+      fields.push(cur); cur = '';
+    } else {
+      cur += ch;
+    }
+  }
+  fields.push(cur);
+  return fields;
+}
+
 function parseStandingsCsv(csv) {
   const lines = csv.trim().split(/\r?\n/);
   const standings = [];
   for (let i = 1; i < lines.length; i++) {
     if (!lines[i].trim()) continue;
-    const parts = lines[i].split(',');
+    const parts = parseCsvLine(lines[i]);
     if (parts.length < 3) continue;
     standings.push({
       rank:   parseInt(parts[0]) || i,
@@ -136,22 +163,9 @@ function parseHeroesCsv(csv) {
   const lines = csv.trim().split(/\r?\n/);
   const heroes = [];
 
-  function parseLine(line) {
-    const fields = [];
-    let cur = '', inQuote = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') { inQuote = !inQuote; continue; }
-      if (ch === ',' && !inQuote) { fields.push(cur); cur = ''; continue; }
-      cur += ch;
-    }
-    fields.push(cur);
-    return fields;
-  }
-
   for (let i = 1; i < lines.length; i++) {
     if (!lines[i].trim()) continue;
-    const parts = parseLine(lines[i]);
+    const parts = parseCsvLine(lines[i]);
     const name   = (parts[0] || '').trim();
     const gemId  = (parts[1] || '').trim();
     const heroRaw = (parts[3] || '').trim();

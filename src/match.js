@@ -4,8 +4,11 @@ const {
   fetchHeroInfo, isYoungFormat
 } = require('./fetcher');
 const { getMatch, patchMatch } = require('./state');
+const { nameKey } = require('./name');
+const { isDemo } = require('./demo');
 
 const ROUND_LABELS = ['Round of 16', 'Quarterfinals', 'Semifinals', 'Finals'];
+const ROUND_STAGES = ['r16', 'qf', 'sf', 'f'];   // what the overlays translate
 const REFRESH_MS = 20 * 1000;
 
 // pairing.table is a number when GEM's cell parsed cleanly and the raw string
@@ -20,16 +23,28 @@ function completedSwissRounds(tdata) {
   return tdata.rounds.filter(r => !r.elimination && r.total > 0 && r.done >= r.total).length;
 }
 
-function labelForRound(tdata, round) {
-  if (!round) return null;
-  if (!round.elimination) return `Round ${round.round}`;
+// Position of an elimination round in ROUND_LABELS / ROUND_STAGES, derived
+// from how many tables the first top-cut round has. -1 for Swiss.
+function stageIndex(tdata, round) {
+  if (!round?.elimination) return -1;
 
   const elim  = tdata.rounds.filter(r => r.elimination).sort((a, b) => a.round - b.round);
   const idx   = elim.findIndex(r => r.round === round.round);
   const first = elim[0]?.pairings.length || 0;
   const start = first >= 8 ? 0 : first >= 4 ? 1 : first >= 2 ? 2 : 3;
 
-  return ROUND_LABELS[Math.min(start + idx, ROUND_LABELS.length - 1)] || `Round ${round.round}`;
+  return Math.min(start + Math.max(idx, 0), ROUND_LABELS.length - 1);
+}
+
+function labelForRound(tdata, round) {
+  if (!round) return null;
+  const i = stageIndex(tdata, round);
+  return i < 0 ? `Round ${round.round}` : ROUND_LABELS[i];
+}
+
+function stageForRound(tdata, round) {
+  const i = stageIndex(tdata, round);
+  return i < 0 ? null : ROUND_STAGES[i];
 }
 
 // Only broadcast when something actually differs — a background refresh every
@@ -46,7 +61,8 @@ function setWarning(msg) {
 }
 
 async function buildPlayer(name, gemId, ctx) {
-  const hero = ctx.heroById[gemId] || ctx.heroByName[(name || '').toLowerCase()] || null;
+  const key  = nameKey(name);
+  const hero = ctx.heroById[gemId] || (key && ctx.heroByName[key]) || null;
 
   let heroInfo = null;
   if (hero) {
@@ -57,7 +73,7 @@ async function buildPlayer(name, gemId, ctx) {
     }
   }
 
-  const wins = ctx.winsById[gemId] ?? ctx.winsByName[(name || '').toLowerCase()] ?? 0;
+  const wins = ctx.winsById[gemId] ?? (key ? ctx.winsByName[key] : undefined) ?? 0;
 
   return {
     name:      name || '',
@@ -77,10 +93,13 @@ async function refreshFeatured({ force = false } = {}) {
   if (m.manual || m.table == null) return m;
 
   const session = getSession();
-  if (!session?.sessionId) return setWarning('Not logged in to GEM');
+  const eventId = session?.eventId;
 
-  const eventId = session.eventId;
-  if (!eventId) return setWarning('No event selected');
+  // The demo event needs no GEM session.
+  if (!isDemo(eventId)) {
+    if (!session?.sessionId) return setWarning('Not logged in to GEM');
+    if (!eventId) return setWarning('No event selected');
+  }
 
   let tdata, heroes, standings;
   try {
@@ -92,6 +111,7 @@ async function refreshFeatured({ force = false } = {}) {
   } catch (err) {
     // A 4xx here almost always means the GEM session expired rather than the
     // site being down — point the operator at the fix.
+    if (err.sessionExpired) return setWarning(err.message);
     const expired = /HTTP 4\d\d/.test(err.message);
     return setWarning(expired
       ? `GEM rejected the request (${err.message}) — log in again on the config page`
@@ -106,7 +126,11 @@ async function refreshFeatured({ force = false } = {}) {
 
   const pairing = round.pairings.find(p => tableNum(p) === m.table);
   if (!pairing) {
-    const patch = { round: round.round, roundLabel: labelForRound(tdata, round) };
+    const patch = {
+      round:      round.round,
+      roundLabel: labelForRound(tdata, round),
+      roundStage: stageForRound(tdata, round)
+    };
     if (hasChanges(patch)) patchMatch(patch);
     return setWarning(`Table ${m.table} not found in round ${round.round}`);
   }
@@ -114,13 +138,13 @@ async function refreshFeatured({ force = false } = {}) {
   const heroById = {}, heroByName = {};
   heroes.forEach(h => {
     if (h.gemId && h.hero) heroById[h.gemId] = h.hero;
-    if (h.name  && h.hero) heroByName[h.name.toLowerCase()] = h.hero;
+    if (h.name  && h.hero) heroByName[nameKey(h.name)] = h.hero;
   });
 
   const winsById = {}, winsByName = {};
   standings.forEach(s => {
     if (s.gemId) winsById[s.gemId] = s.wins || 0;
-    if (s.name)  winsByName[s.name.toLowerCase()] = s.wins || 0;
+    if (s.name)  winsByName[nameKey(s.name)] = s.wins || 0;
   });
 
   const ctx = {
@@ -139,6 +163,7 @@ async function refreshFeatured({ force = false } = {}) {
   const patch = {
     round:       round.round,
     roundLabel:  labelForRound(tdata, round),
+    roundStage:  stageForRound(tdata, round),
     totalRounds: tdata.meta?.totalRounds ?? null,
     eventTitle:  tdata.meta?.title ?? null,
     format:      tdata.meta?.format ?? null,

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FAB Card</title>
+  <link rel="stylesheet" href="/shared/overlay.css">
+  <style>
+    /* Nothing but the card, as tall as the source, on a transparent page —
+       for layouts that do not use the broadcast frame. Size and place the
+       source in OBS; ?align=left|right pins the card to that edge.
+
+       How the card arrives, changes and leaves is .card-stage in overlay.css
+       (OV.cardStage), the same as in the frame. The padding leaves room for
+       its shadow and for the swing of the entrance. */
+    #stage { position: fixed; inset: 0; padding: 4vh; }
+    body.left  #stage { justify-items: start; }
+    body.right #stage { justify-items: end; }
+  </style>
+</head>
+<body class="ov-transparent">
+<div id="stage"></div>
+<div id="status-badge">Loading…</div>
+
+<script src="/shared/overlay.js"></script>
+<script>
+  const stage = OV.cardStage(document.getElementById('stage'));
+  const ALIGN = OV.params.get('align');
+  if (ALIGN === 'left' || ALIGN === 'right') document.body.classList.add(ALIGN);
+
+  let last = null;
+
+  // Life taps arrive on the same channel; the stage ignores an unchanged card.
+  function render(m) {
+    stage.set((m && m.card) || null);
+    OV.badgeOk();
+  }
+
+  OV.onMatch(m => { last = m; render(m); });
+  OV.onLiveState(s => { if (s === 'offline') OV.badge('Reconnecting…', true); });
+
+  // Fallback if the live channel never connects.
+  function poll() {
+    fetch('/api/match')
+      .then(r => r.json())
+      .then(m => { if (!last || m.rev >= last.rev) { last = m; render(m); } })
+      .catch(() => {});
+  }
+  poll();
+  setInterval(poll, OV.refreshMs);
+</script>
+</body>
+</html>

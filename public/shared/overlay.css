@@ -2,12 +2,20 @@
    Design system — "Royal on Cool White"
 
    Two surfaces, one set of semantic token names:
-     light (default)  pages and full-frame boards
-     .surface-dark    anything floating over the camera feed
+     light (default)  the White theme
+     .theme-dark      the Black theme
+     .theme-usurp     Usurp the Shadow Throne (at the end of this file)
+     .theme-mpa       Mastery Pack Assassin (after it)
+     .surface-dark    the banner and badges floating over the camera feed,
+                      dark whatever the theme
 
    Components below only ever reference the semantic tokens, never the raw
    primitives, so flipping a page to dark is a single class on <body>.
    ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Oswald, the display typeface, lives in fonts/fonts.css and is shipped
+   with the project. */
+@import url('/shared/fonts/fonts.css');
 
 :root {
   /* ── primitives ───────────────────────────────────────────────────────── */
@@ -35,9 +43,10 @@
   --danger-light: #c0392f;
   --danger-dark:  #f04a5c;
 
-  /* Bahnschrift ships with Windows 10/11 — a condensed technical grotesque,
-     the register broadcast graphics actually use. */
-  --font-head: 'Bahnschrift', 'Segoe UI Semibold', 'Franklin Gothic Medium', system-ui, sans-serif;
+  /* The display face — headlines, names in the frame, every figure. Oswald:
+     narrow and strong, the voice of sports graphics. Bahnschrift is the
+     closest thing Windows has, should the file ever fail to load. */
+  --font-head: 'Oswald', 'Bahnschrift', 'Segoe UI Semibold', system-ui, sans-serif;
   --font-body: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 
   /* ── semantic tokens: light surface ───────────────────────────────────── */
@@ -60,10 +69,50 @@
   --line-strong: rgba(20, 24, 31, 0.2);
 
   --shadow: 0 2px 10px rgba(20, 24, 31, 0.1);
+
+  /* ── depth ────────────────────────────────────────────────────────────────
+     Surfaces are not flat: panels carry a faint top-to-bottom sheen and float
+     a little above the page, which has a soft vignette of its own. */
+  --page:    radial-gradient(130% 90% at 50% 0%, #ffffff 0%, #eef1f6 55%, #e3e8f0 100%);
+  --surface: linear-gradient(180deg, #ffffff 0%, #f5f7fb 100%);
+  --lift:        0 1px 2px rgba(20, 24, 31, 0.06), 0 0.45em 1.1em -0.4em rgba(20, 24, 31, 0.22);
+  --lift-strong: 0 2px 4px rgba(20, 24, 31, 0.07), 0 1.1em 2.4em -0.8em rgba(20, 24, 31, 0.38);
+  --glow:    0 0 0.9em rgba(36, 86, 199, 0.4);
+  --ring:    rgba(20, 24, 31, 0.16);
+  /* An accent rule that fades out towards both ends. */
+  --rule:    linear-gradient(90deg, transparent 0%, var(--accent) 16%, var(--accent) 84%, transparent 100%);
+
+  /* Background animation: the drifting light and the motes in it. */
+  --fx-light: rgba(36, 86, 199, 0.24);
+  --fx-soft:  rgba(255, 255, 255, 0.95);
+  --fx-mote:  rgba(36, 86, 199, 0.6);
+  --fx-sheen: rgba(36, 86, 199, 0.11);
+
+  /* ── dividers ─────────────────────────────────────────────────────────────
+     A dividing line never runs edge to edge: it fades in, breaks in the middle
+     for a small four-pointed star, and fades out again. --sep-h / --sep-v are
+     complete backgrounds for a thin strip laid over the seam. (They have to
+     be declared per theme: a custom property resolves the var()s inside it
+     where it is declared, not where it is used.) */
+  --orn-img: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%232456c7' d='M12 0C13 8 16 11 24 12 16 13 13 16 12 24 11 16 8 13 0 12 8 11 11 8 12 0Z'/%3E%3C/svg%3E");
+  --sep-h: var(--orn-img) center / 0.62em 0.62em no-repeat, linear-gradient(90deg, transparent 0%, var(--line-strong) 26%, var(--line-strong) calc(50% - 0.8em), transparent calc(50% - 0.8em), transparent calc(50% + 0.8em), var(--line-strong) calc(50% + 0.8em), var(--line-strong) 74%, transparent 100%) center / 100% 1px no-repeat;
+  --sep-v: var(--orn-img) center / 0.62em 0.62em no-repeat, linear-gradient(180deg, transparent 0%, var(--line-strong) 26%, var(--line-strong) calc(50% - 0.8em), transparent calc(50% - 0.8em), transparent calc(50% + 0.8em), var(--line-strong) calc(50% + 0.8em), var(--line-strong) 74%, transparent 100%) center / 1px 100% no-repeat;
+
+  /* ── sizing ───────────────────────────────────────────────────────────────
+     One unit for every full-frame board: 20px on a 1920-wide source, growing
+     with it up to 4K and never dropping below what a phone viewer can read.
+     Boards are laid out in em off this, so ?scale= resizes them as a whole. */
+  --scale: 1;
+  --u: calc(clamp(14px, 1.0417vw, 44px) * var(--scale));
 }
 
-/* ── semantic tokens: dark surface ──────────────────────────────────────── */
-.surface-dark {
+/* ── themes ─────────────────────────────────────────────────────────────────
+   A theme is one block of semantic tokens under `.theme-<id>`, plus an entry
+   in THEMES in src/state.js — that is all it takes to add one. `theme-light`
+   needs no block: it is the :root default above. `.surface-dark` is the same
+   set of values for the overlays that are dark whatever the theme. */
+.surface-dark,
+.theme-dark {
   --bg:        var(--slate-900);
   --bg-raised: var(--slate-800);
   --bg-sunken: var(--slate-700);
@@ -83,6 +132,30 @@
   --line-strong: rgba(255, 255, 255, 0.18);
 
   --shadow: 0 4px 22px rgba(0, 0, 0, 0.6);
+
+  --page:    radial-gradient(130% 90% at 50% 0%, #1c2433 0%, #0f1319 58%, #08090c 100%);
+  --surface: linear-gradient(180deg, #1d232e 0%, #141920 100%);
+  --lift:        inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0.5em 1.2em -0.45em rgba(0, 0, 0, 0.8);
+  --lift-strong: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 1.2em 2.6em -0.8em rgba(0, 0, 0, 0.95);
+  --glow:    0 0 1em rgba(134, 169, 245, 0.5);
+  --ring:    rgba(255, 255, 255, 0.18);
+
+  --fx-light: rgba(134, 169, 245, 0.3);
+  --fx-soft:  rgba(72, 104, 184, 0.34);
+  --fx-mote:  rgba(186, 208, 255, 0.85);
+  --fx-sheen: rgba(170, 196, 255, 0.13);
+  /* Declared again so it picks up this theme's accent. */
+  --rule:    linear-gradient(90deg, transparent 0%, var(--accent) 16%, var(--accent) 84%, transparent 100%);
+
+  /* ── dividers ─────────────────────────────────────────────────────────────
+     A dividing line never runs edge to edge: it fades in, breaks in the middle
+     for a small four-pointed star, and fades out again. --sep-h / --sep-v are
+     complete backgrounds for a thin strip laid over the seam. (They have to
+     be declared per theme: a custom property resolves the var()s inside it
+     where it is declared, not where it is used.) */
+  --orn-img: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%2386a9f5' d='M12 0C13 8 16 11 24 12 16 13 13 16 12 24 11 16 8 13 0 12 8 11 11 8 12 0Z'/%3E%3C/svg%3E");
+  --sep-h: var(--orn-img) center / 0.62em 0.62em no-repeat, linear-gradient(90deg, transparent 0%, var(--line-strong) 26%, var(--line-strong) calc(50% - 0.8em), transparent calc(50% - 0.8em), transparent calc(50% + 0.8em), var(--line-strong) calc(50% + 0.8em), var(--line-strong) 74%, transparent 100%) center / 100% 1px no-repeat;
+  --sep-v: var(--orn-img) center / 0.62em 0.62em no-repeat, linear-gradient(180deg, transparent 0%, var(--line-strong) 26%, var(--line-strong) calc(50% - 0.8em), transparent calc(50% - 0.8em), transparent calc(50% + 0.8em), var(--line-strong) calc(50% + 0.8em), var(--line-strong) 74%, transparent 100%) center / 1px 100% no-repeat;
 }
 
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -91,6 +164,11 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-body);
+  /* Lining figures everywhere: scores and records must sit on one line. */
+  font-feature-settings: 'lnum' 1;
+  /* Some display faces come in one weight only. Use that as it is rather than
+     letting the browser smear a fake bold over it. */
+  font-synthesis-weight: none;
   width: 100vw;
   height: 100vh;
   overflow: hidden;
@@ -110,30 +188,127 @@ body {
   content: '';
   position: absolute;
   top: 0; left: 0; right: 0;
-  height: 4px;
+  height: 2px;
   background: var(--accent);
   z-index: 100;
 }
 
-.overlay-header {
+body.board { font-size: var(--u); }
+
+/* ── board header ───────────────────────────────────────────────────────────
+   What the board shows is the headline; the event name is context underneath.
+   Numbers sit on the right, and a progress rule can run along the bottom edge. */
+.board-head {
+  position: relative;
   flex-shrink: 0;
-  padding: 15px 22px 12px;
+  display: flex;
+  align-items: flex-end;
+  gap: 2em;
+  padding: 0.95em 1.6em 0.8em;
   border-bottom: 1px solid var(--line);
   background: var(--bg-raised);
 }
-.overlay-title {
+.bh-main { flex: 1; min-width: 0; }
+.bh-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55em;
   font-family: var(--font-head);
-  font-size: clamp(17px, 2.1vw, 24px);
+  font-size: 2em;
   font-weight: 600;
+  line-height: 1.15;
   color: var(--text);
+  white-space: nowrap;
+}
+.bh-tag {
+  font-family: var(--font-body);
+  font-size: 0.33em;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.bh-sub {
+  margin-top: 0.15em;
+  font-size: 0.85em;
+  color: var(--text-dim);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.overlay-subtitle {
-  font-size: clamp(11px, 1.3vw, 13px);
+.bh-side { flex-shrink: 0; text-align: right; }
+.bh-num {
+  font-family: var(--font-head);
+  font-size: 2em;
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.bh-num i { font-style: normal; color: var(--text-dim); font-weight: 600; }
+.bh-note { margin-top: 0.15em; font-size: 0.85em; color: var(--text-dim); }
+.bh-side:empty { display: none; }
+
+.bh-bar { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; }
+.bh-fill { height: 100%; width: 0; background: var(--accent); transition: width 0.6s ease; }
+
+/* ── pairing rows (Pairings and Round Status) ───────────────────────────────
+   Centred and width-capped: on a 1920 px source the two names would otherwise
+   sit a metre apart and stop reading as one pairing. */
+.prow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8em;
+  padding: 0.42em 1.6em;
+  border-bottom: 1px solid var(--line);
+}
+.prow:nth-child(even) { background: var(--bg-row); }
+.prow.live            { background: var(--accent-tint); }
+
+.p-tno {
+  width: 3.2em;
+  flex-shrink: 0;
+  font-family: var(--font-head);
+  font-size: 1.05em;
+  font-weight: 600;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.p-pl {
+  flex: 1 1 0;
+  max-width: 20em;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.65em;
+}
+.p-pl.r { flex-direction: row-reverse; text-align: right; }
+.p-txt { min-width: 0; display: flex; flex-direction: column; gap: 0.05em; }
+.p-nm, .p-hero { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p-nm   { font-size: 1.2em; line-height: 1.2; color: var(--text); }
+.p-hero { font-size: 0.75em; line-height: 1.25; color: var(--text-dim); }
+/* The green name alone says who won — no extra label needed. */
+.p-pl.win  .p-nm { color: var(--win); font-weight: 700; }
+.p-pl.lose .p-nm { color: var(--text-dim); }
+
+/* "vs", "running": set as a quiet italic aside rather than a caps label. */
+.p-mid {
+  width: 5.2em;
+  flex-shrink: 0;
+  text-align: center;
+  font-family: var(--font-head);
+  font-style: italic;
+  font-size: 0.9em;
   color: var(--text-dim);
-  margin-top: 3px;
+}
+.p-mid.running { color: var(--accent); }
+
+.board-empty {
+  padding: 3em 1.6em;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 1.1em;
 }
 
 /* Scroll container */
@@ -143,6 +318,19 @@ body {
   top: 0; left: 0; right: 0;
   will-change: transform;
 }
+/* When the list is shorter than the frame, spread the rows over the height
+   instead of leaving a large empty block underneath. */
+.scroll-track.fit {
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.scroll-track.fit > * { flex: 1 1 auto; max-height: 4.6em; }
+
+/* Once a list is on screen, later content swaps show their portraits at once
+   instead of fading every one of them in again. */
+.quiet .hero-img { opacity: 1; transition: none; }
 
 /* Hero portrait — placeholder letter behind, artwork fades in on top */
 .hero-wrap {
@@ -223,3 +411,680 @@ body.ov-transparent { background: transparent; }
   z-index: 200;
 }
 #status-badge.error { color: var(--danger); }
+/* Healthy sources show nothing on stream; ?debug=1 brings the badge back. */
+#status-badge.ok { display: none; }
+.debug #status-badge.ok { display: block; }
+
+/* ── ornament ───────────────────────────────────────────────────────────────
+   A small four-pointed star, the mark that recurs through the whole system. It sits
+   between two things that belong together — the two life totals, a label and
+   its line. Never more than one per group. */
+.orn {
+  flex-shrink: 0;
+  width: 0.72em;
+  height: 0.72em;
+  background: var(--orn-img) center / contain no-repeat;
+  animation: twinkle 3.8s ease-in-out infinite;
+}
+@keyframes twinkle {
+  0%, 100% { transform: scale(1);                  opacity: 1; }
+  50%      { transform: scale(0.62) rotate(45deg); opacity: 0.55; }
+}
+
+/* ── ticker (?mode=ticker on Pairings and Standings) ────────────────────────
+   A band running across the frame, one cell per table (or per two places):
+   a heading, then two players under each other with portrait and record.
+
+   Everything is sized off the source's HEIGHT — a band is defined by how tall
+   it is, not how wide. It is 5.5em tall, so 18.2vh makes it fill a source of
+   any height up to about 143px exactly; in a taller source it keeps that
+   height and sits on the bottom edge. */
+.tk { display: none; }
+
+body.ticker {
+  background: transparent;
+  font-size: calc(clamp(11px, 18.2vh, 26px) * var(--scale));
+}
+body.ticker .overlay-frame { display: none; }
+
+body.ticker .tk {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  height: min(100vh, 5.5em);
+  display: flex;
+  align-items: stretch;
+  background: var(--bg-raised);
+  color: var(--text);
+  border-top: 2px solid var(--accent);
+}
+body.ticker.pos-top .tk { top: 0; bottom: auto; }
+
+/* What is running. The cells disappear behind it. */
+.tk-label {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.3em;
+  padding: 0 1.5em;
+  background: var(--bg-raised);
+  border-right: 1px solid var(--line-strong);
+  white-space: nowrap;
+}
+.tk-ttl { font-family: var(--font-head); font-size: 1.45em; font-weight: 600; line-height: 1.05; }
+.tk-sub {
+  font-size: 0.55em;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.tk-sub:empty { display: none; }
+
+.tk-view  { flex: 1; min-width: 0; position: relative; overflow: hidden; }
+.tk-track {
+  position: absolute;
+  top: 0; bottom: 0; left: 0;
+  display: flex;
+  align-items: stretch;
+  width: max-content;
+  will-change: transform;
+}
+
+/* One cell: heading, player, player. */
+.tk-item {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.12em;
+  min-width: 15em;
+  padding: 0 1.4em;
+  border-right: 1px solid var(--line);
+  white-space: nowrap;
+}
+.tk-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1em;
+  margin-bottom: 0.1em;
+  font-family: var(--font-head);
+  font-size: 0.78em;
+  font-weight: 600;
+  color: var(--accent);
+}
+.tk-head i { font-weight: 400; color: var(--text-dim); }
+
+.tk-row { display: flex; align-items: center; gap: 0.5em; }
+.tk-row .hero-wrap { width: 1.45em; height: 1.45em; }
+.tk-rank {
+  width: 1.5em;
+  flex-shrink: 0;
+  text-align: right;
+  font-family: var(--font-head);
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.tk-nm {
+  flex: 1;
+  min-width: 0;
+  max-width: 14em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+.tk-row.win  .tk-nm { color: var(--win); font-weight: 700; }
+.tk-row.lose .tk-nm { color: var(--text-dim); }
+.tk-rec {
+  flex-shrink: 0;
+  margin-left: 0.6em;
+  font-family: var(--font-head);
+  font-size: 0.9em;
+  font-weight: 600;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.tk-empty { display: flex; align-items: center; padding: 0 1.4em; color: var(--text-dim); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Depth and flourish
+
+   Everything above describes structure. This layer is what makes the boards
+   feel made rather than generated: floating panels, soft shadows, rules that
+   fade at their ends, a glint that travels along the top edge, rows that
+   arrive one after the other. It only uses the depth tokens, so every theme
+   gets it for free.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.overlay-frame { background: var(--page); }
+
+/* The top rule fades at both ends, and now and then a glint runs along it. */
+.overlay-frame::before { background: var(--rule); }
+.overlay-frame::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 18%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.95), transparent);
+  animation: glint 6s ease-in-out infinite;
+  z-index: 101;
+  pointer-events: none;
+}
+@keyframes glint {
+  0%        { transform: translateX(-110%); }
+  45%, 100% { transform: translateX(660%); }
+}
+
+.board-head {
+  z-index: 2;
+  border-bottom: 0;
+  background: var(--surface);
+  box-shadow: var(--lift-strong);
+}
+/* The star between a title and its tag. */
+.bh-tag:not(:empty)::before {
+  content: '';
+  display: inline-block;
+  width: 1.5em;
+  height: 1.5em;
+  margin-right: 0.9em;
+  vertical-align: -0.38em;
+  background: var(--orn-img) center / contain no-repeat;
+  animation: twinkle 3.8s ease-in-out infinite;
+}
+.bh-bar  { height: 3px; }
+.bh-fill { background: linear-gradient(90deg, var(--accent-deep), var(--accent)); box-shadow: var(--glow); }
+
+/* Rows are cards floating on the page rather than stripes of a table. */
+.prow {
+  width: min(100% - 3.2em, 68em);
+  margin: 0.5em auto 0;
+  padding: 0.5em 1.3em;
+  border: 0;
+  border-radius: 0.4em;
+  background: var(--surface);
+  box-shadow: var(--lift);
+}
+.prow:nth-child(even) { background: var(--surface); }
+.prow.live {
+  background: var(--surface);
+  box-shadow: var(--lift), inset 0.22em 0 0 var(--accent);
+}
+
+.hero-wrap {
+  border: 0;
+  border-radius: 0.22em;
+  box-shadow: 0 0 0 1px var(--ring), 0 0.18em 0.5em rgba(0, 0, 0, 0.3);
+}
+
+/* The first list on screen arrives row by row; later updates just appear. */
+.fresh > * { animation: rise 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.fresh > :nth-child(2)  { animation-delay: 0.05s; }
+.fresh > :nth-child(3)  { animation-delay: 0.10s; }
+.fresh > :nth-child(4)  { animation-delay: 0.15s; }
+.fresh > :nth-child(5)  { animation-delay: 0.20s; }
+.fresh > :nth-child(6)  { animation-delay: 0.25s; }
+.fresh > :nth-child(7)  { animation-delay: 0.30s; }
+.fresh > :nth-child(8)  { animation-delay: 0.35s; }
+.fresh > :nth-child(9)  { animation-delay: 0.40s; }
+.fresh > :nth-child(10) { animation-delay: 0.45s; }
+.fresh > :nth-child(11) { animation-delay: 0.50s; }
+.fresh > :nth-child(12) { animation-delay: 0.55s; }
+.fresh > :nth-child(n+13) { animation-delay: 0.60s; }
+@keyframes rise {
+  from { opacity: 0; transform: translateY(0.7em); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Panels over the camera: rounded, lit from above, lifted off the picture. */
+.ov-panel {
+  border: 0;
+  border-radius: 0.5em;
+  background: linear-gradient(180deg, rgba(30, 36, 47, 0.95), rgba(13, 16, 21, 0.95));
+  box-shadow: inset 0 2px 0 var(--accent), inset 0 3px 0 rgba(255, 255, 255, 0.06),
+              0 1.2em 2.8em -0.8em rgba(0, 0, 0, 0.85);
+}
+
+/* Ticker band */
+body.ticker .tk {
+  border-top: 0;
+  background: var(--surface);
+  box-shadow: 0 -0.7em 2em -0.7em rgba(0, 0, 0, 0.55);
+}
+body.ticker .tk::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--rule);
+  z-index: 3;
+}
+.tk-label {
+  border-right: 0;
+  background: var(--surface);
+  box-shadow: 0.6em 0 1.2em -0.6em rgba(0, 0, 0, 0.45);
+}
+.tk-item { position: relative; border-right: 0; }
+.tk-item::after {
+  content: '';
+  position: absolute;
+  top: 8%; bottom: 8%; right: -0.36em;
+  width: 0.72em;
+  background: var(--sep-v);
+  pointer-events: none;
+}
+
+/* ── background animation ───────────────────────────────────────────────────
+   OV.fx() puts a .fx layer behind the content of a host: motes of light rising
+   through it and, on the full-frame boards, four large patches of light
+   drifting about. Floating panels — board header, ticker band, the frame's
+   bar and side panels, the banner and badges — also get a band of light
+   passing across them. Everything animates transform and opacity only. */
+
+.fx-host { isolation: isolate; }
+
+.fx {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.fx-glow {
+  position: absolute;
+  width: 75vmax;
+  height: 75vmax;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--fx-light), transparent);
+  will-change: transform;
+}
+.fx-glow.a { left: -22vmax; top: -34vmax;    animation: drift-a 26s ease-in-out infinite alternate; }
+.fx-glow.b { right: -28vmax; top: 0;         animation: drift-b 33s ease-in-out infinite alternate;
+             background: radial-gradient(closest-side, var(--fx-soft), transparent); }
+.fx-glow.c { left: 18vmax; bottom: -48vmax;  animation: drift-c 39s ease-in-out infinite alternate; }
+.fx-glow.d { right: 8vmax; bottom: -30vmax;  animation: drift-d 30s ease-in-out infinite alternate;
+             width: 50vmax; height: 50vmax; }
+
+@keyframes drift-a { to { transform: translate(42vmax, 26vmax) scale(1.3); } }
+@keyframes drift-b { to { transform: translate(-38vmax, 30vmax) scale(0.8); } }
+@keyframes drift-c { to { transform: translate(24vmax, -34vmax) scale(1.25); } }
+@keyframes drift-d { to { transform: translate(-46vmax, -20vmax) scale(1.4); } }
+
+/* A mote rises the height of its host (--rise, set by OV.fx), swaying a
+   little, and glimmers on the way. */
+.fx-mote {
+  position: absolute;
+  bottom: -8px;
+  border-radius: 50%;
+  background: var(--fx-mote);
+  box-shadow: 0 0 8px 2px var(--fx-mote);
+  opacity: 0;
+  animation: mote linear infinite;
+  will-change: transform, opacity;
+}
+@keyframes mote {
+  0%   { transform: translate3d(0, 0, 0);                                        opacity: 0; }
+  10%  {                                                                          opacity: 1; }
+  35%  {                                                                          opacity: 0.35; }
+  55%  {                                                                          opacity: 0.95; }
+  78%  {                                                                          opacity: 0.4; }
+  100% { transform: translate3d(var(--sway, 0px), calc(-1 * var(--rise, 100vh)), 0); opacity: 0; }
+}
+
+/* A band of light crossing a panel. It moves as a background rather than as
+   an element, so the panel does not have to clip its contents — the life
+   change flies out of a badge and drops out of the frame's bar. */
+.board-head::after,
+body.ticker .tk::after,
+.ov-panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(100deg, transparent, var(--fx-sheen) 42%, var(--fx-sheen) 58%, transparent) no-repeat;
+  background-size: 45% 100%;
+  animation: sweep-bg var(--sweep-every) ease-in-out infinite;
+  pointer-events: none;
+}
+/* A rare event: the band takes about five seconds to cross and then stays
+   away for the rest of the minute. --sweep-every is the whole cycle; the
+   crossing is the first 8% of it. */
+:root { --sweep-every: 60s; }
+@keyframes sweep-bg {
+  0%       { background-position: -90% 0; }
+  8%, 100% { background-position: 280% 0; }
+}
+/* The same band as a moving element, for panels that clip anyway. */
+@keyframes sweep {
+  0%       { transform: translateX(-110%); }
+  8%, 100% { transform: translateX(330%); }
+}
+
+html.no-fx .fx, html.no-fx .board-head::after, html.no-fx body.ticker .tk::after,
+html.no-fx .ov-panel::after { display: none; }
+html.no-fx .orn, html.no-fx .bh-tag::before { animation: none; }
+
+/* ── the card on show (OV.cardStage) ────────────────────────────────────────
+   One cell that every card image shares, so the old and the new one can be on
+   stage together while they change places. Three movements:
+
+     in        dealt — up from below at an angle, a touch past, then settles
+     flip-out  turned over: the old card swings away edge-on …
+     flip-in   … and the new one swings in from the other side
+     out       drawn away downwards
+
+   Each ends on `transform: none`: the card comes to rest perfectly straight. */
+.card-stage {
+  display: grid;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  place-items: center;
+  perspective: 70em;
+}
+.card-img {
+  grid-area: 1 / 1;
+  max-width: 100%;
+  max-height: 100%;
+  /* The corner of a real card — 3 mm on 63 x 88 — so it is right at any size. */
+  border-radius: 4.7% / 3.4%;
+  filter: drop-shadow(0 0.6em 1em rgba(0, 0, 0, 0.55));
+  backface-visibility: hidden;
+  will-change: transform, opacity;
+}
+/* Every card fills its stage, whatever the pixel size of the scan behind it:
+   as wide as the stage or as tall, whichever is reached first, always in the
+   proportions of a card. Without this a 450 px scan would sit next to a
+   546 px one at two different sizes. (Container units; an old browser keeps
+   the max-width / max-height above and shows scans at their own size.) */
+@supports (width: 1cqw) {
+  .card-stage { container-type: size; }
+  .card-img {
+    width: min(100cqw, 100cqh * 63 / 88);
+    height: auto;
+    max-width: none;
+    max-height: none;
+    aspect-ratio: 63 / 88;
+    object-fit: cover;
+  }
+}
+.card-img.in       { animation: card-in       0.85s cubic-bezier(0.2, 0.75, 0.2, 1) both; }
+.card-img.out      { animation: card-out      0.5s  cubic-bezier(0.5, 0, 0.8, 0.4) both; }
+.card-img.flip-out { animation: card-flip-out 0.34s ease-in both; }
+.card-img.flip-in  { animation: card-flip-in  0.5s  cubic-bezier(0.2, 0.75, 0.2, 1) 0.32s both; }
+
+@keyframes card-in {
+  0%   { opacity: 0; transform: translateY(24%) rotate(-11deg) scale(0.84); }
+  45%  { opacity: 1; }
+  72%  { opacity: 1; transform: translateY(-1.5%) rotate(1.2deg) scale(1.02); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes card-out {
+  0%   { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(22%) rotate(9deg) scale(0.86); }
+}
+@keyframes card-flip-out {
+  0%   { transform: none; }
+  100% { transform: rotateY(90deg) scale(0.95); }
+}
+@keyframes card-flip-in {
+  0%   { transform: rotateY(-90deg) scale(0.95); }
+  70%  { transform: rotateY(6deg); }
+  100% { transform: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Theme: Usurp the Shadow Throne
+
+   The colours of the set — the violet dark of i'Arathael, magenta fire, a
+   trace of spectral teal — and a background of its own: arcane circles
+   turning slowly behind the content, shards of rock adrift, embers rising.
+   Colours and motifs only; none of the set's artwork is in here.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.theme-usurp {
+  --bg:        #0d0716;
+  --bg-raised: #1a0f2b;
+  --bg-sunken: #25153b;
+  --bg-row:    rgba(255, 255, 255, 0.03);
+
+  --text:      #f1eafb;
+  --text-dim:  #a797c2;
+
+  --accent:      #f06bff;
+  --accent-deep: #b44dff;
+  --accent-tint: rgba(240, 107, 255, 0.12);
+
+  --win:    #5fe39a;
+  --danger: #ff5c7a;
+
+  --line:        rgba(225, 195, 255, 0.12);
+  --line-strong: rgba(225, 195, 255, 0.24);
+
+  --shadow: 0 4px 22px rgba(5, 0, 12, 0.7);
+
+  --page:    radial-gradient(130% 95% at 50% 0%, #3d1766 0%, #1a0b30 52%, #07030f 100%);
+  --surface: linear-gradient(180deg, #2b1747 0%, #170c29 100%);
+  --lift:        inset 0 1px 0 rgba(240, 190, 255, 0.1), 0 0.5em 1.2em -0.45em rgba(4, 0, 10, 0.85);
+  --lift-strong: inset 0 1px 0 rgba(240, 190, 255, 0.12), 0 1.2em 2.6em -0.8em rgba(4, 0, 10, 0.95);
+  --glow:    0 0 1em rgba(240, 107, 255, 0.6);
+  --ring:    rgba(230, 200, 255, 0.22);
+
+  --fx-light: rgba(226, 64, 255, 0.3);
+  --fx-soft:  rgba(96, 70, 235, 0.36);
+  --fx-mote:  rgba(255, 128, 232, 0.9);
+  --fx-sheen: rgba(240, 150, 255, 0.14);
+  /* Declared again so it picks up this theme's accent. */
+  --rule:    linear-gradient(90deg, transparent 0%, var(--accent) 16%, var(--accent) 84%, transparent 100%);
+
+  /* ── dividers ─────────────────────────────────────────────────────────────
+     A dividing line never runs edge to edge: it fades in, breaks in the middle
+     for a small four-pointed star, and fades out again. --sep-h / --sep-v are
+     complete backgrounds for a thin strip laid over the seam. (They have to
+     be declared per theme: a custom property resolves the var()s inside it
+     where it is declared, not where it is used.) */
+  --orn-img: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23f06bff' d='M12 0C13 8 16 11 24 12 16 13 13 16 12 24 11 16 8 13 0 12 8 11 11 8 12 0Z'/%3E%3C/svg%3E");
+  --sep-h: var(--orn-img) center / 0.62em 0.62em no-repeat, linear-gradient(90deg, transparent 0%, var(--line-strong) 26%, var(--line-strong) calc(50% - 0.8em), transparent calc(50% - 0.8em), transparent calc(50% + 0.8em), var(--line-strong) calc(50% + 0.8em), var(--line-strong) 74%, transparent 100%) center / 100% 1px no-repeat;
+  --sep-v: var(--orn-img) center / 0.62em 0.62em no-repeat, linear-gradient(180deg, transparent 0%, var(--line-strong) 26%, var(--line-strong) calc(50% - 0.8em), transparent calc(50% - 0.8em), transparent calc(50% + 0.8em), var(--line-strong) calc(50% + 0.8em), var(--line-strong) 74%, transparent 100%) center / 1px 100% no-repeat;
+}
+
+/* ── its background ─────────────────────────────────────────────────────── */
+.fx-sigil, .fx-shard { display: none; }
+
+/* A third colour in the drifting light: the teal of the gate. */
+.theme-usurp .fx-glow.c { background: radial-gradient(closest-side, rgba(64, 214, 226, 0.2), transparent); }
+
+/* Two arcane circles, far larger than the frame, turning against each other. */
+.theme-usurp .fx-sigil {
+  display: block;
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 150vmin; height: 150vmin;
+  margin: -75vmin 0 0 -75vmin;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200' fill='none' stroke='%23f06bff'%3E%3Cg stroke-width='.35'%3E%3Ccircle cx='100' cy='100' r='97'/%3E%3Ccircle cx='100' cy='100' r='91'/%3E%3Ccircle cx='100' cy='100' r='52'/%3E%3Cpath d='M100 9 178.8 145.5H21.2Z'/%3E%3Cpath d='M100 191 21.2 54.5H178.8Z'/%3E%3Ccircle cx='100' cy='9' r='5'/%3E%3Ccircle cx='178.8' cy='145.5' r='5'/%3E%3Ccircle cx='21.2' cy='145.5' r='5'/%3E%3Ccircle cx='100' cy='191' r='5'/%3E%3Ccircle cx='21.2' cy='54.5' r='5'/%3E%3Ccircle cx='178.8' cy='54.5' r='5'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+  opacity: 0.3;
+  animation: sigil 160s linear infinite;
+  will-change: transform;
+}
+.theme-usurp .fx-sigil.b {
+  width: 108vmin; height: 108vmin;
+  margin: -54vmin 0 0 -54vmin;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200' fill='none' stroke='%23f06bff'%3E%3Ccircle cx='100' cy='100' r='94' stroke-width='5' stroke-dasharray='.6 5.55'/%3E%3Cg stroke-width='.45'%3E%3Ccircle cx='100' cy='100' r='99'/%3E%3Ccircle cx='100' cy='100' r='88'/%3E%3Cpath d='M100 12 188 100 100 188 12 100Z'/%3E%3Cpath d='M37.8 37.8H162.2V162.2H37.8Z'/%3E%3C/g%3E%3C/svg%3E");
+  opacity: 0.26;
+  animation-duration: 110s;
+  animation-direction: reverse;
+}
+@keyframes sigil { to { transform: rotate(360deg); } }
+
+/* Shards of rock, lit from one side, tumbling slowly where they hang. */
+.theme-usurp .fx-shard {
+  display: block;
+  position: absolute;
+  aspect-ratio: 1 / 1.5;
+  background: linear-gradient(150deg, #7a58b4 0%, #33205a 34%, #0f081c 100%);
+  clip-path: polygon(38% 0, 100% 22%, 78% 100%, 12% 78%, 0 30%);
+  opacity: 0.9;
+  animation: shard ease-in-out infinite alternate;
+  will-change: transform;
+}
+.theme-usurp .fx-shard.s2 { clip-path: polygon(55% 0, 100% 48%, 62% 100%, 0 70%, 14% 18%); }
+.theme-usurp .fx-shard.s3 { clip-path: polygon(20% 6%, 84% 0, 100% 62%, 46% 100%, 0 54%); aspect-ratio: 1 / 1.1; }
+@keyframes shard {
+  from { transform: translate3d(0, 0, 0) rotate(var(--r0, 0deg)); }
+  to   { transform: translate3d(var(--dx, 0), var(--dy, 0), 0) rotate(var(--r1, 40deg)); }
+}
+
+/* Embers rather than motes: a little larger, with a hotter core. */
+.theme-usurp .fx-mote {
+  background: #ffd6f6;
+  box-shadow: 0 0 10px 3px var(--fx-mote), 0 0 22px 6px rgba(190, 60, 255, 0.35);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Theme: Mastery Pack Assassin
+
+   After the set's key art, at night: cranes, girders and slack cables
+   looming in a haze gone almost black — a dim core of cyan behind the
+   middle, blood red and magenta low on the ground — torn banners hanging in
+   from above, the corners closing in, and blood-red petals falling through
+   all of it. Cyan is the accent. (No gold — that is the Mastery Pack
+   lettering, not the Assassin.)
+   Colours and motifs only; none of the set's artwork is in here.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.theme-mpa {
+  --bg:        #05070c;
+  --bg-raised: #0f1420;
+  --bg-sunken: #18202f;
+  --bg-row:    rgba(255, 255, 255, 0.03);
+
+  --text:      #eaf3f8;
+  --text-dim:  #8ea3b8;
+
+  --accent:      #4fd8f5;
+  --accent-deep: #1f9fc6;
+  --accent-tint: rgba(79, 216, 245, 0.12);
+
+  --win:    #58d98c;
+  --danger: #ff4a5e;
+
+  --line:        rgba(170, 220, 245, 0.13);
+  --line-strong: rgba(170, 220, 245, 0.26);
+
+  --shadow: 0 4px 22px rgba(0, 2, 8, 0.75);
+
+  --page:    linear-gradient(0deg, rgba(190, 20, 50, 0.34) 0%, rgba(150, 40, 170, 0.2) 12%, transparent 40%),
+             radial-gradient(90% 85% at 50% 30%, #0e4a68 0%, #082338 34%, #040b18 66%, #010205 100%);
+  --surface: linear-gradient(180deg, #172131 0%, #0a0e17 100%);
+  --lift:        inset 0 1px 0 rgba(170, 225, 250, 0.11), 0 0.5em 1.2em -0.45em rgba(0, 2, 8, 0.88);
+  --lift-strong: inset 0 1px 0 rgba(170, 225, 250, 0.13), 0 1.2em 2.6em -0.8em rgba(0, 2, 8, 0.96);
+  --glow:    0 0 1em rgba(79, 216, 245, 0.6);
+  --ring:    rgba(170, 220, 245, 0.25);
+
+  --fx-light: rgba(30, 150, 200, 0.2);
+  --fx-soft:  rgba(170, 40, 180, 0.16);
+  --fx-mote:  rgba(255, 50, 70, 0.4);
+  --fx-sheen: rgba(150, 230, 255, 0.13);
+  /* Declared again so it picks up this theme's accent. */
+  --rule:    linear-gradient(90deg, transparent 0%, var(--accent) 16%, var(--accent) 84%, transparent 100%);
+
+  /* ── dividers ─────────────────────────────────────────────────────────────
+     As everywhere, but the ornament in the gap is the point of a blade — a
+     narrow steel kite — not a star. (Declared per theme: a custom property
+     resolves the var()s inside it where it is declared, not where it is used.) */
+  --orn-img: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23e6f6fc' d='M12 0 16.5 12 12 24Z'/%3E%3Cpath fill='%2378b4cc' d='M12 0 7.5 12 12 24Z'/%3E%3C/svg%3E");
+  --sep-h: var(--orn-img) center / 0.62em 0.62em no-repeat, linear-gradient(90deg, transparent 0%, var(--line-strong) 26%, var(--line-strong) calc(50% - 0.8em), transparent calc(50% - 0.8em), transparent calc(50% + 0.8em), var(--line-strong) calc(50% + 0.8em), var(--line-strong) 74%, transparent 100%) center / 100% 1px no-repeat;
+  --sep-v: var(--orn-img) center / 0.62em 0.62em no-repeat, linear-gradient(180deg, transparent 0%, var(--line-strong) 26%, var(--line-strong) calc(50% - 0.8em), transparent calc(50% - 0.8em), transparent calc(50% + 0.8em), var(--line-strong) calc(50% + 0.8em), var(--line-strong) 74%, transparent 100%) center / 1px 100% no-repeat;
+}
+
+/* ── its background ─────────────────────────────────────────────────────── */
+.fx-mist, .fx-slash { display: none; }
+
+/* A third colour in the drifting light: a low red, as on the steel. */
+.theme-mpa .fx-glow.c { background: radial-gradient(closest-side, rgba(200, 20, 40, 0.26), transparent); }
+
+/* The yard: towers, beams and cables in the haze (themes/mpa-scene.svg, drawn
+   for this project). It breathes very slowly, as if seen through moving air;
+   the petals, the mist and the light move in front of it. */
+.theme-mpa .fx-sigil.a {
+  display: block;
+  position: absolute;
+  inset: -4%;
+  background: url('themes/mpa-scene.svg') center / cover no-repeat;
+  opacity: 0.55;
+  animation: mpa-scene 48s ease-in-out infinite alternate;
+  will-change: transform;
+}
+/* The corners close in: whatever the board shows is the brightest thing. */
+.theme-mpa .fx-sigil.b {
+  display: block;
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(75% 70% at 50% 44%, transparent 35%, rgba(1, 2, 6, 0.55) 72%, rgba(0, 1, 4, 0.9) 100%);
+}
+@keyframes mpa-scene {
+  from { transform: scale(1) translate3d(-0.8%, 0, 0); }
+  to   { transform: scale(1.05) translate3d(0.8%, -0.8%, 0); }
+}
+
+/* Mist along the ground, creeping sideways: magenta, with one green wisp. */
+.theme-mpa .fx-mist {
+  display: block;
+  position: absolute;
+  bottom: -20vmax;
+  width: 95vmax; height: 42vmax;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(232, 70, 214, 0.3), transparent);
+  will-change: transform;
+}
+.theme-mpa .fx-mist.m1 { left: -30vmax; animation: mpa-mist-a 34s ease-in-out infinite alternate;
+                         background: radial-gradient(closest-side, rgba(180, 60, 230, 0.22), transparent); }
+.theme-mpa .fx-mist.m2 { left: 30vmax; bottom: -12vmax; width: 46vmax; height: 20vmax;
+                         animation: mpa-mist-b 41s ease-in-out infinite alternate;
+                         background: radial-gradient(closest-side, rgba(120, 240, 90, 0.2), transparent); }
+.theme-mpa .fx-mist.m3 { right: -34vmax; animation: mpa-mist-a 47s ease-in-out infinite alternate-reverse; }
+@keyframes mpa-mist-a { to { transform: translate(34vmax, -5vmax) scale(1.2); } }
+@keyframes mpa-mist-b { to { transform: translate(-30vmax, -3vmax) scale(0.85); } }
+
+/* The glint of a blade: a hairline of light drawn across the frame, then
+   nothing for a good while. Position, angle and rhythm come from OV.fx. */
+.theme-mpa .fx-slash {
+  display: block;
+  position: absolute;
+  left: -60vmax;
+  width: 60vmax; height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(150, 225, 250, 0.5) 55%, #ffffff 92%, transparent);
+  box-shadow: 0 0 10px 1px rgba(120, 215, 245, 0.35);
+  opacity: 0;
+  transform-origin: 0 50%;
+  animation: mpa-slash linear infinite;
+  will-change: transform, opacity;
+}
+@keyframes mpa-slash {
+  0%       { transform: rotate(var(--a, -24deg)) translateX(0);       opacity: 0; }
+  1%       {                                                           opacity: 1; }
+  5%       {                                                           opacity: 1; }
+  6%, 100% { transform: rotate(var(--a, -24deg)) translateX(290vmax); opacity: 0; }
+}
+
+/* Petals rather than motes: blood red, leaf-shaped — and they fall. A mote
+   sits just below its host and rises by --rise; a petal starts that far up
+   and sinks back down to where the mote would have begun, swaying sideways
+   and turning over on the way. */
+.theme-mpa .fx-mote {
+  border-radius: 85% 0 85% 0;
+  background: linear-gradient(135deg, #ff5a6a 0%, #c2142c 55%, #6e0715 100%);
+  box-shadow: 0 0 7px 1px var(--fx-mote);
+  animation-name: mpa-petal;
+}
+@keyframes mpa-petal {
+  0%   { transform: translate3d(0, calc(-1 * var(--rise, 100vh)), 0) rotate(0deg) scale(2.6);                                  opacity: 0; }
+  8%   {                                                                                                                         opacity: 0.95; }
+  30%  { transform: translate3d(calc(var(--sway, 0px) * 0.7), calc(-0.7 * var(--rise, 100vh)), 0) rotate(130deg) scale(2);     opacity: 0.85; }
+  62%  { transform: translate3d(calc(var(--sway, 0px) * 0.25), calc(-0.36 * var(--rise, 100vh)), 0) rotate(250deg) scale(2.5); opacity: 0.9; }
+  90%  {                                                                                                                         opacity: 0.75; }
+  100% { transform: translate3d(var(--sway, 0px), 0, 0) rotate(400deg) scale(2.1);                                              opacity: 0; }
+}

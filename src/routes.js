@@ -4,13 +4,14 @@ const {
   launchGemLogin, setSessionCookie, checkAuth,
   clearSession, getSession, saveSession, isLoginInProgress, canBrowserLogin
 } = require('./auth');
-const { fetchTournamentData, fetchHeroesCsv, fetchStandingsCsv, fetchImageProxy, fetchCardByName, fetchHeroImageUrl, fetchAllEvents } = require('./fetcher');
+const { fetchTournamentData, fetchHeroesCsv, fetchStandingsCsv, fetchCardByName, fetchHeroImage, fetchAllEvents, searchCards } = require('./fetcher');
 const {
-  bus, getSettings, publicSettings, setNameMode, setPin, regeneratePin,
-  matchView, adjustLife, setLife, swapSides, undo, setEnded
+  bus, getSettings, publicSettings, setNameMode, setLang, setTheme, setPin, regeneratePin,
+  matchView, adjustLife, setLife, swapSides, undo, setEnded, setCard, recentCards
 } = require('./state');
 const { refreshFeatured, selectMatch, setManualMatch, startAutoRefresh } = require('./match');
 const { lanAddresses } = require('./lan');
+const demo = require('./demo');
 
 // ── access control ───────────────────────────────────────────────────────────
 //
@@ -108,13 +109,74 @@ router.post('/event', requireControl, (req, res) => {
   const session = getSession();
   if (!session) return res.status(401).json({ error: 'Not authenticated' });
   saveSession({ ...session, eventId: String(eventId).trim() });
+  eventChanged();
   res.json({ success: true, eventId: String(eventId).trim() });
+});
+
+// Tells every open board to re-read its data now instead of on its next poll,
+// and re-resolves the featured match against the new data.
+function eventChanged() {
+  refreshFeatured({ force: true }).catch(() => {});
+  bus.emit('refresh');
+}
+
+// ── DEMO TOURNAMENT ──────────────────────────────────────────────────────────
+//
+// A made-up 128-player event (src/demo.js) for trying things out without GEM.
+// "On" selects the event id "demo" and remembers the real one; "off" puts it
+// back. The other actions advance the tournament.
+//
+// All of it exists only with DEMO_MODE=on (see demo.enabled); otherwise the
+// config page hides its card and every action is refused.
+
+function demoState() {
+  if (!demo.enabled()) return { enabled: false, active: false };
+  return { enabled: true, active: demo.isDemo(getSession()?.eventId), ...demo.info() };
+}
+
+router.get('/demo', (req, res) => res.json(demoState()));
+
+router.post('/demo', requireControl, (req, res) => {
+  if (!demo.enabled()) {
+    return res.status(403).json({ error: 'Demo mode is switched off. Start the server with DEMO_MODE=on to use it.' });
+  }
+  const { action, stage } = req.body || {};
+  const session = getSession() || {};
+
+  try {
+    switch (action) {
+      case 'on':
+        if (!demo.isDemo(session.eventId)) {
+          saveSession({ ...session, eventId: demo.DEMO_ID, demoPrevEventId: session.eventId || null });
+        }
+        break;
+      case 'off': {
+        if (demo.isDemo(session.eventId)) {
+          const { demoPrevEventId, ...rest } = session;
+          saveSession({ ...rest, eventId: demoPrevEventId || null });
+        }
+        break;
+      }
+      case 'results': demo.reportResults(); break;
+      case 'finish':  demo.finishRound();   break;
+      case 'next':    demo.nextRound();     break;
+      case 'goto':    demo.goTo(stage);     break;
+      case 'reset':   demo.reset();         break;
+      default: return res.status(400).json({ error: 'Unknown demo action' });
+    }
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+
+  eventChanged();
+  res.json(demoState());
 });
 
 router.get('/events', async (req, res) => {
   const session = getSession();
   if (!session?.sessionId) return res.status(401).json({ error: 'Not authenticated' });
-  const mode = req.query.mode || 'judge'; // 'judge', 'store', 'all'
+  // Anything else would fall through to scraping both, which takes a while.
+  const mode = ['judge', 'store', 'all'].includes(req.query.mode) ? req.query.mode : 'judge';
   try {
     res.json(await fetchAllEvents(mode));
   } catch (err) {
@@ -122,11 +184,68 @@ router.get('/events', async (req, res) => {
   }
 });
 
-router.get('/tournament', async (req, res) => {
+/* Compact summary of whatever event the backend is currently set to.
+ *
+ * Exists because "I set the event and the overlays stayed empty" is almost
+ * always an event that has not been paired yet — the config page polls this so
+ * the operator can see that at a glance, including changes made from another
+ * browser. Uses the same 15 s cached scrape as everything else, so polling it
+ * costs no extra GEM traffic.
+ */
+router.get('/event/summary', async (req, res) => {
   const session = getSession();
-  if (!session?.sessionId) return res.status(401).json({ error: 'Not authenticated' });
-  const eventId = req.query.eventId || session.eventId;
-  if (!eventId) return res.status(400).json({ error: 'No event ID configured' });
+  const eventId = req.query.eventId || session?.eventId || null;
+
+  const base = { eventId, ok: false, reason: null };
+  if (!demo.isDemo(eventId)) {
+    if (!session?.sessionId) return res.json({ ...base, reason: 'not-logged-in' });
+    if (!eventId)            return res.json({ ...base, reason: 'no-event' });
+  }
+
+  try {
+    const t = await fetchTournamentData(eventId);
+    const rounds  = t.rounds || [];
+    const last    = rounds[rounds.length - 1] || null;
+    const tables  = rounds.reduce((n, r) => n + (r.total || 0), 0);
+
+    res.json({
+      eventId,
+      ok: true,
+      reason: null,
+      demo:        demo.isDemo(eventId),
+      title:       t.meta?.title  ?? null,
+      status:      t.meta?.status ?? null,
+      type:        t.meta?.type   ?? null,
+      format:      t.meta?.format ?? null,
+      playerCount: t.meta?.playerCount ?? 0,
+      totalRounds: t.meta?.totalRounds ?? null,
+      roundsSeen:  rounds.length,
+      currentRound: last ? last.round : 0,
+      tables,
+      // The single thing that answers "why are my overlays empty?"
+      hasData: rounds.length > 0 && tables > 0
+    });
+  } catch (err) {
+    res.json({ ...base, reason: 'fetch-failed', error: err.message });
+  }
+});
+
+/* Which event a data request is about — or null once the error went out.
+ * The demo event is the one thing that works without a GEM session. */
+function eventFor(req, res) {
+  const session = getSession();
+  const eventId = req.query.eventId || session?.eventId;
+  if (demo.isDemo(eventId)) return eventId;
+  if (demo.isDemoId(eventId)) { res.status(404).json({ error: 'Demo mode is switched off' }); return null; }
+
+  if (!session?.sessionId) { res.status(401).json({ error: 'Not authenticated' }); return null; }
+  if (!eventId)            { res.status(400).json({ error: 'No event ID configured' }); return null; }
+  return eventId;
+}
+
+router.get('/tournament', async (req, res) => {
+  const eventId = eventFor(req, res);
+  if (!eventId) return;
   try {
     res.json(await fetchTournamentData(eventId));
   } catch (err) {
@@ -135,10 +254,8 @@ router.get('/tournament', async (req, res) => {
 });
 
 router.get('/heroes', async (req, res) => {
-  const session = getSession();
-  if (!session?.sessionId) return res.status(401).json({ error: 'Not authenticated' });
-  const eventId = req.query.eventId || session.eventId;
-  if (!eventId) return res.status(400).json({ error: 'No event ID configured' });
+  const eventId = eventFor(req, res);
+  if (!eventId) return;
   try {
     res.json(await fetchHeroesCsv(eventId));
   } catch (err) {
@@ -147,10 +264,8 @@ router.get('/heroes', async (req, res) => {
 });
 
 router.get('/standings', async (req, res) => {
-  const session = getSession();
-  if (!session?.sessionId) return res.status(401).json({ error: 'Not authenticated' });
-  const eventId = req.query.eventId || session.eventId;
-  if (!eventId) return res.status(400).json({ error: 'No event ID configured' });
+  const eventId = eventFor(req, res);
+  if (!eventId) return;
   try {
     res.json(await fetchStandingsCsv(eventId));
   } catch (err) {
@@ -164,12 +279,13 @@ router.get('/hero-image', async (req, res) => {
   const { name, young } = req.query;
   if (!name) return res.status(400).json({ error: 'name param required' });
   try {
-    const imageUrl = await fetchHeroImageUrl(name, { young: young === '1' || young === 'true' });
-    const imgRes   = await fetchImageProxy(imageUrl);
-    res.setHeader('Content-Type', imgRes.headers.get('content-type') || 'image/webp');
+    const img = await fetchHeroImage(name, { young: young === '1' || young === 'true' });
+    res.setHeader('Content-Type', img.contentType);
     res.setHeader('Cache-Control', 'public, max-age=86400');
-    imgRes.body.pipe(res);
+    res.send(img.buffer);
   } catch (err) {
+    // Not cacheable: the overlay retries, and the next attempt may well work.
+    res.setHeader('Cache-Control', 'no-store');
     res.status(404).send('');
   }
 });
@@ -182,6 +298,37 @@ router.get('/card', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// ── CARD ON SHOW ─────────────────────────────────────────────────────────────
+//
+// The card page searches the card database and puts one card on stream; it
+// travels inside the match state, so every overlay gets it over the live
+// channel like a life total.
+
+router.get('/cards/search', async (req, res) => {
+  try {
+    res.json(await searchCards(req.query.q));
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+// The last ten cards put on show, newest first.
+router.get('/cards/recent', (req, res) => res.json(recentCards()));
+
+router.post('/card/show', requireControl, (req, res) => {
+  try {
+    setCard(req.body || {});
+    res.json({ success: true, match: matchView() });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/card/clear', requireControl, (req, res) => {
+  setCard(null);
+  res.json({ success: true, match: matchView() });
 });
 
 // ── FEATURED MATCH / LIFE COUNTER ────────────────────────────────────────────
@@ -232,6 +379,8 @@ router.get('/settings', (req, res) => {
 router.post('/settings', requireControl, (req, res) => {
   try {
     if (req.body?.nameMode !== undefined) setNameMode(req.body.nameMode);
+    if (req.body?.lang     !== undefined) setLang(req.body.lang);
+    if (req.body?.theme    !== undefined) setTheme(req.body.theme);
     res.json({ success: true, ...publicSettings() });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -275,8 +424,10 @@ router.get('/live', (req, res) => {
 
   const onMatch    = m => send('match', m);
   const onSettings = s => send('settings', s);
+  const onRefresh  = () => send('refresh', {});
   bus.on('match', onMatch);
   bus.on('settings', onSettings);
+  bus.on('refresh', onRefresh);
 
   const ping = setInterval(() => { try { res.write(': ping\n\n'); } catch {} }, 20000);
 
@@ -284,6 +435,7 @@ router.get('/live', (req, res) => {
     clearInterval(ping);
     bus.off('match', onMatch);
     bus.off('settings', onSettings);
+    bus.off('refresh', onRefresh);
     liveClients.delete(res);
   });
 

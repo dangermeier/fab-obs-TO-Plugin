@@ -1,6 +1,11 @@
+// A .env next to the server is read when there is one (Docker Compose passes
+// the same file in by itself). Variables already set in the environment win.
+try { if (process.loadEnvFile && require('fs').existsSync('.env')) process.loadEnvFile('.env'); } catch { /* not fatal */ }
+
 const express = require('express');
 const path = require('path');
-const { loadSession, canBrowserLogin } = require('./src/auth');
+const { loadSession, saveSession, canBrowserLogin } = require('./src/auth');
+const demo = require('./src/demo');
 const { loadState, flushMatch } = require('./src/state');
 const { lanAddresses, needsPublicHost } = require('./src/lan');
 const routes = require('./src/routes');
@@ -22,16 +27,33 @@ app.get('/', (req, res) => res.redirect('/config/'));
 
 // Loaded before the socket opens so the very first request already sees the
 // saved session and the PIN guard.
-const session = loadSession();
+let session = loadSession();
+// The demo was left on, but is switched off now: put the real event back, as
+// "Leave demo" would have.
+if (!demo.enabled() && session && demo.isDemoId(session.eventId)) {
+  const { demoPrevEventId, ...rest } = session;
+  session = { ...rest, eventId: demoPrevEventId || null };
+  saveSession(session);
+}
 const { settings } = loadState();
 
 app.listen(PORT, HOST, () => {
   const lan = HOST === '127.0.0.1' ? [] : lanAddresses(PORT);
 
+  /* Inside a container PORT is the port *within* it — the published one on the
+   * host can differ, and printing `localhost:3000` then sends the operator
+   * somewhere else entirely. PUBLIC_HOST is the address that actually works,
+   * so the printed URLs use it whenever it is set. */
+  const pub  = (process.env.PUBLIC_HOST || '').trim();
+  const base = !pub                         ? `http://localhost:${PORT}`
+             : /^https?:\/\//.test(pub)     ? pub.replace(/\/+$/, '')
+             : pub.includes(':')            ? `http://${pub}`
+                                            : `http://${pub}:${PORT}`;
+
   console.log('');
   console.log('  FAB OBS TO Plugin');
   console.log('  ==================');
-  console.log(`  Running at: http://localhost:${PORT}`);
+  console.log(`  Running at: ${base}`);
   console.log('');
 
   if (session?.sessionId) {
@@ -42,14 +64,15 @@ app.listen(PORT, HOST, () => {
   }
 
   console.log('');
-  console.log('  Config page:  http://localhost:' + PORT + '/config/');
-  console.log('  Pairings:     http://localhost:' + PORT + '/overlays/pairings.html');
-  console.log('  Standings:    http://localhost:' + PORT + '/overlays/standings.html');
-  console.log('  Bracket:      http://localhost:' + PORT + '/overlays/bracket.html');
-  console.log('  Breakdown:    http://localhost:' + PORT + '/overlays/breakdown.html');
-  console.log('  Match:        http://localhost:' + PORT + '/overlays/match.html');
-  console.log('  Life:         http://localhost:' + PORT + '/overlays/life.html');
-  console.log('  Round status: http://localhost:' + PORT + '/overlays/round.html');
+  console.log('  Config page:  ' + base + '/config/');
+  console.log('  Pairings:     ' + base + '/overlays/pairings.html');
+  console.log('  Standings:    ' + base + '/overlays/standings.html');
+  console.log('  Bracket:      ' + base + '/overlays/bracket.html');
+  console.log('  Breakdown:    ' + base + '/overlays/breakdown.html');
+  console.log('  Match:        ' + base + '/overlays/match.html');
+  console.log('  Life:         ' + base + '/overlays/life.html');
+  console.log('  Round status: ' + base + '/overlays/round.html');
+  console.log('  Winner:       ' + base + '/overlays/winner.html?side=left   (or side=right)');
   console.log('');
 
   if (lan.length) {
@@ -100,6 +123,13 @@ app.listen(PORT, HOST, () => {
     console.error('\n  ERROR:', err.message, '\n');
   }
   process.exit(1);
+});
+
+// This runs unattended next to OBS for a whole tournament day. A stray promise
+// rejection in one request is worth a log line, not the life counter going
+// dark in the middle of a featured match.
+process.on('unhandledRejection', err => {
+  console.error('[server] Unhandled rejection:', err?.stack || err);
 });
 
 // Life totals are written to disk with a short debounce — make sure the last

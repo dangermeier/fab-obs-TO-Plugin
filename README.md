@@ -10,13 +10,15 @@ A local server that provides live OBS Studio Browser Source overlays for [GEM](h
 
 ### Live Overlays
 
-* Pairings board with hero portraits, result indicators, and smooth infinite scroll
-* Standings table with live W/L record, hero portraits, and infinite scroll
-* Top Cut elimination bracket arranged left to right (Top 4 / Top 8), scales to any resolution; Finals winner is labelled Champion
-* Hero Breakdown bar chart showing hero popularity across all registered players
-* Featured Match banner — both heroes as artwork *and* text, both player names, the current round
+* Pairings board with hero portraits and hero names, round progress, and smooth infinite scroll
+* Standings table with live W–L record, hero portraits, and infinite scroll
+* Pairings and Standings also come as a **ticker** — a band that runs across the bottom of the frame in a loop, one cell per table with both players, their heroes and records (`?mode=ticker`)
+* Top Cut elimination bracket arranged left to right (Top 4 / Top 8) with connector lines; matches are ordered by who actually advanced, and the Finals winner is labelled Champion
+* Hero Breakdown bar chart showing hero popularity across all registered players — always fills the frame, however many heroes there are
+* Featured Match screen — a full-frame matchup: both hero cards large, both players with record, life and class, and event, format, round and table between them. `?layout=banner` gives the compact lower third for use over a camera instead
 * Life Counter badges with a transparent background, ready to sit over your camera feed
-* Round Status card that stays invisible until the featured match ends, then shows how far the running round has got
+* Winner screens for the left and the right player of the featured match — their camera through one half, their hero in the other, event, format and round between them
+* Round Status card that stays invisible until the featured match ends, then shows how far the running round has got (`?always=1` keeps it up)
 
 ### Life Counter on a Tablet
 
@@ -31,8 +33,43 @@ A local server that provides live OBS Studio Browser Source overlays for [GEM](h
 
 ### Privacy
 
-* Player names can be shown as **Alexander Schauer**, **Alexander S.** (default) or **A. S.**
+* Player names can be shown as **Dorinthea Ironsong**, **Dorinthea I.** (default) or **D. I.**
 * The setting applies to every overlay at once, without reloading them in OBS
+
+### Language
+
+* Everything viewers read on the overlays is available in **English** and **German** — pick it on the config page; it switches live
+
+### Broadcast Frame
+
+* `life.html?layout=broadcast` is a full-screen frame around three camera windows — the table in the middle, one player on each side — in the arrangement tournament coverage usually uses
+* Player names, hero portraits and hero names, records, live life totals, event, format, round and table are all filled in from the featured match; nothing to type
+* No player cameras? `&cams=0` fills those two windows with large hero artwork
+* Optional card slot: search any card on the separate **Cards** page (`/cards/`) and put it on stream with one click. `&card=0` removes the slot; `card.html` shows the same card as a stand-alone source
+* `&debug=1` outlines the three windows and prints their size and position, for lining up the cameras in OBS
+
+### Look
+
+* Titles, names and numbers are set in Oswald, which is shipped with the plugin (SIL Open Font License) — nothing is fetched from the internet while you are on air
+* Dividing lines fade out before they reach an edge and break in the middle for a small star
+
+### Background Animation
+
+* Every overlay is gently in motion: motes of light rise through the boards, the broadcast frame's panels, the ticker band, the featured-match banner and the life badges; the boards also have large soft patches of light drifting behind the content, and a band of light crosses each floating panel now and then
+* Cheap by construction — only position and opacity are animated. `?fx=0` switches it off per source
+
+### Themes
+
+* Four themes for the boards, the tickers, the broadcast frame and the matchup and winner screens, chosen from a dropdown on the config page and switched live: **Mastery Pack Assassin** (after its key art: a yard of cranes and girders at night, dim cyan haze and magenta mist along the ground, with falling blood-red petals and the glint of a blade as its own background animation), **Usurp the Shadow Throne** (the current main set and the default — violet and magenta, with arcane circles, drifting rock shards and embers), **Black** and **White**
+* Built to grow: a theme is one block of colour tokens plus one line in a list
+
+### Demo Tournament
+
+* **Off by default.** Switch it on with `DEMO_MODE=on` — in `.env` (read by Docker Compose and by `npm start` alike) or as an environment variable — and restart; the config page then shows a "Demo tournament" card
+* A built-in 128-player event — seven Swiss rounds and a Top 8 — for trying every overlay and the tablet, or building your OBS scenes, without a GEM login or a running event
+* Advance it by hand from the config page: report some results, finish the round, pair the next one, or jump straight to any stage (Round 1 … Finals, Finished)
+* Open overlays follow instantly; your selected event is restored when you leave the demo
+* Append `?eventId=demo` to a single overlay URL to show the demo in that source only
 
 ### GEM Integration
 
@@ -43,7 +80,9 @@ A local server that provides live OBS Studio Browser Source overlays for [GEM](h
 
 ### Stream-Ready
 
-* All overlays auto-refresh on a configurable interval (default 30 s) with a live countdown in the corner
+* All overlays auto-refresh on a configurable interval (default 30 s). A healthy source shows nothing but the board; problems appear as a small badge in the corner, and `?debug=1` adds the refresh countdown
+* Boards size their type from the source width — readable on a 1080p stream, sharp at 4K, and usable as a narrow side panel
+* Unchanged data is never re-rendered, so artwork does not flicker on refresh
 * Hero portrait art fetched automatically from the card database and cached for 24 h
 * New data applied at the scroll boundary — no visible jump mid-scroll
 * Scales to any OBS Browser Source resolution; Bracket and Breakdown fill the frame automatically
@@ -183,7 +222,7 @@ Once a match is loaded the counter no longer depends on GEM. If the session expi
 
 ### Security
 
-The server listens on your whole local network so the tablet can reach it. Reading is open, but every change requires the PIN — except from the computer running the server, which is always trusted so OBS never sees a prompt. Change or disable the PIN on the config page; doing so signs out every paired tablet. To go back to local-only operation, start with `HOST=127.0.0.1 npm start` (the tablet then cannot connect).
+The server listens on your whole local network so the tablet can reach it. Reading is open — OBS browser sources never see a prompt — but every change requires the PIN, on the config page and the tablet alike, from any computer. Change or disable the PIN on the config page; doing so signs out every paired tablet. To go back to local-only operation, start with `HOST=127.0.0.1 npm start` (the tablet then cannot connect).
 
 ---
 
@@ -194,15 +233,31 @@ The server listens on your whole local network so the tablet can reach it. Readi
 | `eventId` | all | Use a different event than the globally selected one |
 | `refresh` | all | Polling interval in seconds (default 30; round uses 15 and only polls while visible) |
 | `names` | all with player names | `full`, `short` or `initials` — overrides the global setting for this source only |
-| `bg` | match, life | `solid` adds the gold-framed dark panel; default is transparent |
+| `lang` | all | `en` or `de` — overrides the global overlay language for this source only |
+| `bg` | match, life | `solid` adds the dark panel; default is transparent |
 | `bg` | round | `transparent` removes the board background; default is solid |
-| `scale` | match, life, round | Size multiplier, e.g. `1.4` |
+| `scale` | all | Size multiplier, e.g. `1.4` |
+| `max` | breakdown | Most heroes listed before the rest is summed up as "Other heroes" (default 18) |
+| `mode` | pairings, standings | `ticker` turns the board into a band running across the frame — use a full-width source about 140 px high |
+| `theme` | boards, tickers, broadcast frame | `mpa`, `usurp`, `dark` or `light` — overrides the global theme for this source only |
+| `fx` | all | `0` turns the background animation off for this source |
+| `side` | winner | `left` or `right` — which player of the featured match is announced; `auto` picks the one still standing once the other is at 0 life |
+| `always` | round | `1` shows the board all the time instead of only after the featured match has ended |
+| `layout` | match | `banner` shows the lower third over the camera instead of the full matchup screen; `bg`, `pos`, `margin`, `life` and `hero` below apply to it |
+| `layout` | life | `broadcast` shows the full frame around three camera windows instead of the two badges |
+| `cams` | life (broadcast) | `0` for a setup without player cameras: their two windows show the heroes' artwork instead |
+| `card` | life (broadcast) | `0` removes the card slot; the player camera window then runs the full height |
+| `align` | card | `left` or `right` pins the card to that edge of the source |
+| `pos` | ticker | `top` pins the strip to the top edge when the source is taller than the strip |
+| `speed` | pairings, standings | Scroll speed in pixels per second (default 48 for the boards, 90 for the tickers) |
+| `top` | standings | Only the leading places, e.g. `16` — worth it for a ticker at a large event |
+| `debug` | all | `1` keeps the status badge visible while everything is fine |
 | `pos` | match, life | `top`, `center` or `bottom` |
 | `margin` | match, life | Distance from that edge in pixels |
 | `life` | match | `1` shows the live life totals inside the banner |
 | `side` | life | `left`, `right` or `both` — use two sources for full freedom in OBS |
 | `inset` | life | Distance from the left/right screen edge in pixels |
-| `hero` | match, life | Hero portrait size in pixels |
+| `hero` | match, life, round | Hero portrait size in pixels |
 
 ---
 
@@ -212,7 +267,9 @@ The plugin runs entirely on your local machine. No tournament data, player names
 
 Your GEM session cookie is stored in `data/session.json` on your machine and is listed in `.gitignore`. It is never transmitted anywhere other than to gem.fabtcg.com for API requests.
 
-**Player names on stream.** Overlays show **Alexander S.** by default — first name plus the initial of the surname. Switch to **A. S.** for less, or to the full name if your players have agreed to being named, for example through your tournament terms or a notice at the venue. The setting lives on the config page and applies to every overlay at once. Append `?names=full` to a single overlay URL to override it for that source alone.
+**Player names on stream.** Overlays show **Dorinthea I.** by default — first name plus the initial of the surname. Switch to **D. I.** for less, or to the full name if your players have agreed to being named, for example through your tournament terms or a notice at the venue. The setting lives on the config page and applies to every overlay at once. Append `?names=full` to a single overlay URL to override it for that source alone.
+
+**Nicknames.** Some players put one in their GEM profile, which makes it part of the name GEM hands over: `Rhinar, Katsu "Rhino"`. Overlays drop it and show `Katsu Rhinar` / `Katsu R.` / `K. R.` — the quoted part is never abbreviated into an initial. Nothing to configure.
 
 **Network exposure.** The server listens on your local network so a tablet can reach the life counter. Anyone on the same network can *read* the tournament data it serves; every change — on the config page and the tablet — requires the PIN. See [Access](#access) above. Start with `HOST=127.0.0.1 npm start` to keep everything local, at the cost of the tablet.
 
@@ -231,35 +288,41 @@ fab-obs-TO-Plugin/
 │   ├── parser.js          # HTML/CSV parsing for tournament data
 │   ├── state.js           # Settings + life counter state, persistence, event bus
 │   ├── match.js           # Resolves the featured match from GEM data
+│   ├── demo.js            # Built-in demo tournament (event id "demo")
 │   ├── lan.js             # Network addresses the tablet can reach
 │   └── routes.js          # API routes (/api/tournament, /api/live, /api/match, …)
 ├── public/
 │   ├── config/            # Configuration UI (event, tablet URL, PIN, name mode)
 │   ├── control/           # Tablet life counter
+│   ├── cards/             # Card search — puts a card on stream
 │   ├── overlays/          # OBS Browser Source pages
 │   │   ├── pairings.html
 │   │   ├── standings.html
 │   │   ├── bracket.html
 │   │   ├── breakdown.html
-│   │   ├── match.html     # Featured match banner
-│   │   ├── life.html      # Life counter badges
+│   │   ├── match.html     # Featured match: matchup screen, or lower third (?layout=banner)
+│   │   ├── life.html      # Life counter badges, or the broadcast frame (?layout=broadcast)
+│   │   ├── card.html      # The card on show, stand-alone
+│   │   ├── winner.html    # Winner screen, ?side=left|right|auto
 │   │   └── round.html     # Round progress, revealed when a match ends
 │   └── shared/
+│       ├── fonts/         # Oswald (OFL), the display typeface
 │       ├── overlay.css    # Design tokens + shared component styles
-│       └── overlay.js     # Shared helpers (name formatting, hero art, SSE)
+│       └── overlay.js     # Shared helpers (names, language, hero art, scroller, SSE)
+├── test/                  # `npm test` — parser, name matching, language
 ├── design_idea.md         # The design system, portable to other projects
 ├── start.bat / start.sh   # Double-click launchers: check Node, install, open config
 └── data/                  # Runtime data — all gitignored
     ├── session.json       # GEM cookie + selected event
-    ├── settings.json      # Name mode, control PIN
+    ├── settings.json      # Name mode, overlay language, theme, control PIN
     └── match.json         # Featured match and life totals
 ```
 
-Styling follows a documented design system — tokens live in `public/shared/overlay.css`, the full spec including a portable prompt for designers and AI is in [`design_idea.md`](design_idea.md).
+Styling follows a documented design system — tokens live in `public/shared/overlay.css`, the full spec including a portable brief for designers is in [`design_idea.md`](design_idea.md).
 
 Live updates use **Server-Sent Events** on `GET /api/live`, which carries `match` and `settings` events. There is no WebSocket dependency; `EventSource` handles reconnection on its own. Anything that mutates state goes through `src/state.js`, which persists it and broadcasts on the shared event bus.
 
-To contribute, fork the repo, make your changes and open a pull request. Edit the files directly and restart the server to test.
+To contribute, fork the repo, make your changes and open a pull request. Edit the files directly and restart the server to test; `npm test` runs the unit tests (Node's built-in runner, no extra dependencies).
 
 ---
 

@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FAB OBS TO Plugin — Config</title>
+  <!-- Oswald, for the theme entries: they are shown the way the theme looks. -->
+  <link rel="stylesheet" href="/shared/fonts/fonts.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -140,6 +142,36 @@
       padding: 10px 12px; margin-bottom: 6px;
       background: #2456c70a; border: 1px solid #2456c733; border-radius: 3px;
     }
+    /* Active event — permanently visible, so "did my change land?" is never a
+       question, and a change made in another browser shows up here too. */
+    .active-event { display: flex; align-items: flex-start; gap: 14px; }
+    .ae-main { flex: 1; min-width: 0; }
+    .ae-title {
+      font-family: 'Bahnschrift', 'Segoe UI Semibold', system-ui, sans-serif;
+      font-size: 20px; font-weight: 600; color: #14181f;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .ae-title.none { color: #6d7581; font-style: italic; }
+    .ae-meta { font-size: 12px; color: #6d7581; margin-top: 3px; }
+    .ae-meta code { background: #f2f4f8; padding: 1px 5px; border-radius: 3px; color: #2456c7; }
+    .ae-numbers { display: flex; gap: 22px; margin-top: 12px; }
+    .ae-num b {
+      display: block;
+      font-family: 'Bahnschrift', 'Segoe UI Semibold', system-ui, sans-serif;
+      font-size: 22px; font-weight: 700; color: #14181f;
+      font-variant-numeric: tabular-nums; line-height: 1.1;
+    }
+    .ae-num span { font-size: 11px; color: #6d7581; text-transform: uppercase; letter-spacing: 0.06em; }
+    .ae-state {
+      flex-shrink: 0; padding: 4px 10px; border-radius: 10px;
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+    }
+    .ae-state.live     { background: #1d7a4a22; color: #1d7a4a; border: 1px solid #1d7a4a44; }
+    .ae-state.upcoming { background: #a8621b22; color: #a8621b; border: 1px solid #a8621b44; }
+    .ae-state.done     { background: rgba(20,24,31,0.05); color: #6d7581; border: 1px solid rgba(20,24,31,0.12); }
+    .ae-state.err      { background: #c0392f22; color: #c0392f; border: 1px solid #c0392f44; }
+    .ae-checked { font-size: 11px; color: #6d7581; margin-top: 12px; }
+
     /* PIN gate — the config page changes settings, so it is guarded exactly
        like the tablet. Nobody else on the venue Wi-Fi gets to reconfigure it. */
     .gate {
@@ -173,6 +205,50 @@
     }
     .gate-box input:focus { border-color: #2456c7; }
     .gate-err { font-size: 12.5px; color: #c0392f; min-height: 18px; margin: 8px 0 12px; }
+
+    /* Theme dropdown. Every entry wears its theme: background, text colour,
+       accent rule and star, in the overlays' display face. */
+    .theme-dd { position: relative; margin-bottom: 14px; }
+    .theme-opt {
+      display: flex; align-items: center; gap: 12px;
+      width: 100%; padding: 13px 16px;
+      border: 0; border-top: 2px solid; border-radius: 3px;
+      font-family: 'Oswald', 'Bahnschrift', 'Segoe UI Semibold', sans-serif;
+      font-size: 19px; font-weight: 600; text-align: left;
+      cursor: pointer;
+    }
+    .theme-star {
+      flex-shrink: 0; width: 13px; height: 13px;
+      clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%);
+    }
+    .theme-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .theme-note {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.75;
+    }
+    .theme-caret { font-size: 12px; opacity: 0.8; transition: transform 0.15s; }
+    .theme-dd.open .theme-caret { transform: rotate(180deg); }
+    .theme-dd-btn { box-shadow: 0 2px 10px rgba(20,24,31,0.14); }
+    .theme-dd-btn:focus-visible, .theme-dd-list .theme-opt:focus-visible { outline: 2px solid #2456c7; outline-offset: 2px; }
+    .theme-dd-list {
+      position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 50;
+      display: none; flex-direction: column; gap: 4px; padding: 6px;
+      background: #fff; border: 1px solid rgba(20,24,31,0.14); border-radius: 3px;
+      box-shadow: 0 12px 34px rgba(20,24,31,0.24);
+    }
+    .theme-dd.open .theme-dd-list { display: flex; }
+    .theme-dd-list .theme-opt:hover { filter: brightness(1.12); }
+    .theme-dd-list .theme-opt.current { box-shadow: 0 0 0 2px #2456c7; }
+
+    /* Demo tournament controls */
+    .demo-status { font-size: 13px; color: #6d7581; line-height: 1.6; margin-bottom: 14px; }
+    .demo-status b { color: #14181f; }
+    .demo-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .demo-actions select {
+      padding: 8px 10px; border-radius: 3px; border: 1px solid #2456c733;
+      background: #f2f4f8; color: #14181f; font-size: 13px; font-family: inherit;
+    }
+    .demo-actions .spacer { flex: 1; }
 
     .lan-url { flex: 1; font-family: monospace; font-size: 15px; color: #1b45a8; word-break: break-all; }
     .lan-adapter { font-size: 11px; color: #6d7581; white-space: nowrap; }
@@ -210,10 +286,26 @@
     <p>Tournament overlay for OBS Studio</p>
   </div>
 
+  <!-- Which event the backend is actually serving. Always visible, polled. -->
+  <div class="card" id="active-card">
+    <h2><span class="dot" id="ae-dot"></span> Active event — what the overlays serve</h2>
+    <div id="ae-body">
+      <div class="events-loading"><div class="spinner" style="width:16px;height:16px;border-width:2px"></div> Checking…</div>
+    </div>
+  </div>
+
   <!-- Auth Card -->
   <div class="card" id="auth-card">
     <h2><span class="dot" id="auth-dot"></span> GEM Session</h2>
     <div id="auth-body">Loading…</div>
+  </div>
+
+  <!-- Demo tournament: works without a GEM login -->
+  <div class="card" id="demo-card" style="display:none">
+    <h2><span class="dot" id="demo-dot"></span> Demo tournament</h2>
+    <div id="demo-body">
+      <div class="events-loading"><div class="spinner" style="width:16px;height:16px;border-width:2px"></div> Loading…</div>
+    </div>
   </div>
 
   <!-- Event Card -->
@@ -222,7 +314,7 @@
       <span class="dot"></span> Select Event
       <button class="btn btn-ghost btn-small" id="refresh-events-btn" style="margin-left:auto">Refresh</button>
     </h2>
-    <div class="mode-selector">
+    <div class="mode-selector" id="event-modes">
       <button class="mode-btn" data-mode="judge">Judge / Scorekeeper</button>
       <button class="mode-btn" data-mode="store">Store</button>
     </div>
@@ -262,6 +354,16 @@
       <button class="btn btn-copy btn-small" onclick="copyUrl('url-standings')">Copy</button>
     </div>
     <div class="overlay-row">
+      <span class="overlay-label">Pairings ticker</span>
+      <span class="overlay-url" id="url-pairings-tk"></span>
+      <button class="btn btn-copy btn-small" onclick="copyUrl('url-pairings-tk')">Copy</button>
+    </div>
+    <div class="overlay-row">
+      <span class="overlay-label">Standings ticker</span>
+      <span class="overlay-url" id="url-standings-tk"></span>
+      <button class="btn btn-copy btn-small" onclick="copyUrl('url-standings-tk')">Copy</button>
+    </div>
+    <div class="overlay-row">
       <span class="overlay-label">Bracket</span>
       <span class="overlay-url" id="url-bracket"></span>
       <button class="btn btn-copy btn-small" onclick="copyUrl('url-bracket')">Copy</button>
@@ -282,6 +384,26 @@
       <button class="btn btn-copy btn-small" onclick="copyUrl('url-life')">Copy</button>
     </div>
     <div class="overlay-row">
+      <span class="overlay-label">Broadcast frame</span>
+      <span class="overlay-url" id="url-broadcast"></span>
+      <button class="btn btn-copy btn-small" onclick="copyUrl('url-broadcast')">Copy</button>
+    </div>
+    <div class="overlay-row">
+      <span class="overlay-label">Card</span>
+      <span class="overlay-url" id="url-card"></span>
+      <button class="btn btn-copy btn-small" onclick="copyUrl('url-card')">Copy</button>
+    </div>
+    <div class="overlay-row">
+      <span class="overlay-label">Winner (left)</span>
+      <span class="overlay-url" id="url-winner-l"></span>
+      <button class="btn btn-copy btn-small" onclick="copyUrl('url-winner-l')">Copy</button>
+    </div>
+    <div class="overlay-row">
+      <span class="overlay-label">Winner (right)</span>
+      <span class="overlay-url" id="url-winner-r"></span>
+      <button class="btn btn-copy btn-small" onclick="copyUrl('url-winner-r')">Copy</button>
+    </div>
+    <div class="overlay-row">
       <span class="overlay-label">Round Status</span>
       <span class="overlay-url" id="url-round"></span>
       <button class="btn btn-copy btn-small" onclick="copyUrl('url-round')">Copy</button>
@@ -290,13 +412,31 @@
       <strong>Add to OBS:</strong> Sources → + → Browser Source → paste URL →
       set Width &amp; Height to match your stream resolution → OK.<br>
       Pairings &amp; Standings scroll automatically when content overflows.
-      Bracket &amp; Hero Breakdown scale to fit the screen.
-      Featured Match, Life Counter and Round Status have a transparent background
-      so they can sit on top of your camera feed, and they update instantly — no
-      30 second wait.<br>
+      The two <strong>tickers</strong> are the same data as a one-line strip
+      running across the frame: give that source the full width and a height
+      of about 140 px, and place it along the bottom edge.
+      Bracket &amp; Hero Breakdown always fill the frame.
+      <strong>Featured Match</strong> is a full-screen matchup — both hero cards
+      and what is being played; add <strong>?layout=banner</strong> for the
+      slim lower third over a camera instead. Life Counter and Round Status
+      have a transparent background so they can sit on top of your camera feed.
+      All three update instantly — no 30 second wait.<br>
+      The <strong>Broadcast frame</strong> is a full-screen frame around three
+      camera windows — table in the middle, a player on each side — with names,
+      heroes, life totals, round and format filled in from the featured match.
+      Put it above your cameras; add <strong>&amp;debug=1</strong> once to see
+      where each window sits and how big it is. <strong>&amp;card=0</strong>
+      drops its card slot, and <strong>&amp;cams=0</strong> shows large hero
+      artwork in place of the two player cameras.<br>
+      The two <strong>Winner</strong> screens announce the left or the right
+      player of the featured match: their camera shows through one half, their
+      hero fills the other. Make a scene for each and cut to the one that
+      applies; <strong>?side=auto</strong> picks the player still standing once
+      the other is at 0 life.<br>
       <strong>Round Status stays invisible</strong> until you confirm on the tablet
       that the featured match is over — then it fades in and shows how far the
-      running round has got.
+      running round has got. Add <strong>?always=1</strong> to keep it up all
+      the time.
     </div>
   </div>
 
@@ -324,9 +464,9 @@
 
     <label class="mt" style="margin-top:20px">Player names — GDPR</label>
     <div class="mode-selector" id="name-modes">
-      <button class="mode-btn" data-mode="full">Alexander Schauer</button>
-      <button class="mode-btn" data-mode="short">Alexander S.</button>
-      <button class="mode-btn" data-mode="initials">A. S.</button>
+      <button class="mode-btn" data-mode="full">Dorinthea Ironsong</button>
+      <button class="mode-btn" data-mode="short">Dorinthea I.</button>
+      <button class="mode-btn" data-mode="initials">D. I.</button>
     </div>
     <div id="name-alert"></div>
     <div class="tip">
@@ -334,6 +474,36 @@
       names only if your players have agreed to it. Append
       <strong>?names=full</strong> to a single overlay URL to override this for
       that source only.
+    </div>
+
+    <label class="mt" style="margin-top:20px">Overlay language</label>
+    <div class="mode-selector" id="lang-modes">
+      <button class="mode-btn" data-lang="en">English — Round 4 · Table 1</button>
+      <button class="mode-btn" data-lang="de">Deutsch — Runde 4 · Tisch 1</button>
+    </div>
+    <div id="lang-alert"></div>
+    <div class="tip">
+      The text your viewers read on the overlays. Switches live as well;
+      <strong>?lang=de</strong> on a single overlay URL overrides it for that
+      source.
+    </div>
+
+    <label class="mt" style="margin-top:20px">Theme</label>
+    <div class="theme-dd" id="theme-modes"></div>
+    <div id="theme-alert"></div>
+    <div class="tip">
+      The look of the boards, the tickers and the broadcast frame. Switches
+      live; <strong>?theme=mpa</strong>, <strong>usurp</strong>, <strong>dark</strong> or
+      <strong>light</strong> on a single overlay URL overrides it for that
+      source. The Featured Match banner and the Life Counter badges
+      float over the camera and stay dark either way.
+    </div>
+
+    <label class="mt" style="margin-top:20px">Card on stream</label>
+    <div><a class="btn btn-ghost" href="/cards/" target="_blank" rel="noopener" style="text-decoration:none">Open card search</a></div>
+    <div class="tip">
+      Search any card and put it on stream with one click. It shows in the card
+      slot of the Broadcast frame and in the separate Card overlay.
     </div>
   </div>
 
@@ -384,19 +554,139 @@
   const origin = window.location.origin;
   document.getElementById('url-pairings').textContent   = `${origin}/overlays/pairings.html`;
   document.getElementById('url-standings').textContent  = `${origin}/overlays/standings.html`;
+  document.getElementById('url-pairings-tk').textContent  = `${origin}/overlays/pairings.html?mode=ticker`;
+  document.getElementById('url-standings-tk').textContent = `${origin}/overlays/standings.html?mode=ticker&top=16`;
   document.getElementById('url-bracket').textContent    = `${origin}/overlays/bracket.html`;
   document.getElementById('url-breakdown').textContent  = `${origin}/overlays/breakdown.html`;
   document.getElementById('url-match').textContent      = `${origin}/overlays/match.html`;
   document.getElementById('url-life').textContent       = `${origin}/overlays/life.html`;
   document.getElementById('url-round').textContent      = `${origin}/overlays/round.html`;
+  document.getElementById('url-broadcast').textContent  = `${origin}/overlays/life.html?layout=broadcast`;
+  document.getElementById('url-card').textContent       = `${origin}/overlays/card.html`;
+  document.getElementById('url-winner-l').textContent   = `${origin}/overlays/winner.html?side=left`;
+  document.getElementById('url-winner-r').textContent   = `${origin}/overlays/winner.html?side=right`;
 
+  /* navigator.clipboard only exists in a secure context — localhost qualifies,
+   * but this page opened from another computer via http://192.168.x.x does
+   * not, and the button would throw. Fall back to selecting the text. */
   function copyUrl(id) {
-    navigator.clipboard.writeText(document.getElementById(id).textContent).then(() => {
-      const btn = document.querySelector(`[onclick="copyUrl('${id}')"]`);
+    const el   = document.getElementById(id);
+    const btn  = document.querySelector(`[onclick="copyUrl('${id}')"]`);
+    const done = label => {
       const orig = btn.textContent;
-      btn.textContent = 'Copied!';
+      btn.textContent = label;
       setTimeout(() => btn.textContent = orig, 1500);
-    });
+    };
+    const selectIt = () => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch {}
+      done(ok ? 'Copied!' : 'Selected');
+    };
+
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(el.textContent).then(() => done('Copied!'), selectIt);
+    } else {
+      selectIt();
+    }
+  }
+
+  // ── Active event ───────────────────────────────────────────────────────────
+  // Permanently on screen and polled, so you can always see what the backend is
+  // actually serving — including a change someone made in another browser.
+
+  let aeLastChecked = null;
+  let aeLastSignature = null;
+
+  function renderActiveEvent(s) {
+    const dot  = document.getElementById('ae-dot');
+    const body = document.getElementById('ae-body');
+
+    if (!s.ok) {
+      const msg = {
+        'not-logged-in': 'Not connected to GEM. Log in below, then pick an event.',
+        'no-event':      'No event selected yet. Pick one below — until then every overlay stays empty.',
+        'fetch-failed':  'GEM did not answer for this event: ' + OV.esc(s.error || 'unknown') +
+                         '. The session may have expired.'
+      }[s.reason] || 'Unknown state.';
+
+      dot.className = 'dot' + (s.reason === 'fetch-failed' ? ' red' : '');
+      body.innerHTML = `
+        <div class="active-event">
+          <div class="ae-main">
+            <div class="ae-title none">${s.eventId ? 'Event ' + OV.esc(s.eventId) : 'No event set'}</div>
+            <div class="ae-meta">${msg}</div>
+          </div>
+          ${s.reason === 'fetch-failed' ? '<span class="ae-state err">Error</span>' : ''}
+        </div>`;
+      return;
+    }
+
+    const st  = (s.status || '').toLowerCase();
+    const cls = /finish|complete|abgeschlossen/.test(st) ? 'done'
+              : /upcoming|scheduled|bevor/.test(st)      ? 'upcoming' : 'live';
+    dot.className = 'dot ' + (s.hasData ? 'green' : '');
+
+    // The line that answers "why are my overlays empty?"
+    const hint = s.hasData ? '' : `
+      <div class="alert info" style="margin-top:14px">
+        <strong>This event has no pairings yet</strong> — ${OV.esc(s.playerCount)} players,
+        ${OV.esc(s.roundsSeen)} rounds. That is why the overlays are blank: they are working,
+        there is simply nothing to show. As soon as GEM pairs the first round they
+        fill up on their own, no reload needed.
+      </div>`;
+
+    body.innerHTML = `
+      <div class="active-event">
+        <div class="ae-main">
+          <div class="ae-title">${OV.esc(s.title || 'Untitled event')}</div>
+          <div class="ae-meta">
+            <code>${OV.esc(s.eventId)}</code>
+            ${s.type   ? ' · ' + OV.esc(s.type)   : ''}
+            ${s.format ? ' · ' + OV.esc(s.format) : ''}
+          </div>
+          <div class="ae-numbers">
+            <div class="ae-num"><b>${OV.esc(s.playerCount)}</b><span>Players</span></div>
+            <div class="ae-num"><b>${OV.esc(s.roundsSeen)}${s.totalRounds ? ' / ' + OV.esc(s.totalRounds) : ''}</b><span>Rounds</span></div>
+            <div class="ae-num"><b>${OV.esc(s.currentRound || '–')}</b><span>Current</span></div>
+            <div class="ae-num"><b>${OV.esc(s.tables)}</b><span>Tables</span></div>
+          </div>
+        </div>
+        <span class="ae-state ${cls}">${OV.esc(s.status || 'unknown')}</span>
+      </div>
+      ${hint}
+      <div class="ae-checked" id="ae-checked"></div>`;
+
+    aeLastChecked = Date.now();
+    tickChecked();
+  }
+
+  function tickChecked() {
+    const el = document.getElementById('ae-checked');
+    if (!el || !aeLastChecked) return;
+    const s = Math.round((Date.now() - aeLastChecked) / 1000);
+    el.textContent = s < 2 ? 'checked just now' : `checked ${s} s ago`;
+  }
+  setInterval(tickChecked, 1000);
+
+  async function loadActiveEvent() {
+    try {
+      const s = await OV.getJson('/api/event/summary');
+      renderActiveEvent(s);
+      loadDemo();
+
+      // A change from another browser also has to refresh the rest of the page.
+      const sig = JSON.stringify([s.eventId, s.ok, s.reason]);
+      if (aeLastSignature !== null && sig !== aeLastSignature) loadStatus().catch(() => {});
+      aeLastSignature = sig;
+    } catch (err) {
+      document.getElementById('ae-body').innerHTML =
+        `<div class="alert err">Could not read the active event: ${OV.esc(err.message)}</div>`;
+    }
   }
 
   // ── Featured match / life counter settings ─────────────────────────────────
@@ -410,8 +700,8 @@
     document.getElementById('lan-body').innerHTML = lan.length
       ? lan.map((e, i) => `
           <div class="lan-row${e.virtual ? ' virtual' : ''}">
-            <span class="lan-url" id="lan-${i}">${e.url}</span>
-            <span class="lan-adapter">${e.adapter}${e.virtual ? ' · virtual' : ''}</span>
+            <span class="lan-url" id="lan-${i}">${OV.esc(e.url)}</span>
+            <span class="lan-adapter">${OV.esc(e.adapter)}${e.virtual ? ' · virtual' : ''}</span>
             <button class="btn btn-copy btn-small" onclick="copyUrl('lan-${i}')">Copy</button>
           </div>`).join('') +
         (lan.some(e => e.virtual)
@@ -432,6 +722,31 @@
 
     document.querySelectorAll('#name-modes .mode-btn').forEach(b =>
       b.classList.toggle('active', b.dataset.mode === s.nameMode));
+    document.querySelectorAll('#lang-modes .mode-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.lang === s.lang));
+
+    // The server owns the list of themes; whatever it knows is offered here.
+    const themes  = s.themes || [];
+    const current = themes.find(t => t.id === s.theme) || themes.find(t => t.id === s.defaultTheme) || themes[0];
+    const look = t => {
+      const p = t.preview || {};
+      return `style="background:${OV.esc(p.bg || '#fff')};color:${OV.esc(p.text || '#14181f')};border-top-color:${OV.esc(p.accent || '#2456c7')}"`;
+    };
+    const inner = t => `
+        <span class="theme-star" style="background:${OV.esc((t.preview || {}).accent || '#2456c7')}"></span>
+        <span class="theme-name">${OV.esc(t.label)}</span>
+        ${t.id === s.defaultTheme ? '<span class="theme-note">Default</span>' : ''}`;
+
+    // The closed dropdown shows the active theme; the list offers all of them.
+    document.getElementById('theme-modes').innerHTML = current ? `
+      <button type="button" class="theme-opt theme-dd-btn" id="theme-toggle" aria-haspopup="listbox" aria-expanded="false" ${look(current)}>
+        ${inner(current)}<span class="theme-caret">▼</span>
+      </button>
+      <div class="theme-dd-list" role="listbox">
+        ${themes.map(t => `<button type="button" role="option" aria-selected="${t.id === s.theme}"
+            class="theme-opt${t.id === s.theme ? ' current' : ''}" data-theme="${OV.esc(t.id)}" ${look(t)}>${inner(t)}</button>`).join('')}
+      </div>` : '';
+    document.getElementById('theme-modes').classList.remove('open');
   }
 
   async function loadLiveSettings() {
@@ -439,7 +754,7 @@
       renderLive(await OV.getJson('/api/settings'));
     } catch (err) {
       document.getElementById('lan-body').innerHTML =
-        `<div class="lan-none">Could not load settings: ${err.message}</div>`;
+        `<div class="lan-none">Could not load settings: ${OV.esc(err.message)}</div>`;
     }
   }
 
@@ -449,7 +764,7 @@
       // Changing the PIN invalidates our own token — unlock again with the new one.
       if (body.regenerate || body.pin) OV.setToken('');
       await loadLiveSettings();
-    } catch (err) { if (err.message !== 'PIN erforderlich') alert(err.message); }
+    } catch (err) { if (!err.denied) alert(err.message); }
   }
 
   document.getElementById('pin-new').addEventListener('click', () => savePin({ regenerate: true }));
@@ -459,23 +774,151 @@
     savePin(liveSettings && liveSettings.pinRequired ? { pin: null } : { regenerate: true });
   });
 
-  document.querySelectorAll('#name-modes .mode-btn').forEach(btn => {
+  // One handler for both pickers: post the setting, confirm, fade the note.
+  function wireSetting(selector, alertId, bodyOf) {
+    document.querySelectorAll(selector).forEach(btn => {
+      const apply = async () => {
+        const al = document.getElementById(alertId);
+        try {
+          await post('/api/settings', bodyOf(btn), apply);
+          await loadLiveSettings();
+          al.innerHTML = '<div class="alert ok">Applied to all overlays.</div>';
+        } catch (err) {
+          if (err.denied) return;
+          al.innerHTML = `<div class="alert err">${OV.esc(err.message)}</div>`;
+        }
+        setTimeout(() => al.innerHTML = '', 2500);
+      };
+      btn.addEventListener('click', apply);
+    });
+  }
+  wireSetting('#name-modes .mode-btn', 'name-alert', b => ({ nameMode: b.dataset.mode }));
+  wireSetting('#lang-modes .mode-btn', 'lang-alert', b => ({ lang: b.dataset.lang }));
+
+  // Opening and closing the theme dropdown.
+  (() => {
+    const dd = document.getElementById('theme-modes');
+    const set = open => {
+      dd.classList.toggle('open', open);
+      const t = document.getElementById('theme-toggle');
+      if (t) t.setAttribute('aria-expanded', String(open));
+    };
+    dd.addEventListener('click', e => { if (e.target.closest('#theme-toggle')) set(!dd.classList.contains('open')); });
+    document.addEventListener('click', e => { if (!dd.contains(e.target)) set(false); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') set(false); });
+  })();
+
+  // The theme entries are rebuilt from the server's list, so listen on the row.
+  ['theme'].forEach(kind => document.getElementById(kind + '-modes').addEventListener('click', e => {
+    const btn = e.target.closest('[data-' + kind + ']');
+    if (!btn) return;
+    const al = document.getElementById(kind + '-alert');
     const apply = async () => {
-      const al = document.getElementById('name-alert');
       try {
-        await post('/api/settings', { nameMode: btn.dataset.mode }, apply);
+        await post('/api/settings', { [kind]: btn.dataset[kind] }, apply);
         await loadLiveSettings();
         al.innerHTML = '<div class="alert ok">Applied to all overlays.</div>';
       } catch (err) {
-        if (err.message === 'PIN erforderlich') return;
-        al.innerHTML = `<div class="alert err">${err.message}</div>`;
+        if (err.denied) return;
+        al.innerHTML = `<div class="alert err">${OV.esc(err.message)}</div>`;
       }
       setTimeout(() => al.innerHTML = '', 2500);
     };
-    btn.addEventListener('click', apply);
-  });
+    apply();
+  }));
 
   loadLiveSettings();
+
+  // ── Demo tournament ────────────────────────────────────────────────────────
+  // A made-up 128-player event served by the backend itself. It needs no GEM
+  // login, so the overlay list has to be reachable while it is on.
+
+  let demoActive = false, authOk = false, demoShown = null;
+
+  function showOverlays(auth) { authOk = auth; syncOverlays(); }
+  function syncOverlays() {
+    document.getElementById('overlays-card').style.display = (authOk || demoActive) ? '' : 'none';
+  }
+
+  function renderDemo(d) {
+    // Only there when the server was started with DEMO_MODE=on.
+    document.getElementById('demo-card').style.display = d.enabled ? '' : 'none';
+    demoActive = !!(d.enabled && d.active);
+    if (!d.enabled) { syncOverlays(); return; }
+    syncOverlays();
+    document.getElementById('demo-dot').className = 'dot' + (d.active ? ' green' : '');
+    // This runs on every 15 s poll. Writing identical markup again would
+    // rebuild the card and close a "Jump to…" list the operator has open.
+    const host = document.getElementById('demo-body');
+    const body = {
+      set innerHTML(html) {
+        if (html === demoShown) {
+          const jump = document.getElementById('demo-goto');
+          if (jump && document.activeElement !== jump) jump.value = '';
+          return;
+        }
+        host.innerHTML = html;
+        demoShown = html;
+      }
+    };
+
+    if (!d.active) {
+      body.innerHTML = `
+        <p class="demo-status">
+          Try every overlay and the tablet without a running event: a made-up
+          tournament with <b>${OV.esc(d.players)} players</b>, seven Swiss rounds and a
+          Top 8, which you advance by hand. No GEM login needed. Your selected
+          event is put back when you leave the demo.
+        </p>
+        <button class="btn btn-primary" data-act="on">Start demo tournament</button>`;
+      return;
+    }
+
+    const open = d.total - d.done;
+    const where = d.finished
+      ? '<b>Finished</b> — the champion is decided.'
+      : `<b>${OV.esc(d.label)}</b> — ${OV.esc(d.done)} of ${OV.esc(d.total)} tables finished`;
+
+    body.innerHTML = `
+      <div class="demo-status">
+        The overlays are showing the demo tournament. ${where}
+      </div>
+      <div class="demo-actions">
+        <button class="btn btn-ghost btn-small" data-act="results" ${open ? '' : 'disabled'}>Report some results</button>
+        <button class="btn btn-ghost btn-small" data-act="finish" ${open ? '' : 'disabled'}>Finish round</button>
+        <button class="btn btn-primary btn-small" data-act="next" ${d.finished ? 'disabled' : ''}>Next round</button>
+        <select id="demo-goto" aria-label="Jump to stage">
+          <option value="">Jump to…</option>
+          ${d.stages.map(s => `<option value="${OV.esc(s.key)}">${OV.esc(s.label)}</option>`).join('')}
+        </select>
+        <span class="spacer"></span>
+        <button class="btn btn-ghost btn-small" data-act="reset">Restart</button>
+        <button class="btn btn-danger btn-small" data-act="off">Leave demo</button>
+      </div>`;
+  }
+
+  async function loadDemo() {
+    try { renderDemo(await OV.getJson('/api/demo')); } catch {}
+  }
+
+  async function demoAction(body) {
+    try {
+      renderDemo(await post('/api/demo', body, () => demoAction(body)));
+      loadActiveEvent();
+      if (body.action === 'on' || body.action === 'off') loadStatus().catch(() => {});
+    } catch (err) {
+      if (!err.denied) alert(err.message);
+    }
+  }
+
+  // The card is re-rendered on every change, so the handlers sit on its body.
+  document.getElementById('demo-body').addEventListener('click', e => {
+    const btn = e.target.closest('[data-act]');
+    if (btn && !btn.disabled) demoAction({ action: btn.dataset.act });
+  });
+  document.getElementById('demo-body').addEventListener('change', e => {
+    if (e.target.id === 'demo-goto' && e.target.value) demoAction({ action: 'goto', stage: e.target.value });
+  });
 
   let pollTimer = null;
 
@@ -507,7 +950,7 @@
         </div>`;
       document.getElementById('logout-btn').addEventListener('click', doLogout);
       document.getElementById('event-card').style.display = '';
-      document.getElementById('overlays-card').style.display = '';
+      showOverlays(true);
       if (eventId) document.getElementById('event-id').value = eventId;
 
     } else if (loginInProgress) {
@@ -523,7 +966,7 @@
         </div>`;
       document.getElementById('cancel-btn').addEventListener('click', doLogout);
       document.getElementById('event-card').style.display = 'none';
-      document.getElementById('overlays-card').style.display = 'none';
+      showOverlays(false);
       startPolling();
 
     } else {
@@ -569,7 +1012,7 @@
       document.getElementById('gem-login-btn')?.addEventListener('click', doGemLogin);
       document.getElementById('manual-connect-btn').addEventListener('click', doManualConnect);
       document.getElementById('event-card').style.display = 'none';
-      document.getElementById('overlays-card').style.display = 'none';
+      showOverlays(false);
     }
   }
 
@@ -595,8 +1038,8 @@
       // Immediately re-render to show spinner + start polling
       renderAuth({ authenticated: false, loginInProgress: true });
     } catch (err) {
-      if (err.message !== 'PIN erforderlich') {
-        alert.innerHTML = `<div class="alert err">${err.message}</div>`;
+      if (!err.denied) {
+        alert.innerHTML = `<div class="alert err">${OV.esc(err.message)}</div>`;
       }
       btn.disabled = false;
       btn.textContent = 'Login with GEM';
@@ -615,8 +1058,8 @@
       await post('/api/login', { sessionId }, doManualConnect);
       await loadStatus();
     } catch (err) {
-      if (err.message !== 'PIN erforderlich') {
-        alert.innerHTML = `<div class="alert err">${err.message}</div>`;
+      if (!err.denied) {
+        alert.innerHTML = `<div class="alert err">${OV.esc(err.message)}</div>`;
       }
       btn.disabled = false; btn.textContent = 'Connect';
     }
@@ -631,15 +1074,20 @@
   // ── Event list ────────────────────────────────────────────────────────────
 
   let currentEventId = null;
-  let currentMode = localStorage.getItem('fab-event-mode') || 'judge';
+  const EVENT_MODES = ['judge', 'store'];
+  let currentMode = localStorage.getItem('fab-event-mode');
+  if (!EVENT_MODES.includes(currentMode)) currentMode = 'judge';
 
+  // Scoped to the event card: the name and language pickers further down use
+  // the same button style and must not switch the event list.
   function initModeButtons() {
-    document.querySelectorAll('.mode-btn').forEach(btn => {
+    const buttons = document.querySelectorAll('#event-modes .mode-btn');
+    buttons.forEach(btn => {
       btn.classList.toggle('active', btn.dataset.mode === currentMode);
       btn.addEventListener('click', () => {
         currentMode = btn.dataset.mode;
         localStorage.setItem('fab-event-mode', currentMode);
-        document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === currentMode));
+        buttons.forEach(b => b.classList.toggle('active', b.dataset.mode === currentMode));
         loadEventList();
       });
     });
@@ -652,12 +1100,18 @@
       currentEventId = eventId;
       document.getElementById('event-id').value = eventId;
       renderEventList(lastEventList); // re-render to update selection
+
+      // Confirm it landed in the backend, and refresh the permanent panel so
+      // the operator sees what that event actually contains.
       const al = document.getElementById('event-alert');
-      al.innerHTML = `<div class="alert ok">Event selected: ${data.eventId}</div>`;
-      setTimeout(() => al.innerHTML = '', 2500);
+      al.innerHTML = `<div class="alert ok"><strong>Event ${OV.esc(data.eventId)} is now active in the backend.</strong>
+        See the panel at the top of this page for what it contains.</div>`;
+      setTimeout(() => al.innerHTML = '', 6000);
+      document.getElementById('active-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      loadActiveEvent();
     } catch (err) {
-      if (err.message === 'PIN erforderlich') return;
-      document.getElementById('event-alert').innerHTML = `<div class="alert err">${err.message}</div>`;
+      if (err.denied) return;
+      document.getElementById('event-alert').innerHTML = `<div class="alert err">${OV.esc(err.message)}</div>`;
     }
   }
 
@@ -682,10 +1136,10 @@
                           :                             '<span class="badge badge-store">Store</span>';
         const selected    = ev.id === currentEventId ? ' selected' : '';
         const meta        = [ev.dateText, ev.eventType, ev.format].filter(Boolean).join(' · ');
-        return `<div class="event-row${selected}" data-id="${ev.id}">
+        return `<div class="event-row${selected}" data-id="${OV.esc(ev.id)}">
           <div class="event-info">
-            <div class="event-title">${ev.title}</div>
-            ${meta ? `<div class="event-meta">${meta}</div>` : ''}
+            <div class="event-title">${OV.esc(ev.title)}</div>
+            ${meta ? `<div class="event-meta">${OV.esc(meta)}</div>` : ''}
           </div>
           <div class="event-badges">${statusBadge}${roleBadge}</div>
         </div>`;
@@ -725,11 +1179,18 @@
   // stored token is stale, the first guarded call re-opens the gate anyway.
   (async () => {
     const status = await loadStatus().catch(() => null);
+    loadActiveEvent();
+
+    // Poll so a change made elsewhere — another browser, the tablet, a restart —
+    // shows up here without a reload. Rides the 15 s server-side cache, so this
+    // costs no extra GEM traffic.
+    setInterval(loadActiveEvent, 15000);
 
     if (status && status.unlocked === false) {
       openGate(async () => {
         await loadStatus();
         await loadLiveSettings();
+        await loadActiveEvent();
       });
     }
   })();

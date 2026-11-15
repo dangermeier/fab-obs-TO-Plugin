@@ -4,7 +4,8 @@
   "description": "Local server providing live OBS Browser Source overlays for Flesh and Blood TCG tournaments run on GEM",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test"
   },
   "keywords": [
     "flesh-and-blood",

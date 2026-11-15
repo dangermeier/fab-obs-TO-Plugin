@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FAB OBS TO Plugin — Cards</title>
+  <style>
+    /* Same values as the config page (see design_idea.md). Like that page this
+       one scrolls, so it cannot link overlay.css, whose body is a fixed frame. */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #f2f4f8;
+      color: #14181f;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 14px;
+      min-height: 100vh;
+      padding: 32px 16px;
+    }
+    .container { max-width: 960px; margin: 0 auto; }
+
+    .header { display: flex; align-items: baseline; gap: 14px; margin-bottom: 24px; }
+    .header h1 {
+      font-family: 'Bahnschrift', 'Segoe UI Semibold', 'Franklin Gothic Medium', system-ui, sans-serif;
+      font-size: 28px; font-weight: 600;
+    }
+    .header a { margin-left: auto; font-size: 13px; color: #2456c7; text-decoration: none; }
+    .header a:hover { text-decoration: underline; }
+
+    .card {
+      background: #fff;
+      border: 1px solid rgba(20,24,31,0.11);
+      border-top: 3px solid #2456c7;
+      border-radius: 3px;
+      padding: 20px 24px; margin-bottom: 20px;
+      box-shadow: 0 2px 10px rgba(20,24,31,0.06);
+    }
+    .card h2 {
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.08em; color: #2456c7; margin-bottom: 14px;
+    }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 9px 18px; border-radius: 3px; border: none;
+      font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
+    }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-danger { background: #c0392f33; color: #c0392f; border: 1px solid #c0392f55; }
+    .btn-danger:hover:not(:disabled) { background: #c0392f; color: #fff; }
+
+    /* On stream now */
+    .now { display: flex; align-items: center; gap: 16px; min-height: 96px; }
+    .now img { height: 96px; border-radius: 5px; flex-shrink: 0; }
+    .now-txt { flex: 1; min-width: 0; }
+    .now-name {
+      font-family: 'Bahnschrift', 'Segoe UI Semibold', system-ui, sans-serif;
+      font-size: 20px; font-weight: 600;
+    }
+    .now-name.none { color: #6d7581; font-style: italic; font-weight: 400; }
+    .now-meta { font-size: 12px; color: #6d7581; margin-top: 3px; }
+
+    /* Search */
+    input[type="search"] {
+      width: 100%; background: #f2f4f8; border: 1px solid #2456c744;
+      border-radius: 3px; color: #14181f; padding: 11px 14px;
+      font-size: 16px; font-family: inherit; outline: none;
+    }
+    input[type="search"]:focus { border-color: #2456c7; }
+    .hint { font-size: 12px; color: #6d7581; margin-top: 8px; line-height: 1.6; min-height: 19px; }
+    .hint.err { color: #c0392f; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 14px;
+      margin-top: 16px;
+    }
+    .result {
+      display: flex; flex-direction: column; gap: 7px;
+      padding: 8px; border-radius: 3px; cursor: pointer; text-align: left;
+      border: 1px solid rgba(20,24,31,0.08); background: #f8fafc;
+      font-family: inherit; color: inherit;
+    }
+    .result:hover, .result:focus-visible { border-color: #2456c799; background: #2456c70a; outline: none; }
+    .result.on { border-color: #2456c7; background: #2456c718; }
+    .thumb {
+      width: 100%; aspect-ratio: 63 / 88; border-radius: 5px;
+      background: #e5e9f0; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; color: #6d7581;
+    }
+    .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .r-name { font-size: 13px; font-weight: 600; line-height: 1.3; }
+    .r-meta { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #6d7581; }
+    /* Pitch colour is a property of the card, not decoration. */
+    .pitch { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; background: #6d7581; }
+    .pitch.Red    { background: #c0392f; }
+    .pitch.Yellow { background: #d9a520; }
+    .pitch.Blue   { background: #2456c7; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <h1>Cards</h1>
+    <a href="/config/">← Config</a>
+  </div>
+
+  <div class="card">
+    <h2>On stream now</h2>
+    <div class="now" id="now"></div>
+  </div>
+
+  <div class="card">
+    <h2>Find a card</h2>
+    <input type="search" id="q" placeholder="Card name, e.g. Command and Conquer" autocomplete="off" autofocus>
+    <div class="hint" id="hint">
+      Type at least two letters, then click a card to put it on stream. It appears
+      in the card slot of the broadcast frame and in the Card overlay, and stays
+      until you hide it or pick another one.
+    </div>
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <div class="card" id="recent-card" hidden>
+    <h2>Recently used</h2>
+    <div class="grid" id="recent" style="margin-top:0"></div>
+  </div>
+
+</div>
+
+<script src="/shared/overlay.js"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  const HINT = $('hint').textContent;
+
+  // ── PIN ────────────────────────────────────────────────────────────────────
+  // Putting a card on stream is a change like any other, so it needs the PIN.
+  // A plain prompt is enough here; the action is replayed once unlocked.
+  function guarded(path, body) {
+    return OV.post(path, body, () => {
+      const pin = prompt('PIN (printed in the server console):');
+      if (!pin) return;
+      OV.login(pin.trim())
+        .then(() => guarded(path, body))
+        .catch(err => setHint(err.message, true));
+    });
+  }
+
+  function setHint(text, isError) {
+    $('hint').textContent = text;
+    $('hint').className = 'hint' + (isError ? ' err' : '');
+  }
+
+  // ── what is on stream ──────────────────────────────────────────────────────
+
+  let onShow = null, results = [], recent = [];
+
+  function renderNow(card) {
+    const key = card ? card.images.join('|') : '';
+    if (key === onShow) return;
+    onShow = key;
+
+    if (!card) {
+      $('now').innerHTML = '<div class="now-txt"><div class="now-name none">No card on stream</div></div>';
+    } else {
+      $('now').innerHTML = `
+        <img alt="">
+        <div class="now-txt">
+          <div class="now-name">${OV.esc(card.name)}</div>
+          <div class="now-meta">${OV.esc([card.color, card.typeText].filter(Boolean).join(' · '))}</div>
+        </div>
+        <button class="btn btn-danger" id="hide">Hide card</button>`;
+      OV.loadCardImage($('now').querySelector('img'), card.images);
+      $('hide').addEventListener('click', () =>
+        guarded('/api/card/clear', {}).catch(err => { if (!err.denied) setHint(err.message, true); }));
+    }
+    markResults();
+  }
+
+  // Outline whichever tile — in either grid — is the card on stream.
+  function markResults() {
+    [['grid', results], ['recent', recent]].forEach(([id, list]) =>
+      $(id).querySelectorAll('.result').forEach((el, i) =>
+        el.classList.toggle('on', !!onShow && !!list[i] && list[i].images.join('|') === onShow)));
+  }
+
+  // Search results and the recent cards are the same tiles in two places.
+  function renderTiles(host, list) {
+    host.innerHTML = list.map((c, i) => `
+      <button class="result" data-i="${i}">
+        <div class="thumb"><img alt="" loading="lazy"></div>
+        <div class="r-name">${OV.esc(c.name)}</div>
+        <div class="r-meta">${c.color ? `<span class="pitch ${OV.esc(c.color)}"></span>` : ''}${OV.esc(c.typeText)}</div>
+      </button>`).join('');
+
+    host.querySelectorAll('.result').forEach((el, i) =>
+      OV.loadCardImage(el.querySelector('img'), [list[i].thumb].concat(list[i].images).filter(Boolean), ok => {
+        if (!ok) el.querySelector('.thumb').textContent = 'no image';
+      }));
+    markResults();
+  }
+
+  function pick(card) {
+    if (!card) return;
+    guarded('/api/card/show', card)
+      .then(() => setHint(`“${card.name}” is on stream.`))
+      .catch(err => { if (!err.denied) setHint(err.message, true); });
+  }
+
+  // ── recently used ──────────────────────────────────────────────────────────
+  // Kept by the server, so it is the same list on every device. Re-read
+  // whenever the card on stream changes — which is exactly when it changes.
+
+  let recentKey = null;
+  function loadRecent() {
+    fetch('/api/cards/recent').then(r => r.json()).then(list => {
+      if (!Array.isArray(list)) return;
+      const key = list.map(c => c.images.join('|')).join('~');
+      if (key === recentKey) { markResults(); return; }     // same list: leave the tiles alone
+      recentKey = key;
+      recent = list;
+      $('recent-card').hidden = !list.length;
+      renderTiles($('recent'), list);
+    }).catch(() => {});
+  }
+  $('recent').addEventListener('click', e => {
+    const el = e.target.closest('.result');
+    if (el) pick(recent[+el.dataset.i]);
+  });
+  loadRecent();
+
+  OV.onMatch(m => { renderNow(m && m.card); loadRecent(); });
+  fetch('/api/match').then(r => r.json()).then(m => renderNow(m.card)).catch(() => renderNow(null));
+
+  // ── search ─────────────────────────────────────────────────────────────────
+
+  let timer = null, seq = 0;
+
+  function renderResults(list) {
+    results = list;
+    renderTiles($('grid'), list);
+  }
+
+  async function search() {
+    const q = $('q').value.trim();
+    const mine = ++seq;
+    if (q.length < 2) { renderResults([]); setHint(HINT); return; }
+
+    setHint('Searching…');
+    try {
+      const res  = await fetch('/api/cards/search?q=' + encodeURIComponent(q));
+      const list = await res.json();
+      if (mine !== seq) return;                       // a newer search overtook this one
+      if (!res.ok) throw new Error(list.error || 'HTTP ' + res.status);
+
+      renderResults(list);
+      setHint(list.length
+        ? `${list.length} card${list.length === 1 ? '' : 's'}${list.length >= 30 ? ' — showing the first 30, type more to narrow it down' : ''}`
+        : `Nothing found for “${q}”. Very new cards may not be in the card database yet.`);
+    } catch (err) {
+      if (mine !== seq) return;
+      renderResults([]);
+      setHint(err.message, true);
+    }
+  }
+
+  $('q').addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(search, 300); });
+  $('q').addEventListener('keydown', e => { if (e.key === 'Enter') { clearTimeout(timer); search(); } });
+
+  $('grid').addEventListener('click', e => {
+    const el = e.target.closest('.result');
+    if (el) pick(results[+el.dataset.i]);
+  });
+</script>
+</body>
+</html>

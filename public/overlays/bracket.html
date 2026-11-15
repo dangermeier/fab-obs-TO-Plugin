@@ -5,235 +5,234 @@
   <title>FAB Bracket</title>
   <link rel="stylesheet" href="/shared/overlay.css">
   <style>
-    body { display: flex; flex-direction: column; }
-
-    /* Full-viewport flex layout — no JS scaling needed */
-    .overlay-frame { flex: 1; }
-
-    .bheader {
-      flex-shrink: 0;
-      padding: 13px 24px 11px;
-      border-bottom: 1px solid var(--line);
-      background: var(--bg-raised);
-    }
-    .btitle {
-      font-family: var(--font-head);
-      font-weight: 600;
-      font-size: clamp(17px, 2vw, 23px);
-      color: var(--text);
-    }
-    .bsubtitle { font-size: clamp(10px, 1.2vw, 13px); color: var(--text-dim); margin-top: 3px; }
-
-    /* Grid: all rounds side-by-side */
     .bracket-grid {
+      --gap: 3.2em;
       flex: 1;
-      display: flex;
-      padding: 14px 56px 20px;
-      gap: 48px;
       min-height: 0;
+      display: flex;
+      justify-content: center;
+      gap: var(--gap);
+      padding: 0.9em 2.4em 1.2em;
     }
 
     /* One column per round */
     .round-col {
-      flex: 1;
+      flex: 1 1 0;
+      max-width: 32em;
+      min-width: 0;
       display: flex;
       flex-direction: column;
-      min-width: 0;
     }
-
     .round-label {
       flex-shrink: 0;
-      text-align: center;
+      margin-bottom: 0.5em;
       font-family: var(--font-head);
-      font-size: clamp(12px, 1.25vw, 16px);
+      font-size: 1.05em;
       font-weight: 600;
-      color: var(--accent);
-      margin-bottom: 10px;
+      color: var(--text-dim);
     }
+    .round-col.current .round-label { color: var(--accent); }
 
-    .round-matches {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-    }
+    .round-matches { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 
-    /* Each match occupies flex-grow proportional to 2^roundIndex */
+    /* Equal slots per column, the card centred in its slot — so a card in the
+       next round sits exactly between the two that feed it. */
     .match-slot {
+      position: relative;
+      flex: 1 1 0;
+      min-height: 0;
       display: flex;
       flex-direction: column;
-      align-items: stretch;
       justify-content: center;
-      padding: 5px 0;
+      padding: 0.3em 0;
     }
+
+    /* Connectors. Drawn only where one round really halves into the next. */
+    .round-col.feeds .match-slot::after,
+    .round-col.fed   .match-slot::before {
+      content: '';
+      position: absolute;
+      width: calc(var(--gap) / 2);
+      border: 0 solid var(--line-strong);
+    }
+    .round-col.fed .match-slot::before { left: calc(var(--gap) / -2); top: 50%; border-top-width: 0.1em; }
+    .round-col.feeds .match-slot::after { right: calc(var(--gap) / -2); border-right-width: 0.1em; }
+    .round-col.feeds .match-slot:nth-child(odd)::after  { top: 50%; bottom: 0;    border-top-width: 0.1em; }
+    .round-col.feeds .match-slot:nth-child(even)::after { top: 0;   bottom: 50%; border-bottom-width: 0.1em; }
 
     .match-card {
-      border: 1px solid var(--line);
-      border-left: 3px solid var(--line-strong);
-      border-radius: 2px;
-      overflow: hidden;
       display: flex;
       flex-direction: column;
-      max-height: clamp(140px, 22vh, 240px); /* cap so Finals card isn't enormous */
-      background: var(--bg-raised);
-      box-shadow: var(--shadow);
+      max-height: 8.6em;
+      flex: 1 1 auto;
+      min-height: 0;
+      border-radius: 0.45em;
+      background: var(--surface);
+      box-shadow: var(--lift);
+      overflow: hidden;
     }
 
     .pcard {
-      flex: 1;
-      min-height: 58px;
+      flex: 1 1 0;
+      min-height: 0;
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 8px 14px;
-      border-bottom: 1px solid var(--line);
+      gap: 0.7em;
+      padding: 0.35em 0.8em;
       overflow: hidden;
     }
-    .pcard:last-child { border-bottom: none; }
-    .pcard.winner { background: var(--accent-tint); }
-    .pcard.loser  { opacity: 0.45; }
+    /* Between the two players: the fading divider with its star. */
+    .match-card { position: relative; }
+    .match-card::after {
+      content: '';
+      position: absolute;
+      left: 6%; right: 6%; top: 50%;
+      height: 0.72em;
+      margin-top: -0.36em;
+      background: var(--sep-h);
+      pointer-events: none;
+    }
+    .pcard.winner { background: linear-gradient(90deg, var(--accent-tint), transparent 85%); box-shadow: inset 0.22em 0 0 var(--win); }
+    .pcard.loser .hero-wrap { opacity: 0.45; }
 
-    .pcard-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 1px; }
-    .pcard-name {
-      font-size: clamp(11px, 1.3vw, 15px);
-      color: var(--text);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      line-height: 1.2;
-    }
+    .pcard-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.05em; }
+    .pcard-name, .pcard-hero { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pcard-name { font-size: 1.15em; line-height: 1.2; color: var(--text); }
+    .pcard-hero { font-size: 0.75em; line-height: 1.25; color: var(--text-dim); }
     .pcard.winner .pcard-name { color: var(--win); font-weight: 700; }
     .pcard.loser  .pcard-name { color: var(--text-dim); }
-    .pcard-hero {
-      font-size: clamp(9px, 1vw, 12px);
-      color: var(--accent);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
 
     .champion {
-      font-family: var(--font-head);
-      font-size: clamp(11px, 1.1vw, 14px);
-      font-weight: 700;
-      color: var(--accent);
       flex-shrink: 0;
+      font-size: 0.7em;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
     }
 
-    .no-data { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--text-dim); font-size: 16px; }
+    .board-empty { flex: 1; display: flex; align-items: center; justify-content: center; }
   </style>
 </head>
-<body>
-<div class="overlay-frame" id="frame">
-  <div id="content-area" style="display:flex;flex-direction:column;height:100%">
-    <div class="no-data">Loading…</div>
+<body class="board">
+<div class="overlay-frame">
+  <div class="board-head">
+    <div class="bh-main">
+      <div class="bh-title"><span id="ttl">–</span><span class="bh-tag" id="tag"></span></div>
+      <div class="bh-sub" id="sub"></div>
+    </div>
   </div>
+  <div class="bracket-grid" id="grid"></div>
 </div>
 <div id="status-badge">Loading…</div>
 
 <script src="/shared/overlay.js"></script>
 <script>
   const REFRESH = OV.refreshMs;
-  const area = document.getElementById('content-area');
+  const grid = document.getElementById('grid');
+  const $ = id => document.getElementById(id);
 
-  const ROUND_LABELS = ['Round of 16', 'Quarterfinals', 'Semifinals', 'Finals'];
+  const byTable = (a, b) => (OV.tableNo(a) || 999) - (OV.tableNo(b) || 999);
 
-  function render(tdata, heroes) {
-    const elim = tdata.rounds.filter(r => r.elimination).sort((a, b) => a.round - b.round);
-
-    if (!elim.length) {
-      area.innerHTML = '<div class="no-data">No elimination rounds yet</div>';
-      return;
-    }
-
-    const byId = {}, byN = {};
-    heroes.forEach(h => {
-      if (h.gemId && h.hero) byId[h.gemId] = h.hero;
-      if (h.name  && h.hero) byN[h.name.toLowerCase()] = h.hero;
-    });
-
-    // Sort pairings by table within each round
-    elim.forEach(r => r.pairings.sort((a, b) => {
-      const n = s => typeof s.table === 'number' ? s.table : (parseInt(String(s.table).replace(/\D/g,'')) || 999);
-      return n(a) - n(b);
-    }));
-
-    const first = elim[0].pairings.length;
-    const numRounds = elim.length;
-    const labelStart = first >= 8 ? 0 : first >= 4 ? 1 : first >= 2 ? 2 : 3;
-    const isLast = ri => ri === numRounds - 1;
-
-    const cols = elim.map((round, ri) => {
-      const flexGrow = Math.pow(2, ri); // 1, 2, 4, 8...
-      const label = ROUND_LABELS[Math.min(labelStart + ri, ROUND_LABELS.length - 1)] || `Round ${round.round}`;
-
-      const slots = round.pairings.map(p => {
-        const h1 = byId[p.p1GemId] || byN[(p.p1||'').toLowerCase()] || null;
-        const h2 = byId[p.p2GemId] || byN[(p.p2||'').toLowerCase()] || null;
-        const w1 = p.winner === 'p1', w2 = p.winner === 'p2';
-        const champ = isLast(ri) && p.done;
-
-        return `<div class="match-slot" style="flex:${flexGrow}">
-          <div class="match-card">
-            <div class="pcard${w1?' winner':p.done&&w2?' loser':''}">
-              ${OV.hw(h1, 52)}
-              <div class="pcard-info">
-                <div class="pcard-name">${OV.esc(OV.fmtName(p.p1))}</div>
-                ${h1 ? `<div class="pcard-hero">${OV.esc(h1)}</div>` : ''}
-              </div>
-              ${champ && w1 ? '<div class="champion">Champion</div>' : ''}
-            </div>
-            <div class="pcard${w2?' winner':p.done&&w1?' loser':''}">
-              ${OV.hw(h2, 52)}
-              <div class="pcard-info">
-                <div class="pcard-name">${OV.esc(OV.fmtName(p.p2))}</div>
-                ${h2 ? `<div class="pcard-hero">${OV.esc(h2)}</div>` : ''}
-              </div>
-              ${champ && w2 ? '<div class="champion">Champion</div>' : ''}
-            </div>
-          </div>
-        </div>`;
-      }).join('');
-
-      return `<div class="round-col">
-        <div class="round-label">${label}</div>
-        <div class="round-matches">${slots}</div>
-      </div>`;
-    }).join('');
-
-    area.innerHTML = `
-      <div class="bheader">
-        <div class="btitle">${OV.esc(tdata.meta?.title || 'FAB Top Cut')}</div>
-        <div class="bsubtitle">Top Cut · Rounds ${elim.map(r => r.round).join(', ')}</div>
-      </div>
-      <div class="bracket-grid">${cols}</div>`;
+  // Same player? The gemId decides when both sides have one, the name otherwise.
+  function samePlayer(g1, n1, g2, n2) {
+    if (g1 && g2) return g1 === g2;
+    const k = OV.nameKey(n1);
+    return !!k && k === OV.nameKey(n2);
   }
 
-  let last = null;
+  /* GEM numbers the tables of each round on its own, so table 1 of the
+   * quarterfinals does not necessarily feed table 1 of the semifinals. Walk
+   * back from the last round and put each match next to the one its winner
+   * went on to — otherwise the connectors would join the wrong cards.
+   */
+  function orderRounds(elim) {
+    const rounds = elim.map(r => [...r.pairings].sort(byTable));
+
+    for (let k = rounds.length - 2; k >= 0; k--) {
+      const cur = rounds[k], used = new Set(), placed = [];
+
+      rounds[k + 1].forEach(m => [[m.p1GemId, m.p1], [m.p2GemId, m.p2]].forEach(([g, n]) => {
+        const i = cur.findIndex((c, ci) => !used.has(ci) &&
+          (samePlayer(g, n, c.p1GemId, c.p1) || samePlayer(g, n, c.p2GemId, c.p2)));
+        if (i >= 0) { used.add(i); placed.push(cur[i]); }
+      }));
+
+      cur.forEach((c, i) => { if (!used.has(i)) placed.push(c); });
+      rounds[k] = placed;
+    }
+    return rounds;
+  }
+
+  function playerHtml(name, hero, cls, champ) {
+    return `<div class="pcard${cls}">
+      ${OV.hw(hero, '2.7em')}
+      <div class="pcard-info">
+        <div class="pcard-name">${OV.esc(OV.fmtName(name))}</div>
+        ${hero ? `<div class="pcard-hero">${OV.esc(hero)}</div>` : ''}
+      </div>
+      ${champ ? `<div class="champion">${OV.t('champion')}</div>` : ''}
+    </div>`;
+  }
+
+  let last = null, shown = null;
+
+  function render() {
+    if (!last) return;
+    const { tdata, heroOf } = last;
+    const elim = tdata.rounds.filter(r => r.elimination).sort((a, b) => a.round - b.round);
+
+    $('ttl').textContent = OV.t('topCut');
+    $('sub').textContent = tdata.meta?.title || '';
+    $('tag').textContent = elim.length ? 'Top ' + elim[0].pairings.length * 2 : '';
+
+    let html;
+    if (!elim.length) {
+      html = `<div class="board-empty">${OV.t('noBracket')}</div>`;
+    } else {
+      const rounds = orderRounds(elim);
+      const final  = elim.length - 1;
+      const halves = i => i < final && rounds[i].length === rounds[i + 1].length * 2;
+
+      html = elim.map((round, ri) => {
+        const live = round.pairings.some(p => !p.done);
+        const cls  = (halves(ri) ? ' feeds' : '') + (ri > 0 && halves(ri - 1) ? ' fed' : '') +
+                     (live ? ' current' : '');
+
+        const slots = rounds[ri].map(p => {
+          const w1 = p.winner === 'p1', w2 = p.winner === 'p2';
+          const champ = ri === final && rounds[ri].length === 1 && p.done;
+          return `<div class="match-slot"><div class="match-card">
+            ${playerHtml(p.p1, heroOf(p.p1GemId, p.p1), w1 ? ' winner' : w2 ? ' loser' : '', champ && w1)}
+            ${playerHtml(p.p2, heroOf(p.p2GemId, p.p2), w2 ? ' winner' : w1 ? ' loser' : '', champ && w2)}
+          </div></div>`;
+        }).join('');
+
+        return `<div class="round-col${cls}">
+          <div class="round-label">${OV.esc(OV.roundName(tdata, round))}</div>
+          <div class="round-matches">${slots}</div>
+        </div>`;
+      }).join('');
+    }
+
+    // Untouched data is a no-op: no re-render, no artwork fading in again.
+    if (html !== shown) { grid.innerHTML = html; shown = html; }
+  }
 
   async function refresh() {
     try {
-      const q = OV.query;
-      const [tdRes, hRes] = await Promise.all([fetch(`/api/tournament${q}`), fetch(`/api/heroes${q}`)]);
-      if (tdRes.status === 401) { OV.badge('Not logged in', true); return; }
-      if (!tdRes.ok) throw new Error(`HTTP ${tdRes.status}`);
-      const tdata  = await tdRes.json();
-      const heroes = await hRes.json().catch(() => []);
-      if (tdata.error) throw new Error(tdata.error);
-
-      OV.setFormat(tdata.meta?.format);
-      last = { tdata, heroes };
-      render(tdata, heroes);
+      last = await OV.loadEvent();
+      render();
       OV.badgeOk(Math.round(REFRESH / 1000));
     } catch (err) {
-      OV.badge('Error: ' + err.message, true);
+      OV.badge(err.message, true);
     }
   }
 
-  // Switching the name mode in the config UI re-renders without an OBS reload.
-  OV.initSettings(() => { if (last) render(last.tdata, last.heroes); }).then(refresh);
-
+  // Name mode and language switch live, without an OBS reload.
+  OV.initSettings(render).then(refresh);
   setInterval(refresh, REFRESH);
+  OV.onRefresh(refresh);
 </script>
 </body>
 </html>

@@ -12,6 +12,28 @@ const bus = new EventEmitter();
 bus.setMaxListeners(0);
 
 const NAME_MODES = ['full', 'short', 'initials'];
+const LANGS      = ['en', 'de'];
+
+/* Themes the overlays can wear. To add one: an entry here, and a
+ * `.theme-<id>` block with the semantic tokens in public/shared/overlay.css.
+ * `preview` is what the theme's entry in the config page's dropdown looks
+ * like. Nothing else needs to know — the page lists whatever is in here,
+ * in this order: newest set first. The order says nothing about the
+ * default; that is DEFAULT_THEME below. */
+const THEMES = [
+  { id: 'mpa',   label: 'Mastery Pack Assassin',
+    preview: { bg: 'linear-gradient(118deg, #02050b 0%, #0e4a68 52%, #5a1a5e 100%)', text: '#eaf3f8', accent: '#4fd8f5' } },
+  { id: 'usurp', label: 'Usurp the Shadow Throne',
+    preview: { bg: 'linear-gradient(120deg, #3a1560 0%, #170a2b 60%, #0b0514 100%)', text: '#f1eafb', accent: '#f06bff' } },
+  { id: 'dark',  label: 'Black',
+    preview: { bg: 'linear-gradient(120deg, #1c2433 0%, #0f1319 100%)', text: '#eceef1', accent: '#86a9f5' } },
+  { id: 'light', label: 'White',
+    preview: { bg: 'linear-gradient(120deg, #ffffff 0%, #e9edf4 100%)', text: '#14181f', accent: '#2456c7' } }
+];
+
+// The theme a fresh install starts with — the current main set. A
+// supplementary set (Mastery Pack Assassin) is listed but never the default.
+const DEFAULT_THEME = 'usurp';
 
 // Life can go below zero (overkill damage stays visible) and above the starting
 // total (Bravo, Prism and Oldhim all heal past it).
@@ -21,6 +43,9 @@ const HISTORY_MAX = 25;
 
 const DEFAULT_SETTINGS = {
   nameMode:     'short',
+  lang:         'en',   // language of the text viewers see on the overlays
+  theme:        DEFAULT_THEME,
+  recentCards:  [],     // the last cards put on show, newest first
   pin:          null,
   controlToken: null
 };
@@ -42,12 +67,17 @@ const DEFAULT_MATCH = {
   // overlay in OBS. Cleared automatically as soon as a new match loads.
   ended: false,
 
+  // The card put on show from the card search page, or null.
+  // { name, color, pitch, typeText, images: [url, …] }
+  card: null,
+
   history: [],
 
   matchKey:    null,
   eventTitle:  null,
   format:      null,
   roundLabel:  null,
+  roundStage:  null,   // 'r16' | 'qf' | 'sf' | 'f' in the top cut, else null
   totalRounds: null,
   warning:     null,
 
@@ -60,7 +90,10 @@ const DEFAULT_MATCH = {
 function readJson(file, fallback) {
   try {
     if (fs.existsSync(file)) {
-      return { ...fallback, ...JSON.parse(fs.readFileSync(file, 'utf8')) };
+      // Windows editors and PowerShell like to save a byte-order mark, which
+      // JSON.parse rejects — and a settings file that "cannot be read" would
+      // quietly come back as defaults, with a brand-new PIN.
+      return { ...fallback, ...JSON.parse(fs.readFileSync(file, 'utf8').replace(/^﻿/, '')) };
     }
   } catch (err) {
     console.warn(`[state] Could not read ${path.basename(file)}: ${err.message}`);
@@ -68,10 +101,15 @@ function readJson(file, fallback) {
   return { ...fallback };
 }
 
+// Written to a temp file and renamed into place: a crash or power cut in the
+// middle of a write must not leave half a file, which would read back as
+// "no state" and reset the life totals mid-match.
 function writeJson(file, data) {
   try {
     fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, JSON.stringify(data, null, 2));
+    const tmp = file.replace(/\.json$/, '.tmp.json');   // still matched by data/*.json in .gitignore
+    fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
+    fs.renameSync(tmp, file);
   } catch (err) {
     console.warn(`[state] Could not write ${path.basename(file)}: ${err.message}`);
   }
@@ -95,6 +133,10 @@ function loadState() {
     .map(h => ({ life: { ...(h && h.life) } }));
 
   if (!NAME_MODES.includes(settings.nameMode)) settings.nameMode = DEFAULT_SETTINGS.nameMode;
+  if (!LANGS.includes(settings.lang))          settings.lang     = DEFAULT_SETTINGS.lang;
+  if (!THEMES.some(t => t.id === settings.theme)) settings.theme  = DEFAULT_SETTINGS.theme;
+  delete settings.font;        // the typeface picker is gone; drop what it stored
+  if (!Array.isArray(settings.recentCards)) settings.recentCards = [];
 
   // CONTROL_PIN pins the value from the environment — the container variant
   // needs this, because a PIN that only exists inside an ephemeral filesystem
@@ -145,7 +187,14 @@ function getSettings() { return settings; }
 
 // The SSE channel is unauthenticated, so the PIN and token never leave here.
 function publicSettings() {
-  return { nameMode: settings.nameMode, pinRequired: !!settings.pin };
+  return {
+    nameMode: settings.nameMode,
+    lang:     settings.lang,
+    theme:    settings.theme,
+    themes:   THEMES,
+    defaultTheme: DEFAULT_THEME,
+    pinRequired: !!settings.pin
+  };
 }
 
 function patchSettings(patch) {
@@ -158,6 +207,18 @@ function patchSettings(patch) {
 function setNameMode(mode) {
   if (!NAME_MODES.includes(mode)) throw new Error(`nameMode must be one of ${NAME_MODES.join(', ')}`);
   return patchSettings({ nameMode: mode });
+}
+
+function setLang(lang) {
+  if (!LANGS.includes(lang)) throw new Error(`lang must be one of ${LANGS.join(', ')}`);
+  return patchSettings({ lang });
+}
+
+function setTheme(theme) {
+  if (!THEMES.some(t => t.id === theme)) {
+    throw new Error(`theme must be one of ${THEMES.map(t => t.id).join(', ')}`);
+  }
+  return patchSettings({ theme });
 }
 
 // Passing null or '' disables protection and is remembered across restarts.
@@ -236,12 +297,44 @@ function undo() {
   return patchMatch({ life: { ...prev.life }, history });
 }
 
+// The card shown in the broadcast frame and the card overlay; null hides it.
+function setCard(card) {
+  if (card === null) return patchMatch({ card: null });
+
+  const images = (Array.isArray(card?.images) ? card.images : [])
+    .filter(u => typeof u === 'string' && /^https:\/\//.test(u) && u.length < 500)
+    .slice(0, 12);
+  if (!images.length) throw new Error('The card has no image to show');
+
+  const text = v => String(v == null ? '' : v).slice(0, 120);
+  const shown = { name: text(card.name), color: text(card.color), pitch: text(card.pitch), typeText: text(card.typeText), images };
+  rememberCard(shown);
+  return patchMatch({ card: shown });
+}
+
+/* The cards the operator has used lately, for the card page: during a match
+ * the same handful come up again and again. Newest first, each card once —
+ * showing one again moves it to the front. Kept with the settings so the list
+ * survives a restart; written straight to the file, without the settings
+ * broadcast, because no overlay cares.
+ */
+const RECENT_CARDS = 10;
+
+function rememberCard(card) {
+  const key = c => (c.images || []).join('|');
+  settings.recentCards = [card, ...(settings.recentCards || []).filter(c => key(c) !== key(card))]
+    .slice(0, RECENT_CARDS);
+  writeJson(SETTINGS_FILE, settings);
+}
+
+function recentCards() { return settings.recentCards || []; }
+
 // Confirmed by the operator once a player hits 0 — reveals the round overlay.
 function setEnded(ended) { return patchMatch({ ended: !!ended }); }
 
 module.exports = {
   bus, loadState, flushMatch,
-  getSettings, publicSettings, setNameMode, setPin, regeneratePin,
+  getSettings, publicSettings, setNameMode, setLang, setTheme, setPin, regeneratePin,
   getMatch, matchView, patchMatch,
-  adjustLife, setLife, swapSides, undo, setEnded
+  adjustLife, setLife, swapSides, undo, setEnded, setCard, recentCards
 };

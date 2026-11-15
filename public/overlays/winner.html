@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FAB Winner</title>
+  <link rel="stylesheet" href="/shared/overlay.css">
+  <style>
+    /* The winner screen. One half of the frame is a window onto the winner's
+       camera, the other half is their hero; between them a column says what
+       was won, and a plate across its foot says by whom.
+
+         ?side=left                          ?side=right
+         +----------+-------+----------+     +----------+-------+----------+
+         |          | event |          |     |          | event |          |
+         |  camera  | format|   hero   |     |   hero   | format|  camera  |
+         |          | round |          |     |          | round |          |
+         |          | WINNER|          |     |          | WINNER|          |
+         +-------[ Player name ]-------+     +-------[ Player name ]-------+
+
+       "left" and "right" are the two players as the tablet has them seated.
+       ?side=auto picks whoever is still standing once the other is at zero.
+       In em off --u (20px on a 1920-wide source), like every board. */
+
+    body { font-size: var(--u); background: transparent; }
+
+    .wn {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 17em minmax(0, 1fr);
+      color: var(--text);
+      opacity: 0;
+      transition: opacity 0.5s;
+    }
+    .wn.show { opacity: 1; }
+
+    /* Which half is the camera and which the hero. */
+    .wn-cam { grid-column: 1; grid-row: 1; }
+    .wn-mid { grid-column: 2; grid-row: 1; }
+    .wn-art { grid-column: 3; grid-row: 1; }
+    .wn.right .wn-cam { grid-column: 3; }
+    .wn.right .wn-art { grid-column: 1; }
+
+    /* The camera half is simply nothing — OBS shows the camera underneath —
+       with a soft inner shadow so the picture sits in the frame. */
+    .wn-cam { position: relative; }
+    .wn-cam::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      box-shadow: inset 0 0 0 1px var(--ring), inset 0 0 4em rgba(0, 0, 0, 0.45);
+      pointer-events: none;
+    }
+    .guide { display: none; }
+    .debug .wn-cam { outline: 2px dashed var(--danger); outline-offset: -2px; }
+    .debug .guide {
+      display: block;
+      position: absolute;
+      left: 50%; top: 50%;
+      transform: translate(-50%, -50%);
+      padding: 0.3em 0.6em;
+      background: var(--bg-raised);
+      color: var(--danger);
+      font-size: 0.8em;
+      font-weight: 600;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    /* ── the hero half ───────────────────────────────────────────────────── */
+    .wn-art { position: relative; overflow: hidden; background: var(--bg); }
+
+    /* The card's illustration, blown up to fill the half and deliberately out
+       of focus: the scans are too small to show this large, but as a wash of
+       the hero's colours behind the sharp card they are just right. Same crop
+       as the art panels of the broadcast frame (the 12–55% band of the card). */
+    .wn-wash {
+      position: absolute;
+      top: -30%;
+      left: 50%;
+      height: 238%;
+      max-width: none;
+      transform: translateX(-50%);
+      filter: blur(1.6em) saturate(1.25);
+      opacity: 0;
+      transition: opacity 0.8s;
+    }
+    .wn-wash.show { opacity: 0.75; }
+    .wn-art::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(closest-side, transparent 35%, var(--bg) 135%);
+      pointer-events: none;
+    }
+
+    .wn-card { position: absolute; inset: 3.2em 4em 6.4em; z-index: 1; }
+
+    /* ── the column in the middle ────────────────────────────────────────── */
+    .wn-mid {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      background: var(--surface);
+      box-shadow: var(--lift-strong);
+    }
+    .wn-facts { width: 100%; padding-bottom: 4em; }
+    .wn-fact {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.3em;
+      padding: 1.25em 1em;
+      text-align: center;
+    }
+    .wn-fact:empty { display: none; }
+    .wn-fact + .wn-fact::before {
+      content: '';
+      position: absolute;
+      left: 9%; right: 9%; top: -0.36em;
+      height: 0.72em;
+      background: var(--sep-h);
+    }
+    .wn-fact .k {
+      font-size: 0.55em;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    .wn-fact .v {
+      font-family: var(--font-head);
+      font-size: 1.55em;
+      font-weight: 600;
+      line-height: 1.2;
+    }
+    /* The word itself: the largest thing in the column, in the accent. */
+    .wn-word {
+      font-family: var(--font-head);
+      font-size: 3em;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--accent);
+      text-shadow: var(--glow);
+    }
+
+    /* ── the name plate ──────────────────────────────────────────────────── */
+    .wn-plate {
+      position: absolute;
+      left: 50%;
+      bottom: 2.6em;
+      z-index: 3;
+      min-width: 26em;
+      max-width: 44em;
+      padding: 0.55em 2.6em 0.6em;
+      border-radius: 0.5em;
+      background: var(--surface);
+      box-shadow: var(--lift-strong);
+      text-align: center;
+      transform: translateX(-50%);
+    }
+    .wn-plate::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      border-radius: 0.5em 0.5em 0 0;
+      background: var(--rule);
+    }
+    .wn-name {
+      font-family: var(--font-head);
+      font-size: 2.4em;
+      font-weight: 600;
+      line-height: 1.15;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .wn-hero { font-size: 0.9em; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .wn-hero:empty { display: none; }
+
+    /* The plate rises into place when the screen appears. */
+    .wn.show .wn-plate { animation: plate 0.8s cubic-bezier(0.2, 0.75, 0.2, 1) 0.25s both; }
+    @keyframes plate {
+      from { opacity: 0; transform: translate(-50%, 1.6em); }
+      to   { opacity: 1; transform: translate(-50%, 0); }
+    }
+  </style>
+</head>
+<body class="themed ov-transparent">
+<div class="wn" id="wn">
+  <div class="wn-cam"><div class="guide" id="guide"></div></div>
+  <div class="wn-mid" id="mid">
+    <div class="wn-facts">
+      <div class="wn-fact" id="f-event"></div>
+      <div class="wn-fact" id="f-format"></div>
+      <div class="wn-fact" id="f-round"></div>
+      <div class="wn-fact"><div class="wn-word" id="word"></div></div>
+    </div>
+  </div>
+  <div class="wn-art" id="art">
+    <img class="wn-wash" id="wash" alt="">
+    <div class="wn-card" id="card"></div>
+  </div>
+  <div class="wn-plate">
+    <div class="wn-name" id="name">–</div>
+    <div class="wn-hero" id="hero"></div>
+  </div>
+</div>
+<div id="status-badge">Loading…</div>
+
+<script src="/shared/overlay.js"></script>
+<script>
+  const P    = OV.params;
+  const SIDE = ['left', 'right', 'auto'].includes(P.get('side')) ? P.get('side') : 'left';
+  const $    = id => document.getElementById(id);
+
+  OV.paintTheme();
+  const frame = $('wn');
+  const stage = OV.cardStage($('card'));
+  OV.fx($('mid'), { motes: 22 });
+  OV.fx($('art'), { motes: 26 });
+
+  // "6 / 7" for Swiss; a top-cut stage is its own name.
+  function roundValue(m) {
+    if (m.roundStage) return OV.matchRoundName(m);
+    if (m.round) return m.round + (m.totalRounds ? ' / ' + m.totalRounds : '');
+    return m.roundLabel || '';
+  }
+
+  /* Which seat won: 'left' / 'right' as asked for, or — with ?side=auto — the
+   * player still standing once the other one is at zero or below. null means
+   * there is no winner to show yet. */
+  function winningSeat(m, l, r) {
+    if (SIDE !== 'auto') return SIDE;
+    const a = m.life[l], b = m.life[r];
+    if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+    if (b <= 0 && a > 0) return 'left';
+    if (a <= 0 && b > 0) return 'right';
+    return null;
+  }
+
+  const fact = (id, label, value) => {
+    $(id).innerHTML = value ? `<div class="k">${OV.esc(label)}</div><div class="v">${OV.esc(value)}</div>` : '';
+  };
+
+  let last = null, washFor = null;
+
+  function hide(text, isError) {
+    frame.classList.remove('show');
+    stage.set(null);
+    OV.badge(text, isError);
+  }
+
+  function render() {
+    const m = last;
+    if (!m || (!m.p1 && !m.p2)) return hide(m && m.warning ? m.warning : 'No featured match', !!(m && m.warning));
+
+    OV.setFormat(m.format);
+    const [l, r] = m.swapped ? ['p2', 'p1'] : ['p1', 'p2'];
+    const seat = winningSeat(m, l, r);
+    if (!seat) return hide('No winner yet — a player has to be at 0 life', false);
+
+    const p    = m[seat === 'left' ? l : r] || {};
+    const hero = p.hero || null;
+
+    // The camera is on the winner's own side, the hero opposite.
+    frame.classList.toggle('right', seat === 'right');
+
+    fact('f-event',  OV.t('lblEvent'),  m.eventTitle);
+    fact('f-format', OV.t('lblFormat'), m.format);
+    fact('f-round',  OV.t('lblRound'),  roundValue(m));
+    $('word').textContent = OV.t('winner');
+    $('name').textContent = OV.fmtName(p.name);
+    $('hero').textContent = hero || '';
+
+    // Hero card, dealt in; behind it the same picture as a soft wash of colour.
+    const url = hero ? OV.heroImageUrl(hero) : null;
+    stage.set(url ? { images: [url] } : null);
+    if (url !== washFor) {
+      washFor = url;
+      const wash = $('wash');
+      wash.classList.remove('show');
+      if (url) { wash.onload = () => wash.classList.add('show'); wash.src = url; }
+    }
+
+    frame.classList.add('show');
+    if (m.warning) OV.badge(m.warning, true); else OV.badgeOk();
+
+    // ?debug=1: where the camera goes, in the pixels of this very source.
+    if (OV.debug) {
+      const c = document.querySelector('.wn-cam').getBoundingClientRect();
+      $('guide').innerHTML = `${Math.round(c.width)} × ${Math.round(c.height)}<br>x ${Math.round(c.left)} · y ${Math.round(c.top)}`;
+    }
+  }
+
+  OV.initSettings(render);
+  OV.onMatch(m => { last = m; render(); });
+  OV.onLiveState(s => { if (s === 'offline') OV.badge('Reconnecting…', true); });
+
+  // Fallback if the live channel never connects.
+  function poll() {
+    fetch('/api/match')
+      .then(r => r.json())
+      .then(m => { if (!last || m.rev >= last.rev) { last = m; render(); } })
+      .catch(() => {});
+  }
+  poll();
+  setInterval(poll, OV.refreshMs);
+</script>
+</body>
+</html>

@@ -4,189 +4,143 @@
   <meta charset="UTF-8">
   <title>FAB Pairings</title>
   <link rel="stylesheet" href="/shared/overlay.css">
-  <style>
-    .row {
-      display: flex;
-      align-items: center;
-      height: 62px;
-      padding: 0 16px;
-      gap: 10px;
-      border-bottom: 1px solid var(--line);
-      flex-shrink: 0;
-    }
-    .row:nth-child(even) { background: var(--bg-row); }
-
-    .tbl {
-      width: 40px;
-      text-align: center;
-      font-family: var(--font-head);
-      font-size: 13px;
-      font-weight: 700;
-      color: var(--accent);
-      flex-shrink: 0;
-      font-variant-numeric: tabular-nums;
-    }
-
-    /* Each player side: hero image + name */
-    .side {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      min-width: 0;
-      overflow: hidden;
-    }
-    .side.r { flex-direction: row-reverse; }
-
-    .pname {
-      flex: 1;
-      font-size: clamp(13px, 1.5vw, 17px);
-      color: var(--text);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .side.r .pname { text-align: right; }
-    .pname.win  { color: var(--win); font-weight: 700; }
-    .pname.lose { color: var(--text-dim); }
-
-    .mid {
-      width: 68px;
-      text-align: center;
-      flex-shrink: 0;
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--text-dim);
-    }
-    .mid.done { color: var(--win); }
-
-    .empty { padding: 48px 20px; text-align: center; color: var(--text-dim); font-size: 15px; }
-  </style>
 </head>
-<body>
+<body class="board">
 <div class="overlay-frame">
-  <div class="overlay-header">
-    <div class="overlay-title" id="ttl">Loading…</div>
-    <div class="overlay-subtitle" id="sub"></div>
+  <div class="board-head">
+    <div class="bh-main">
+      <div class="bh-title"><span id="ttl">–</span><span class="bh-tag" id="tag"></span></div>
+      <div class="bh-sub" id="sub"></div>
+    </div>
+    <div class="bh-side" id="side"></div>
+    <div class="bh-bar"><div class="bh-fill" id="fill"></div></div>
   </div>
   <div class="scroll-viewport" id="vp">
     <div class="scroll-track" id="tr"></div>
   </div>
+</div>
+<div class="tk">
+  <div class="tk-label">
+    <div class="tk-ttl" id="tk-ttl">–</div>
+    <div class="tk-sub" id="tk-sub"></div>
+  </div>
+  <div class="tk-view" id="tk-view"><div class="tk-track" id="tk-track"></div></div>
 </div>
 <div id="status-badge">Loading…</div>
 
 <script src="/shared/overlay.js"></script>
 <script>
   const REFRESH = OV.refreshMs;
-  const SPEED   = 48; // px / sec
+  const $ = id => document.getElementById(id);
+  // ?mode=ticker: the same data as a one-line strip instead of the board.
+  const ticker = OV.initTicker();
+  const list = ticker ||
+    OV.scroller($('vp'), $('tr'), { fit: true, speed: OV.speed });
 
-  const tr = document.getElementById('tr');
-  const vp = document.getElementById('vp');
-
-  // ── scroll engine ──────────────────────────────────────────────────────────
-  let scrollY = 0, contentH = 0, measuring = false, pending = null, prevTs = null;
-
-  function setContent(html) {
-    measuring = true;
-    tr.style.transform = 'translateY(0)';
-    tr.innerHTML = html;
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      const h = tr.scrollHeight;
-      if (h <= vp.clientHeight) {
-        contentH = 0; scrollY = 0;
-      } else {
-        contentH = h;
-        if (scrollY >= contentH) scrollY = 0;
-        tr.innerHTML = html + html;
-      }
-      measuring = false;
-    }));
+  function playerHtml(name, hero, cls, right) {
+    return `<div class="p-pl${right ? ' r' : ''}${cls}">
+      ${OV.hw(hero, '2.5em')}
+      <div class="p-txt">
+        <span class="p-nm">${OV.esc(OV.fmtName(name))}</span>
+        ${hero ? `<span class="p-hero">${OV.esc(hero)}</span>` : ''}
+      </div>
+    </div>`;
   }
 
-  function tick(ts) {
-    requestAnimationFrame(tick);
-    if (measuring || contentH <= 0) { prevTs = ts; return; }
-    const dt = Math.min((ts - (prevTs || ts)) / 1000, 0.05);
-    prevTs = ts;
-    scrollY += SPEED * dt;
-    if (scrollY >= contentH) {
-      scrollY -= contentH;
-      if (pending) { setContent(pending); pending = null; return; }
-    }
-    tr.style.transform = `translateY(${-scrollY}px)`;
-  }
-  requestAnimationFrame(tick);
+  function rowsHtml(pairings, heroOf) {
+    if (!pairings.length) return `<div class="board-empty">${OV.t('noPairings')}</div>`;
 
-  // ── rendering ──────────────────────────────────────────────────────────────
-  function buildHtml(pairs, byId, byN) {
-    if (!pairs.length) return '<div class="empty">No pairings yet</div>';
-    return pairs.map(p => {
-      const h1 = byId[p.p1GemId] || byN[(p.p1 || '').toLowerCase()] || null;
-      const h2 = byId[p.p2GemId] || byN[(p.p2 || '').toLowerCase()] || null;
+    return pairings.map(p => {
       const w1 = p.winner === 'p1', w2 = p.winner === 'p2';
-      const mid = p.done ? (w1 ? 'W – L' : w2 ? 'L – W' : '? – ?') : 'vs';
-      return `<div class="row">
-        <div class="tbl">T${OV.esc(p.table)}</div>
-        <div class="side">${OV.hw(h1, 50)}<span class="pname${w1?' win':w2?' lose':''}">${OV.esc(OV.fmtName(p.p1))}</span></div>
-        <div class="mid${p.done?' done':''}">${mid}</div>
-        <div class="side r">${OV.hw(h2, 50)}<span class="pname${w2?' win':w1?' lose':''}">${OV.esc(OV.fmtName(p.p2))}</span></div>
+      const n  = OV.tableNo(p);
+      // Finished tables rely on the green name; only a result without a
+      // winner (draw, double loss) needs a word.
+      const mid = !p.done ? OV.t('vs') : (!w1 && !w2) ? OV.t('finished') : '';
+
+      return `<div class="prow">
+        <div class="p-tno">${n ? 'T' + n : ''}</div>
+        ${playerHtml(p.p1, heroOf(p.p1GemId, p.p1), w1 ? ' win' : w2 ? ' lose' : '', false)}
+        <div class="p-mid">${mid}</div>
+        ${playerHtml(p.p2, heroOf(p.p2GemId, p.p2), w2 ? ' win' : w1 ? ' lose' : '', true)}
       </div>`;
     }).join('');
   }
 
-  // New HTML is queued in `pending` and swapped in at the scroll seam so the
-  // list never jumps.
-  function show(html) {
-    if (contentH === 0) setContent(html); else pending = html;
+  // Ticker cell: the table, then the two players under each other, each with
+  // portrait and the record they brought into this round.
+  function tickerHtml(pairings, heroOf, recOf) {
+    if (!pairings.length) return `<div class="tk-empty">${OV.t('noPairings')}</div>`;
+
+    const row = (name, gemId, cls) => `<div class="tk-row${cls}">
+        ${OV.hw(heroOf(gemId, name), null)}
+        <span class="tk-nm">${OV.esc(OV.fmtName(name))}</span>
+        <span class="tk-rec">${OV.fmtRecord(recOf(gemId, name))}</span>
+      </div>`;
+
+    return pairings.map(p => {
+      const w1 = p.winner === 'p1', w2 = p.winner === 'p2';
+      const n  = OV.tableNo(p);
+      const note = !p.done ? '' : (!w1 && !w2) ? OV.t('finished') : '';
+
+      return `<div class="tk-item">
+        <div class="tk-head"><span>${n ? OV.esc(OV.t('table', { n })) : ''}</span>${note ? `<i>${note}</i>` : ''}</div>
+        ${row(p.p1, p.p1GemId, w1 ? ' win' : w2 ? ' lose' : '')}
+        ${row(p.p2, p.p2GemId, w2 ? ' win' : w1 ? ' lose' : '')}
+      </div>`;
+    }).join('');
   }
 
-  // ── data fetch ─────────────────────────────────────────────────────────────
-  let lastRound = null, lastMaps = null;
+  let last = null;
+
+  function render() {
+    if (!last) return;
+    const { tdata, heroOf } = last;
+    const round = tdata.rounds.length ? tdata.rounds[tdata.rounds.length - 1] : null;
+
+    $('sub').textContent = tdata.meta?.title || '';
+
+    if (ticker) {
+      $('tk-ttl').textContent = round ? OV.roundName(tdata, round) : OV.t('pairings');
+      $('tk-sub').textContent = round ? `${OV.t('pairings')} · ${round.done} / ${round.total}` : '';
+    }
+
+    if (!round) {
+      $('ttl').textContent  = OV.t('pairings');
+      $('tag').textContent  = '';
+      $('side').innerHTML   = '';
+      $('fill').style.width = '0';
+      list.show(ticker ? tickerHtml([]) : `<div class="board-empty">${OV.t('noPairings')}</div>`, 0);
+      return;
+    }
+
+    const total = round.total || 0;
+    const done  = Math.max(0, Math.min(total, round.done));
+
+    $('ttl').textContent  = OV.roundName(tdata, round);
+    $('tag').textContent  = OV.t('pairings');
+    $('side').innerHTML   = `<div class="bh-num">${done}<i> / ${total}</i></div><div class="bh-note">${OV.t('tablesDone')}</div>`;
+    $('fill').style.width = (total ? done / total * 100 : 0) + '%';
+
+    const sorted = [...round.pairings].sort((a, b) => (OV.tableNo(a) || 999) - (OV.tableNo(b) || 999));
+    // Records as they stood before this round — what "7–1" next to a name means.
+    list.show(ticker ? tickerHtml(sorted, heroOf, OV.records(tdata, round.elimination ? 0 : round.round))
+                     : rowsHtml(sorted, heroOf), sorted.length);
+  }
 
   async function refresh() {
     try {
-      const q = OV.query;
-      const [tdRes, hRes] = await Promise.all([fetch(`/api/tournament${q}`), fetch(`/api/heroes${q}`)]);
-      if (tdRes.status === 401) { OV.badge('Not logged in', true); return; }
-      if (!tdRes.ok) throw new Error(`HTTP ${tdRes.status}`);
-
-      const tdata  = await tdRes.json();
-      const heroes = await hRes.json().catch(() => []);
-      if (tdata.error) throw new Error(tdata.error);
-
-      OV.setFormat(tdata.meta?.format);
-      const round = tdata.rounds.length ? tdata.rounds[tdata.rounds.length - 1] : null;
-      document.getElementById('ttl').textContent = tdata.meta?.title || 'FAB Pairings';
-
-      if (!round) {
-        document.getElementById('sub').textContent = '';
-        lastRound = null;
-        show('<div class="empty">No pairings yet</div>');
-        OV.badge('Waiting…');
-        return;
-      }
-      document.getElementById('sub').textContent = `Round ${round.round} · ${round.done}/${round.total} done`;
-
-      const byId = {}, byN = {};
-      heroes.forEach(h => {
-        if (h.gemId && h.hero) byId[h.gemId] = h.hero;
-        if (h.name  && h.hero) byN[h.name.toLowerCase()] = h.hero;
-      });
-
-      lastRound = round; lastMaps = { byId, byN };
-      show(buildHtml(round.pairings, byId, byN));
+      last = await OV.loadEvent();
+      render();
       OV.badgeOk(Math.round(REFRESH / 1000));
     } catch (err) {
-      OV.badge('Error: ' + err.message, true);
+      OV.badge(err.message, true);
     }
   }
 
-  // Switching the name mode in the config UI re-renders without an OBS reload.
-  OV.initSettings(() => {
-    if (lastRound) show(buildHtml(lastRound.pairings, lastMaps.byId, lastMaps.byN));
-  }).then(refresh);
-
+  // Name mode and language switch live, without an OBS reload.
+  OV.initSettings(render).then(refresh);
   setInterval(refresh, REFRESH);
+  OV.onRefresh(refresh);
 </script>
 </body>
 </html>

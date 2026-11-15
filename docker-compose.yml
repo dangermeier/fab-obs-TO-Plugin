@@ -4,8 +4,12 @@ services:
     container_name: fab-obs-to-plugin
     restart: unless-stopped
 
+    # Host port is configurable because 3000 is a popular default and may
+    # already be taken by something else on the machine. If you change it,
+    # PUBLIC_HOST has to carry the same port — that is the address handed to
+    # the tablet and printed in the console.
     ports:
-      - "3000:3000"
+      - "${HOST_PORT:-3000}:3000"
 
     volumes:
       # GEM session, settings/PIN and the live life totals. Without this the
@@ -24,6 +28,9 @@ services:
       # random one is generated on first start and kept in data/settings.json.
       # "off" disables protection entirely — only for a fully trusted network.
       CONTROL_PIN: "${CONTROL_PIN:-}"
+
+      # Optional. "on" adds the demo tournament to the config page.
+      DEMO_MODE: "${DEMO_MODE:-}"
 
       TZ: "${TZ:-Europe/Berlin}"
 

@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+  <!-- Scenery for the "Mastery Pack Assassin" theme: the dark bulk of a shipyard, girders
+       and slack cables seen through haze, torn banners hanging in from above.
+       Drawn for this project; it only hints at the mood of the set's key art. -->
+
+  <!-- far: the dark bulk of the yard — leaning hulls, a derrick arm, a gantry —
+       as soft shapes a shade darker than the haze, no outlines -->
+  <g fill="#031626">
+    <g fill-opacity=".34">
+      <path d="M-20 900V470L150 330 250 392 330 250 420 420 470 380 520 900Z"/>
+      <path d="M1140 900 1190 380 1290 300 1330 410 1440 210 1520 360 1620 300V900Z"/>
+    </g>
+    <g fill-opacity=".26">
+      <path d="M520 900 590 520 690 470 760 560 850 500 930 610 1010 540 1100 640 1140 900Z"/>
+      <path d="M560 250 1180 96 1186 122 566 280Z"/>
+      <path d="M1168 60H1204V470H1168Z"/>
+      <path d="M250 392 760 250 764 268 254 412Z"/>
+    </g>
+  </g>
+  <!-- chains and a hook hanging from the derrick -->
+  <g fill="none" stroke="#031626" stroke-opacity=".5" stroke-linecap="round">
+    <path d="M700 216V372" stroke-width="3" stroke-dasharray="7 5"/>
+    <path d="M700 372q0 30-20 30-18 0-18-19" stroke-width="5"/>
+    <path d="M900 166V300" stroke-width="2.5" stroke-dasharray="7 5"/>
+    <path d="M420 346V470" stroke-width="2.5" stroke-dasharray="7 5"/>
+  </g>
+
+  <!-- middle: heavy beams crossing, rails and cables -->
+  <g fill="none" stroke="#052238" stroke-linecap="round">
+    <g stroke-opacity=".62" stroke-width="16">
+      <path d="M-60 430 900-50"/>
+      <path d="M1660 540 820-70"/>
+    </g>
+    <g stroke-opacity=".5" stroke-width="9">
+      <path d="M-60 610Q400 470 780 566"/>
+      <path d="M1660 300Q1300 330 1000 250"/>
+      <path d="M560-20 700 900"/>
+    </g>
+    <g stroke-opacity=".7" stroke-width="2.5">
+      <path d="M0 120Q500 430 1100 60"/>
+      <path d="M300-10Q900 390 1600 240"/>
+      <path d="M1600 60Q1000 310 600-10"/>
+      <path d="M200 0 1500 900"/>
+      <path d="M1250-10 380 900"/>
+      <path d="M-10 300Q300 520 640 380"/>
+    </g>
+  </g>
+  <!-- the lit upper edge of the two big beams -->
+  <g fill="none" stroke="#bff0ff" stroke-opacity=".22" stroke-width="1.5">
+    <path d="M-60 421 900-59"/>
+    <path d="M1660 531 820-79"/>
+  </g>
+
+  <!-- near: torn banners and the black of the foreground -->
+  <g fill="#020a14" fill-opacity=".9">
+    <path d="M-10-10H236L220 150 194 108 172 232 142 158 120 304 86 190 60 334 30 210-10 262Z"/>
+    <path d="M1610-10H1326L1348 122 1380 88 1400 262 1440 150 1470 344 1502 200 1540 384 1570 232 1610 302Z"/>
+    <path d="M620-10H760L748 70 730 44 716 120 696 62 682 96 664 40 650 64Z" fill-opacity=".6"/>
+    <path d="M1610 540 1436 910H1610Z"/>
+    <path d="M-10 690 140 910H-10Z"/>
+  </g>
+  <g fill="none" stroke="#7fdcf5" stroke-opacity=".28" stroke-width="2">
+    <path d="M1610 540 1436 910"/>
+    <path d="M-10 690 140 910"/>
+  </g>
+</svg>

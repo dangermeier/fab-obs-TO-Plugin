@@ -478,7 +478,7 @@
     try {
       out = await post('/api/match/life', { player, delta });
     } catch (err) {
-      toast(err.message);
+      if (!err.denied) toast(err.message);     // the PIN sheet is already open
     } finally {
       pend[player] -= delta;
       inFly[player]--;
@@ -489,7 +489,7 @@
 
   async function act(path, body) {
     try { adopt((await post(path, body)).match); }
-    catch (err) { toast(err.message); }
+    catch (err) { if (!err.denied) toast(err.message); }
   }
 
   // ── rendering ─────────────────────────────────────────────────────────────
@@ -570,8 +570,12 @@
     renderPanel(built.left,  l);
     renderPanel(built.right, r);
 
+    // This page is German throughout, whatever language the overlays use.
+    const STAGE = { r16: 'Achtelfinale', qf: 'Viertelfinale', sf: 'Halbfinale', f: 'Finale' };
     const bits = [];
-    if (server && server.roundLabel) bits.push(server.roundLabel);
+    if (server && server.roundStage)      bits.push(STAGE[server.roundStage]);
+    else if (server && server.round)      bits.push('Runde ' + server.round);
+    else if (server && server.roundLabel) bits.push(server.roundLabel);
     if (server && server.table)      bits.push('Tisch ' + server.table);
     if (server && server.manual)     bits.push('manuell');
     document.getElementById('sub').textContent = (server && server.warning) || bits.join(' · ') || 'Kein Match gewählt';
@@ -734,7 +738,8 @@
       await OV.login(pinBuf);
       sheetPin.classList.remove('open');
     } catch (err) {
-      document.getElementById('pin-err').textContent = err.message;
+      document.getElementById('pin-err').textContent =
+        err.message === 'Wrong PIN' ? 'Falscher PIN' : err.message;
       pinBuf = '';
       drawPin();
     }

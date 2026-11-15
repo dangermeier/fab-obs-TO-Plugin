@@ -5,42 +5,9 @@
   <title>FAB Life Counter</title>
   <link rel="stylesheet" href="/shared/overlay.css">
   <style>
-    body { font-size: calc(20px * var(--scale)); }
+    /* ═══ shared by both layouts: the life number and its hit animation ═════ */
 
-    .badge {
-      position: fixed;
-      display: flex;
-      flex-direction: column;
-      gap: 0.4em;
-      padding: 0.85em 1.1em;
-      min-width: 11em;
-      opacity: 0;
-      transition: opacity 0.4s;
-    }
-    .badge.show { opacity: 1; }
-
-    .badge.left  { left:  var(--inset); }
-    .badge.right { right: var(--inset); align-items: flex-end; }
-
-    body.pos-top    .badge { top:    var(--margin); }
-    body.pos-bottom .badge { bottom: var(--margin); }
-    body.pos-center .badge { top: 50%; transform: translateY(-50%); }
-
-    .row { display: flex; align-items: center; gap: 0.8em; }
-    .badge.right .row { flex-direction: row-reverse; }
-
-    /* Life number + the floating damage delta share a stacking context */
     .lifewrap { position: relative; display: flex; align-items: center; }
-    .life {
-      font-family: var(--font-head);
-      font-size: 3.4em;
-      font-weight: 700;
-      line-height: 1;
-      color: var(--accent);
-      font-variant-numeric: tabular-nums;
-      min-width: 2ch;
-      text-align: center;
-    }
 
     .delta {
       position: absolute;
@@ -52,7 +19,6 @@
       opacity: 0;
       pointer-events: none;
       white-space: nowrap;
-      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9);
     }
     .delta.down { color: var(--danger); }
     .delta.up   { color: var(--win); }
@@ -78,68 +44,344 @@
       100% { transform: scale(1); }
     }
 
-    .meta { display: flex; flex-direction: column; gap: 0.1em; max-width: 13em; }
+    /* ═══ layout 1 (default): two badges floating over the camera ═══════════ */
+
+    body.badges { font-size: calc(20px * var(--scale)); }
+
+    .badge {
+      position: fixed;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4em;
+      padding: 0.85em 1.1em;
+      min-width: 11em;
+      opacity: 0;
+      transition: opacity 0.4s;
+    }
+    .badge.show { opacity: 1; }
+
+    .badge.left  { left:  var(--inset); }
+    .badge.right { right: var(--inset); align-items: flex-end; }
+
+    body.pos-top    .badge { top:    var(--margin); }
+    body.pos-bottom .badge { bottom: var(--margin); }
+    body.pos-center .badge { top: 50%; transform: translateY(-50%); }
+
+    .badge .row { display: flex; align-items: center; gap: 0.8em; }
+    .badge.right .row { flex-direction: row-reverse; }
+
+    .badge .life {
+      font-family: var(--font-head);
+      font-size: 3.4em;
+      font-weight: 700;
+      line-height: 1;
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
+      min-width: 2ch;
+      text-align: center;
+    }
+    .badge .delta { text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9); }
+
+    .badge .meta { display: flex; flex-direction: column; gap: 0.1em; max-width: 13em; }
     .badge.right .meta { align-items: flex-end; text-align: right; }
 
-    .pname { font-size: 1.15em; font-weight: 600; }
-    .phero { font-size: 0.9em; }
+    .badge .pname { font-size: 1.15em; font-weight: 600; }
+    .badge .phero { font-size: 0.9em; }
+    .badge .rec   { font-size: 0.8em; }
 
-    .rec { font-size: 0.8em; }
+    /* ═══ layout 2 (?layout=broadcast): a full frame around three cameras ═══
+       The page paints only the panels. The table camera and the two player
+       cameras sit in OBS underneath this source and show through the holes.
+
+         +--------- player ----- life | life ----- player ---------+
+         | player cam |                              | player cam  |
+         |            |        table camera          |             |
+         |------------|                              |-------------|
+         | card       |                              | event info  |
+         +------------+------------------------------+-------------+
+
+       ?cams=0 fills the two player windows with hero artwork instead, for a
+       setup with a table camera only.
+
+       Everything is in em off --u (20px on a 1920-wide source), so the frame
+       keeps its proportions on any 16:9 source and ?scale= is not needed. */
+
+    body.bc { font-size: var(--u); background: transparent; }
+
+    .frame {
+      --side: 18em;      /* width of both side columns */
+      --top:  4.3em;     /* height of the bar across the top */
+      --low:  24.6em;    /* height of the card slot and the info panel */
+
+      position: fixed;
+      inset: 0;
+      display: grid;
+      grid-template-columns: var(--side) 1fr var(--side);
+      grid-template-rows: var(--top) 1fr;
+      color: var(--text);
+      opacity: 0;
+      transition: opacity 0.4s;
+    }
+    .frame.show { opacity: 1; }
+
+    /* ── the bar across the top ──────────────────────────────────────────── */
+    .bar {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: stretch;
+      position: relative;
+      z-index: 3;
+      background: var(--surface);
+      box-shadow: var(--lift-strong);
+    }
+    /* Accent rule along the top, fading at both ends. */
+    .bar::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--rule);
+    }
+
+    .who {
+      flex: 1 1 0;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 0.9em;
+    }
+    .who.r { flex-direction: row-reverse; text-align: right; }
+    .who .heroslot { flex-shrink: 0; height: 100%; }
+    .who .hero-wrap { width: var(--top); height: 100%; border: 0; border-radius: 0; box-shadow: none; }
+
+    .who .txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1em; }
+    .who .nm, .who .hr { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .who .nm { font-family: var(--font-head); font-size: 1.5em; font-weight: 600; line-height: 1.1; }
+    .who .hr { font-size: 0.72em; color: var(--text-dim); }
+
+    .who .rc {
+      flex-shrink: 0;
+      padding: 0 1.1em;
+      font-family: var(--font-head);
+      font-size: 1.15em;
+      font-weight: 600;
+      color: var(--text-dim);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* The life totals: the largest type in the frame, set off by nothing but
+       a hairline either side and the diamond between them. */
+    .score {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75em;
+      min-width: 12em;
+      padding: 0 1.6em;
+      position: relative;
+    }
+    .score::before, .score::after {
+      content: '';
+      position: absolute;
+      top: 6%; bottom: 6%;
+      width: 0.72em;
+      background: var(--sep-v);
+      pointer-events: none;
+    }
+    .score::before { left:  -0.36em; }
+    .score::after  { right: -0.36em; }
+    .score .life {
+      min-width: 2ch;
+      text-align: center;
+      font-family: var(--font-head);
+      font-size: 2.9em;
+      font-weight: 700;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      text-shadow: var(--glow);
+    }
+    /* The bar is too low for the change to rise inside it; it drops out below. */
+    .score .delta {
+      top: auto;
+      bottom: -1.75em;
+      padding: 0.05em 0.5em;
+      border-radius: 2px;
+      background: var(--bg-raised);
+      box-shadow: var(--shadow);
+    }
+    .score .delta.go { animation-name: deltadrop; }
+    @keyframes deltadrop {
+      0%   { opacity: 0; transform: translate(-50%, -0.6em); }
+      18%  { opacity: 1; }
+      75%  { opacity: 1; }
+      100% { opacity: 0; transform: translate(-50%, 0.5em); }
+    }
+
+    /* Background animation: a band of light drifting across each panel, the
+       three of them out of step. */
+    .low { position: relative; overflow: hidden; }
+    /* The bar must not clip — the life change drops out below it — so its
+       band of light moves as a background instead of an element. */
+    .bar::after {
+      inset: 0;
+      width: auto !important;
+      background-size: 45% 100% !important;
+      background-repeat: no-repeat !important;
+      animation-name: sweep-bg !important;
+    }
+    .bar::after, .low::after {
+      content: '';
+      position: absolute;
+      top: 0; bottom: 0; left: 0;
+      width: 45%;
+      background: linear-gradient(100deg, transparent, var(--fx-sheen) 45%, var(--fx-sheen) 55%, transparent);
+      animation: sweep var(--sweep-every) ease-in-out infinite;
+      pointer-events: none;
+    }
+    /* A third of a cycle apart, so the three panels never light up together. */
+    .col.l .low::after { animation-delay: calc(var(--sweep-every) / -3); }
+    .col.r .low::after { animation-delay: calc(var(--sweep-every) / -1.5); }
+    html.no-fx .bar::after, html.no-fx .low::after { display: none; }
+
+    /* ── side columns ────────────────────────────────────────────────────── */
+    .col { display: flex; flex-direction: column; min-height: 0; }
+
+    /* A hole is simply nothing: OBS shows the camera underneath. A soft inner
+       shadow darkens the picture towards its edges, so it sits in the frame
+       rather than being cut out of it. */
+    .hole { position: relative; flex: 1; min-height: 0; }
+    .hole::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      box-shadow: inset 0 0 0 1px var(--ring), inset 0 0 3.2em rgba(0, 0, 0, 0.4);
+      pointer-events: none;
+    }
+    .hole.table { grid-column: 2; grid-row: 2; }
+    .guide { display: none; }
+
+    .low {
+      flex: 0 0 var(--low);
+      background: var(--surface);
+      box-shadow: inset 0 1px 0 var(--ring);
+    }
+    /* The player cameras get a frame in the panel colour, so their window
+       reads as part of the column rather than a gap in it. */
+    .col .hole { border: 0.3em solid var(--bg-raised); border-top: 0; }
+    .col.l .low { border-right: 1px solid var(--line); }
+    .col.r .low { border-left:  1px solid var(--line); }
+
+    /* ?cams=0: no player cameras. Their windows are filled with the heroes'
+       artwork instead, and the small portraits in the bar — now redundant —
+       give their room to the names. */
+    .art { position: relative; flex: 1; min-height: 0; background: var(--bg-sunken); overflow: hidden; }
+    .art::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, transparent 55%, rgba(0, 0, 0, 0.5) 100%);
+      box-shadow: inset 0 0 0 1px var(--ring), inset 0 0 3em rgba(0, 0, 0, 0.35);
+      pointer-events: none;
+    }
+    .art .hero-wrap { box-shadow: none; }
+    .art .heroslot { height: 100%; }
+    .art .hero-wrap { width: 100%; height: 100%; border: 0; border-radius: 0; }
+    .art .hero-ph { font-size: 6em; }
+    /* Show the illustration only — no name banner, no rules text. On a hero
+       card it sits between 12% and 55% of the card's height, so the scan is
+       blown up until that band fills the panel (about 100 / 43, a touch more to
+       lose the frame's edge), pulled up
+       by the part above it and centred sideways; the panel
+       being narrower than the art, the sides are cut, never the top. */
+    .art .hero-img {
+      inset: auto;
+      top: -30%;
+      left: 50%;
+      width: auto;
+      height: 238%;
+      max-width: none;
+      object-fit: fill;
+      transform: translateX(-50%);
+    }
+    body.no-cams .who .heroslot { display: none; }
+    body.no-cams .who { padding: 0 1.3em; }
+    body.no-cams .who .rc { padding-right: 1.1em; padding-left: 1.1em; }
+
+    /* Card slot: stays an empty panel until a card is put on show. */
+    /* The card itself, and how it arrives and leaves, is .card-stage in
+       overlay.css (OV.cardStage). */
+    .card { padding: 0.8em; }
+    body.no-card .card { display: none; }
+
+    /* Event facts: four equal rows, label over value. */
+    .info { display: flex; flex-direction: column; }
+    .fact {
+      flex: 1 1 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 0.25em;
+      padding: 0 1.2em;
+    }
+    .fact { position: relative; }
+    .fact + .fact::before {
+      content: '';
+      position: absolute;
+      left: 7%; right: 7%; top: -0.36em;
+      height: 0.72em;
+      background: var(--sep-h);
+      pointer-events: none;
+    }
+    .fact:empty { display: none; }
+    .fact .k {
+      font-size: 0.55em;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    .fact .v {
+      font-family: var(--font-head);
+      font-size: 1.4em;
+      font-weight: 600;
+      line-height: 1.2;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;       /* long event titles wrap once, then cut */
+    }
+
+    /* ?debug=1: outline the holes and say how big they are, for lining up the
+       cameras in OBS. */
+    .debug .hole { outline: 2px dashed var(--danger); outline-offset: -2px; }
+    .debug .guide {
+      display: block;
+      position: absolute;
+      left: 50%; top: 50%;
+      transform: translate(-50%, -50%);
+      padding: 0.3em 0.6em;
+      background: var(--bg-raised);
+      color: var(--danger);
+      font-size: 0.8em;
+      font-weight: 600;
+      white-space: nowrap;
+      text-align: center;
+    }
   </style>
 </head>
-<!-- Floats over the camera feed, so it always uses the dark surface. -->
+<!-- The badges float over the camera feed and always use the dark surface;
+     the broadcast frame swaps that for the global theme. -->
 <body class="surface-dark">
 <div id="status-badge">Loading…</div>
 
 <script src="/shared/overlay.js"></script>
 <script>
-  const P     = OV.params;
-  const SOLID = P.get('bg') === 'solid';
-  const SIDE  = ['left', 'right', 'both'].includes(P.get('side')) ? P.get('side') : 'both';
-  const POS   = ['top', 'center', 'bottom'].includes(P.get('pos')) ? P.get('pos') : 'bottom';
-  const SCALE = parseFloat(P.get('scale')) || 1;
-  const HERO_PX = Math.round((parseInt(P.get('hero'), 10) || 76) * SCALE);
+  const P = OV.params;
+  const BROADCAST = P.get('layout') === 'broadcast';
 
-  document.documentElement.style.setProperty('--scale',  SCALE);
-  document.documentElement.style.setProperty('--margin', (parseInt(P.get('margin'), 10) || 60) + 'px');
-  document.documentElement.style.setProperty('--inset',  (parseInt(P.get('inset'),  10) || 60) + 'px');
-  document.body.classList.add('pos-' + POS);
-  if (!SOLID) document.body.classList.add('ov-transparent');
-
-  // The DOM is built once and then patched in place — re-rendering it would
-  // restart the punch animation and wipe the damage flash mid-flight.
-  function makeBadge(side) {
-    const el = document.createElement('div');
-    el.className = 'badge ' + side + (SOLID ? ' ov-panel' : ' ov-floating');
-    el.innerHTML =
-      '<div class="row">' +
-        '<div class="heroslot"></div>' +
-        '<div class="lifewrap"><div class="life">–</div><div class="delta"></div></div>' +
-      '</div>' +
-      '<div class="meta">' +
-        '<div class="pname ov-pname"></div>' +
-        '<div class="phero ov-phero"></div>' +
-        '<div class="rec ov-prec"></div>' +
-      '</div>';
-    document.body.appendChild(el);
-
-    return {
-      el,
-      heroslot: el.querySelector('.heroslot'),
-      life:     el.querySelector('.life'),
-      delta:    el.querySelector('.delta'),
-      pname:    el.querySelector('.pname'),
-      phero:    el.querySelector('.phero'),
-      rec:      el.querySelector('.rec'),
-      lastHero: undefined,
-      lastLife: null
-    };
-  }
-
-  const badges = {
-    left:  (SIDE === 'both' || SIDE === 'left')  ? makeBadge('left')  : null,
-    right: (SIDE === 'both' || SIDE === 'right') ? makeBadge('right') : null
-  };
+  // ── the life number, shared by both layouts ────────────────────────────────
 
   function flash(b, diff) {
     b.life.classList.remove('punch-up', 'punch-down');
@@ -152,33 +394,210 @@
     b.delta.classList.add('go');
   }
 
-  function update(b, p, life, animate) {
-    if (!b) return;
-
-    const hero = (p && p.hero) || null;
-    if (hero !== b.lastHero) {
-      b.heroslot.innerHTML = OV.hw(hero, HERO_PX);
-      b.lastHero = hero;
-    }
-
-    b.pname.textContent = OV.fmtName(p && p.name);
-    b.phero.textContent = hero || '—';
-    // 0–0 says nothing — before round 1 and in manual mode it is just noise.
-    b.rec.textContent   = p && (p.wins || p.losses) ? `${p.wins}–${p.losses}` : '';
-
+  function setLife(b, life, animate) {
     const v = Number.isFinite(life) ? life : null;
-    if (v !== b.lastLife) {
-      if (animate && b.lastLife !== null && v !== null) flash(b, v - b.lastLife);
-      b.life.textContent = v === null ? '–' : String(v);
-      b.lastLife = v;
-    }
+    if (v === b.lastLife) return;
+    if (animate && b.lastLife !== null && v !== null) flash(b, v - b.lastLife);
+    b.life.textContent = v === null ? '–' : String(v);
+    b.lastLife = v;
   }
 
-  let lastKey = null;
+  // 0–0 says nothing — before round 1 and in manual mode it is just noise.
+  const record = p => (p && (p.wins || p.losses) ? `${p.wins}–${p.losses}` : '');
+
+  // ═══ layout 1: badges ══════════════════════════════════════════════════════
+
+  function badgesLayout() {
+    const SOLID = P.get('bg') === 'solid';
+    const SIDE  = ['left', 'right', 'both'].includes(P.get('side')) ? P.get('side') : 'both';
+    const POS   = ['top', 'center', 'bottom'].includes(P.get('pos')) ? P.get('pos') : 'bottom';
+    const HERO_PX = Math.round((parseInt(P.get('hero'), 10) || 76) * OV.scale);
+
+    document.documentElement.style.setProperty('--margin', (parseInt(P.get('margin'), 10) || 60) + 'px');
+    document.documentElement.style.setProperty('--inset',  (parseInt(P.get('inset'),  10) || 60) + 'px');
+    document.body.classList.add('badges', 'pos-' + POS);
+    if (!SOLID) document.body.classList.add('ov-transparent');
+
+    // The DOM is built once and then patched in place — re-rendering it would
+    // restart the punch animation and wipe the damage flash mid-flight.
+    function makeBadge(side) {
+      const el = document.createElement('div');
+      el.className = 'badge ' + side + (SOLID ? ' ov-panel' : ' ov-floating');
+      el.innerHTML =
+        '<div class="row">' +
+          '<div class="heroslot"></div>' +
+          '<div class="lifewrap"><div class="life">–</div><div class="delta"></div></div>' +
+        '</div>' +
+        '<div class="meta">' +
+          '<div class="pname ov-pname"></div>' +
+          '<div class="phero ov-phero"></div>' +
+          '<div class="rec ov-prec"></div>' +
+        '</div>';
+      document.body.appendChild(el);
+      OV.fx(el, { motes: 12 });
+
+      return {
+        el,
+        heroslot: el.querySelector('.heroslot'),
+        life:     el.querySelector('.life'),
+        delta:    el.querySelector('.delta'),
+        pname:    el.querySelector('.pname'),
+        phero:    el.querySelector('.phero'),
+        rec:      el.querySelector('.rec'),
+        lastHero: undefined,
+        lastLife: null
+      };
+    }
+
+    const badges = {
+      left:  (SIDE === 'both' || SIDE === 'left')  ? makeBadge('left')  : null,
+      right: (SIDE === 'both' || SIDE === 'right') ? makeBadge('right') : null
+    };
+
+    function update(b, p, life, animate) {
+      if (!b) return;
+      const hero = (p && p.hero) || null;
+      if (hero !== b.lastHero) {
+        b.heroslot.innerHTML = OV.hw(hero, HERO_PX);
+        b.lastHero = hero;
+      }
+      b.pname.textContent = OV.fmtName(p && p.name);
+      b.phero.textContent = hero || '—';
+      b.rec.textContent   = record(p);
+      setLife(b, life, animate);
+    }
+
+    return {
+      hide() { Object.values(badges).forEach(b => b && b.el.classList.remove('show')); },
+      draw(m, l, r, animate) {
+        update(badges.left,  m[l], m.life[l], animate);
+        update(badges.right, m[r], m.life[r], animate);
+        Object.values(badges).forEach(b => b && b.el.classList.add('show'));
+      }
+    };
+  }
+
+  // ═══ layout 2: broadcast frame ═════════════════════════════════════════════
+
+  function broadcastLayout() {
+    const off  = name => ['0', 'off', 'false'].includes(P.get(name) || '');
+    const CARD = !off('card');
+    const CAMS = !off('cams');     // false: hero artwork instead of player cameras
+
+    const b = document.body;
+    b.classList.remove('surface-dark');
+    b.classList.add('bc', 'themed');
+    if (!CARD) b.classList.add('no-card');
+    if (!CAMS) b.classList.add('no-cams');
+    OV.paintTheme();
+
+    const who = side =>
+      `<div class="who ${side}">
+         <div class="heroslot"></div>
+         <div class="txt"><div class="nm">–</div><div class="hr"></div></div>
+         <div class="rc"></div>
+       </div>`;
+    const life = '<div class="lifewrap"><div class="life">–</div><div class="delta"></div></div>';
+    const hole = name => `<div class="hole ${name}"><div class="guide"></div></div>`;
+    const cam  = () => (CAMS ? hole('cam') : '<div class="art"><div class="heroslot"></div></div>');
+
+    const facts = (...ids) => ids.map(id => `<div class="fact" id="f-${id}"></div>`).join('');
+    // Neither cameras nor a card: the left column would be nothing but a very
+    // tall strip of artwork, so it takes half of the facts instead.
+    const split   = !CAMS && !CARD;
+    const lowLeft = split ? `<div class="low info">${facts('event', 'format')}</div>`
+                          : '<div class="low card"></div>';
+
+    const frame = document.createElement('div');
+    frame.className = 'frame';
+    frame.innerHTML =
+      `<div class="bar">${who('l')}<div class="score">${life}<div class="orn"></div>${life}</div>${who('r')}</div>
+       <div class="col l">${cam()}${lowLeft}</div>
+       ${hole('table')}
+       <div class="col r">${cam()}<div class="low info">${split ? '' : facts('event', 'format')}${facts('round', 'table')}</div></div>`;
+    b.appendChild(frame);
+
+    // Background animation in each panel of the frame.
+    OV.fx(frame.querySelector('.bar'), { motes: 22 });
+    frame.querySelectorAll('.low').forEach(el => OV.fx(el, { motes: 16 }));
+
+    const part = (root, extra) => Object.assign({
+      heroslot: root.querySelector('.heroslot'),
+      nm: root.querySelector('.nm'), hr: root.querySelector('.hr'), rc: root.querySelector('.rc'),
+      lastHero: undefined, lastLife: null
+    }, extra);
+    const wraps = frame.querySelectorAll('.score .lifewrap');
+    const arts  = frame.querySelectorAll('.art .heroslot');     // empty with cameras on
+    const sides = [
+      part(frame.querySelector('.who.l'), { life: wraps[0].querySelector('.life'), delta: wraps[0].querySelector('.delta'), art: arts[0] }),
+      part(frame.querySelector('.who.r'), { life: wraps[1].querySelector('.life'), delta: wraps[1].querySelector('.delta'), art: arts[1] })
+    ];
+
+    function update(s, p, lifeTotal, animate) {
+      const hero = (p && p.hero) || null;
+      if (hero !== s.lastHero) {
+        s.heroslot.innerHTML = OV.hw(hero, null);
+        if (s.art) s.art.innerHTML = OV.hw(hero, null);
+        s.lastHero = hero;
+      }
+      s.nm.textContent = OV.fmtName(p && p.name);
+      s.hr.textContent = hero || '';
+      s.rc.textContent = record(p);
+      setLife(s, lifeTotal, animate);
+    }
+
+    const fact = (id, label, value) => {
+      const el = frame.querySelector('#' + id);
+      el.innerHTML = value ? `<div class="k">${OV.esc(label)}</div><div class="v">${OV.esc(value)}</div>` : '';
+    };
+
+    // The card: dealt in, turned over on a change, drawn away — see OV.cardStage.
+    const slot  = frame.querySelector('.card');
+    const stage = slot ? OV.cardStage(slot) : null;
+    const drawCard = card => { if (stage) stage.set(card); };
+
+    // ?debug=1: where the cameras go, in the pixels of this very source.
+    function guides() {
+      if (!OV.debug) return;
+      frame.querySelectorAll('.hole').forEach(h => {
+        const r = h.getBoundingClientRect();
+        h.querySelector('.guide').innerHTML =
+          `${Math.round(r.width)} × ${Math.round(r.height)}<br>x ${Math.round(r.left)} · y ${Math.round(r.top)}`;
+      });
+    }
+    window.addEventListener('resize', guides);
+
+    return {
+      hide() { frame.classList.remove('show'); },
+      draw(m, l, r, animate) {
+        update(sides[0], m[l], m.life[l], animate);
+        update(sides[1], m[r], m.life[r], animate);
+
+        // "4 / 7" for Swiss; a top-cut stage is its own name.
+        const round = m.roundStage ? OV.matchRoundName(m)
+                    : m.round ? m.round + (m.totalRounds ? ' / ' + m.totalRounds : '')
+                    : (m.roundLabel || '');
+        fact('f-event',  OV.t('lblEvent'),  m.eventTitle);
+        fact('f-format', OV.t('lblFormat'), m.format);
+        fact('f-round',  OV.t('lblRound'),  round);
+        fact('f-table',  OV.t('lblTable'),  m.table);
+
+        if (CARD) drawCard(m.card || null);
+        frame.classList.add('show');
+        guides();
+      }
+    };
+  }
+
+  // ═══ shared wiring ═════════════════════════════════════════════════════════
+
+  const view = BROADCAST ? broadcastLayout() : badgesLayout();
+
+  let last = null, lastKey = null;
 
   function render(m) {
     if (!m || (!m.p1 && !m.p2)) {
-      Object.values(badges).forEach(b => b && b.el.classList.remove('show'));
+      view.hide();
       OV.badge(m && m.warning ? m.warning : 'No featured match', !!(m && m.warning));
       return;
     }
@@ -191,19 +610,15 @@
     const animate = key === lastKey;
     lastKey = key;
 
-    update(badges.left,  m[l], m.life[l], animate);
-    update(badges.right, m[r], m.life[r], animate);
-
-    Object.values(badges).forEach(b => b && b.el.classList.add('show'));
-    OV.badge(m.warning || 'Live', !!m.warning);
+    view.draw(m, l, r, animate);
+    if (m.warning) OV.badge(m.warning, true); else OV.badgeOk();
   }
 
-  let last = null;
   OV.initSettings(() => render(last));
   OV.onMatch(m => { last = m; render(m); });
   OV.onLiveState(s => { if (s === 'offline') OV.badge('Reconnecting…', true); });
 
-  // Fallback if SSE never connects.
+  // Fallback if the live channel never connects.
   function poll() {
     fetch('/api/match')
       .then(r => r.json())

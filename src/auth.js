@@ -11,7 +11,8 @@ let loginInProgress = false;
 function loadSession() {
   try {
     if (fs.existsSync(SESSION_FILE)) {
-      session = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf8'));
+      // Tolerate a byte-order mark from a hand edit (see readJson in state.js).
+      session = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf8').replace(/^﻿/, ''));
       return session;
     }
   } catch {}

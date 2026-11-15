@@ -5,8 +5,147 @@
   <title>FAB Featured Match</title>
   <link rel="stylesheet" href="/shared/overlay.css">
   <style>
-    /* Everything sizes off --scale so ?scale= works without touching the layout */
-    body {
+    /* ═══ layout 1 (default): the matchup screen ════════════════════════════
+       A full frame introducing the featured match: each player's hero card,
+       large, on either side; between them what is being played.
+
+         +---------------------+-----------+---------------------+
+         |                     |  event    |                     |
+         |     hero card       |  format   |     hero card       |
+         |                     |  round    |                     |
+         |     Player name     |  table    |     Player name     |
+         |       record        |           |       record        |
+         +---------------------+-----------+---------------------+
+
+       In em off --u (20px on a 1920-wide source), like every board. */
+
+    body.matchup { font-size: var(--u); background: transparent; }
+
+    .mu {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 17em minmax(0, 1fr);
+      opacity: 0;
+      transition: opacity 0.5s;
+    }
+    .mu.show { opacity: 1; }
+
+    .mu-side {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 0;
+      min-height: 0;
+      padding: 2.4em 2em 1.8em;
+    }
+
+    /* The card, with a soft pool of light behind it. */
+    .mu-card {
+      position: relative;
+      flex: 1;
+      width: 100%;
+      min-height: 0;
+    }
+    .mu-card::before {
+      content: '';
+      position: absolute;
+      left: 50%; top: 50%;
+      width: 34em; height: 34em;
+      margin: -17em 0 0 -17em;
+      border-radius: 50%;
+      background: radial-gradient(closest-side, var(--fx-light), transparent);
+      pointer-events: none;
+    }
+
+    .mu-name {
+      max-width: 100%;
+      margin-top: 0.75em;
+      font-family: var(--font-head);
+      font-size: 2.3em;
+      font-weight: 600;
+      line-height: 1.15;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .mu-hero {
+      max-width: 100%;
+      font-size: 0.95em;
+      color: var(--text-dim);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* The player's record (room for more facts, a fading divider between them). */
+    .mu-stats { display: flex; justify-content: center; margin-top: 0.9em; min-height: 3.3em; }
+    .mu-stat {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.2em;
+      padding: 0 1.7em;
+      white-space: nowrap;
+    }
+    .mu-stat + .mu-stat::before {
+      content: '';
+      position: absolute;
+      left: -0.36em; top: 0; bottom: 0;
+      width: 0.72em;
+      background: var(--sep-v);
+    }
+    .mu-stat .k, .mu-fact .k {
+      font-size: 0.55em;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    .mu-stat .v {
+      font-family: var(--font-head);
+      font-size: 1.5em;
+      font-weight: 600;
+      line-height: 1.1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* The column in the middle: one floating panel with what is being played. */
+    .mu-mid { display: flex; align-items: center; min-height: 0; }
+    .mu-panel {
+      width: 100%;
+      border-radius: 0.5em;
+      background: var(--surface);
+      box-shadow: var(--lift-strong);
+      padding: 0.6em 0;
+    }
+    .mu-fact {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.3em;
+      padding: 1.25em 1em;
+      text-align: center;
+    }
+    .mu-fact:empty { display: none; }
+    .mu-fact + .mu-fact::before {
+      content: '';
+      position: absolute;
+      left: 9%; right: 9%; top: -0.36em;
+      height: 0.72em;
+      background: var(--sep-h);
+    }
+    .mu-fact .v {
+      font-family: var(--font-head);
+      font-size: 1.55em;
+      font-weight: 600;
+      line-height: 1.2;
+    }
+
+    /* ═══ layout 2 (?layout=banner): a lower third over the camera ══════════
+       Everything sizes off --scale so ?scale= works without touching it. */
+
+    body.lower {
       display: flex;
       justify-content: center;
       padding: var(--margin) 24px;
@@ -18,8 +157,7 @@
 
     /* Fixed width rather than shrink-to-fit: long hero names like
        "Kayo, Armed and Dangerous" need the room, and a lower third that
-       changes width every round looks wrong on stream. Sized in em so
-       ?scale= still works. */
+       changes width every round looks wrong on stream. */
     .banner {
       display: flex;
       align-items: stretch;
@@ -55,11 +193,25 @@
       align-items: center;
       justify-content: center;
       gap: 0.2em;
-      padding: 0 0.6em;
-      border-left:  1px solid var(--line);
-      border-right: 1px solid var(--line);
+      position: relative;
+      padding: 0 1.1em;
       min-width: 8em;
     }
+    /* Fading dividers with the star, either side of the centre column. */
+    .center::before, .center::after {
+      content: '';
+      position: absolute;
+      top: 4%; bottom: 4%;
+      width: 0.72em;
+      background: var(--sep-v);
+      pointer-events: none;
+    }
+    .center::before { left:  -0.36em; }
+    .center::after  { right: -0.36em; }
+
+    /* The banner's content is re-rendered on every update; it lives in this
+       wrapper so the animation layer next to it survives. */
+    #content { display: contents; }
     .round {
       font-family: var(--font-head);
       font-weight: 600;
@@ -96,87 +248,172 @@
     .life .sep { font-size: 0.55em; color: var(--text-dim); }
   </style>
 </head>
-<!-- Floats over the camera feed, so it always uses the dark surface. -->
-<body class="surface-dark">
-<div class="banner" id="banner"></div>
+<body>
 <div id="status-badge">Loading…</div>
 
 <script src="/shared/overlay.js"></script>
 <script>
-  const P       = OV.params;
-  const SOLID   = P.get('bg') === 'solid';
-  const SHOWLIFE = P.get('life') === '1' || P.get('life') === 'true';
-  const POS     = ['top', 'center', 'bottom'].includes(P.get('pos')) ? P.get('pos') : 'bottom';
-  const SCALE   = parseFloat(P.get('scale')) || 1;
-  const HERO_PX = Math.round((parseInt(P.get('hero'), 10) || 84) * SCALE);
+  const P = OV.params;
+  const BANNER = P.get('layout') === 'banner';
 
-  document.documentElement.style.setProperty('--scale',  SCALE);
-  document.documentElement.style.setProperty('--margin', (parseInt(P.get('margin'), 10) || 48) + 'px');
-  document.body.classList.add('pos-' + POS);
-  if (SOLID) document.body.classList.add('solid');
-  else document.body.classList.add('ov-transparent');
+  // "6 / 7" for Swiss; a top-cut stage is its own name.
+  function roundValue(m) {
+    if (m.roundStage) return OV.matchRoundName(m);
+    if (m.round) return m.round + (m.totalRounds ? ' / ' + m.totalRounds : '');
+    return m.roundLabel || '';
+  }
 
-  const banner = document.getElementById('banner');
-  banner.classList.add(SOLID ? 'ov-panel' : 'ov-floating');
+  // ═══ layout 1: matchup screen ══════════════════════════════════════════════
 
+  function matchupLayout() {
+    const b = document.body;
+    b.classList.add('matchup', 'themed', 'ov-transparent');
+    OV.paintTheme();
+
+    const side = cls => `<div class="mu-side ${cls}">
+        <div class="mu-card"></div>
+        <div class="mu-name">–</div>
+        <div class="mu-hero"></div>
+        <div class="mu-stats"></div>
+      </div>`;
+
+    // The page shell is built once; only texts and cards change afterwards.
+    const frame = document.createElement('div');
+    frame.className = 'overlay-frame mu';
+    frame.innerHTML = side('l') +
+      `<div class="mu-mid"><div class="mu-panel">
+         <div class="mu-fact" id="f-event"></div><div class="mu-fact" id="f-format"></div>
+         <div class="mu-fact" id="f-round"></div><div class="mu-fact" id="f-table"></div>
+       </div></div>` + side('r');
+    b.appendChild(frame);
+    OV.fx(frame, { motes: 34, glows: true });
+
+    const sides = [...frame.querySelectorAll('.mu-side')].map(el => ({
+      stage: OV.cardStage(el.querySelector('.mu-card')),
+      name:  el.querySelector('.mu-name'),
+      hero:  el.querySelector('.mu-hero'),
+      stats: el.querySelector('.mu-stats')
+    }));
+
+    const pair = (label, value) =>
+      `<div class="k">${OV.esc(label)}</div><div class="v">${OV.esc(value)}</div>`;
+    const fact = (id, label, value) => {
+      frame.querySelector('#' + id).innerHTML = value ? pair(label, value) : '';
+    };
+
+    function update(s, p, life) {
+      const hero = (p && p.hero) || null;
+      // The whole hero card, dealt in; a new match turns it over.
+      s.stage.set(hero ? { images: [OV.heroImageUrl(hero)] } : null);
+      s.name.textContent = OV.fmtName(p && p.name);
+      s.hero.textContent = hero || '';
+
+      // The record is the only figure here: life and class are both printed
+      // on the card right above. 0–0 says nothing, so it is left out.
+      const stats = [
+        p && (p.wins || p.losses) ? [OV.t('lblRecord'), `${p.wins}–${p.losses}`] : null
+      ].filter(Boolean);
+      const html = stats.map(([k, v]) => `<div class="mu-stat">${pair(k, v)}</div>`).join('');
+      if (s.stats.innerHTML !== html) s.stats.innerHTML = html;
+    }
+
+    return {
+      hide() { frame.classList.remove('show'); },
+      draw(m, l, r) {
+        update(sides[0], m[l], m.life[l]);
+        update(sides[1], m[r], m.life[r]);
+        fact('f-event',  OV.t('lblEvent'),  m.eventTitle);
+        fact('f-format', OV.t('lblFormat'), m.format);
+        fact('f-round',  OV.t('lblRound'),  roundValue(m));
+        fact('f-table',  OV.t('lblTable'),  m.table);
+        frame.classList.add('show');
+      }
+    };
+  }
+
+  // ═══ layout 2: lower-third banner ══════════════════════════════════════════
+
+  function bannerLayout() {
+    const SOLID    = P.get('bg') === 'solid';
+    const SHOWLIFE = P.get('life') === '1' || P.get('life') === 'true';
+    const POS      = ['top', 'center', 'bottom'].includes(P.get('pos')) ? P.get('pos') : 'bottom';
+    const HERO_PX  = Math.round((parseInt(P.get('hero'), 10) || 84) * OV.scale);
+
+    // Floats over the camera feed, so it always uses the dark surface.
+    document.documentElement.style.setProperty('--margin', (parseInt(P.get('margin'), 10) || 48) + 'px');
+    document.body.classList.add('surface-dark', 'lower', 'pos-' + POS);
+    if (!SOLID) document.body.classList.add('ov-transparent');
+
+    const banner = document.createElement('div');
+    banner.className = 'banner ' + (SOLID ? 'ov-panel' : 'ov-floating');
+    banner.innerHTML = '<div id="content"></div>';
+    document.body.insertBefore(banner, document.body.firstChild);
+    const content = banner.firstChild;
+    OV.fx(banner, { motes: 18 });
+
+    function playerHtml(p, right) {
+      const hero = (p && p.hero) || null;
+      // 0–0 says nothing — before round 1 and in manual mode it is just noise.
+      const rec  = p && (p.wins || p.losses)
+        ? `<div class="rec ov-prec">${p.wins}–${p.losses}</div>` : '';
+
+      return `<div class="side${right ? ' r' : ''}">
+        ${OV.hw(hero, HERO_PX)}
+        <div class="info">
+          <div class="pname ov-pname">${OV.esc(OV.fmtName(p && p.name))}</div>
+          <div class="phero ov-phero">${OV.esc(hero || '—')}</div>
+          ${rec}
+        </div>
+      </div>`;
+    }
+
+    function centerHtml(m, l, r) {
+      const middle = SHOWLIFE
+        ? `<div class="life"><span>${m.life[l] ?? '–'}</span><span class="sep">–</span><span>${m.life[r] ?? '–'}</span></div>`
+        : '<div class="vs">VS</div>';
+
+      return `<div class="center">
+        <div class="round">${OV.esc(m.roundStage || !m.round ? OV.matchRoundName(m) : OV.t('round', { n: roundValue(m) }))}</div>
+        ${m.table ? `<div class="table">${OV.esc(OV.t('table', { n: m.table }))}</div>` : ''}
+        ${middle}
+      </div>`;
+    }
+
+    return {
+      // An unconfigured source stays invisible rather than burning text into
+      // the stream — the status badge says why.
+      hide() { banner.classList.remove('show'); },
+      draw(m, l, r) {
+        content.innerHTML = playerHtml(m[l], false) + centerHtml(m, l, r) + playerHtml(m[r], true);
+        banner.classList.add('show');
+      }
+    };
+  }
+
+  // ═══ shared wiring ═════════════════════════════════════════════════════════
+
+  const view = BANNER ? bannerLayout() : matchupLayout();
   let last = null;
-
-  function playerHtml(p, right) {
-    const name = OV.fmtName(p && p.name);
-    const hero = (p && p.hero) || null;
-    // 0–0 says nothing — before round 1 and in manual mode it is just noise.
-    const rec  = p && (p.wins || p.losses)
-      ? `<div class="rec ov-prec">${p.wins}–${p.losses}</div>` : '';
-
-    return `<div class="side${right ? ' r' : ''}">
-      ${OV.hw(hero, HERO_PX)}
-      <div class="info">
-        <div class="pname ov-pname">${OV.esc(name)}</div>
-        <div class="phero ov-phero">${OV.esc(hero || '—')}</div>
-        ${rec}
-      </div>
-    </div>`;
-  }
-
-  function centerHtml(m, l, r) {
-    const round = m.roundLabel || (m.round ? `Round ${m.round}` : '');
-    const total = m.totalRounds && m.round && !/final|semi|quarter|round of/i.test(round)
-      ? ` / ${m.totalRounds}` : '';
-
-    const middle = SHOWLIFE
-      ? `<div class="life"><span>${m.life[l] ?? '–'}</span><span class="sep">–</span><span>${m.life[r] ?? '–'}</span></div>`
-      : '<div class="vs">VS</div>';
-
-    return `<div class="center">
-      <div class="round">${OV.esc(round + total)}</div>
-      ${m.table ? `<div class="table">Table ${OV.esc(m.table)}</div>` : ''}
-      ${middle}
-    </div>`;
-  }
 
   function render() {
     const m = last;
     if (!m || (!m.p1 && !m.p2)) {
-      // An unconfigured source stays invisible rather than burning text into
-      // the stream — the status badge says why.
-      banner.classList.remove('show');
+      view.hide();
       OV.badge(m && m.warning ? m.warning : 'No featured match', !!(m && m.warning));
       return;
     }
 
     OV.setFormat(m.format);
     const [l, r] = m.swapped ? ['p2', 'p1'] : ['p1', 'p2'];
-
-    banner.innerHTML = playerHtml(m[l], false) + centerHtml(m, l, r) + playerHtml(m[r], true);
-    banner.classList.add('show');
-    OV.badge(m.warning || 'Live', !!m.warning);
+    view.draw(m, l, r);
+    if (m.warning) OV.badge(m.warning, true); else OV.badgeOk();
   }
 
   OV.initSettings(render);
   OV.onMatch(m => { last = m; render(); });
   OV.onLiveState(s => { if (s === 'offline') OV.badge('Reconnecting…', true); });
 
-  // Fallback for the rare case SSE never establishes.
+  // Fallback for the rare case the live channel never establishes.
   function poll() {
     fetch('/api/match')
       .then(r => r.json())
