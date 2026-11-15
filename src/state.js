@@ -74,6 +74,7 @@ const DEFAULT_MATCH = {
   history: [],
 
   matchKey:    null,
+  eventId:     null,   // the event the players below were read from
   eventTitle:  null,
   format:      null,
   roundLabel:  null,

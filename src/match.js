@@ -54,6 +54,29 @@ function hasChanges(patch) {
   return Object.keys(patch).some(k => JSON.stringify(cur[k]) !== JSON.stringify(patch[k]));
 }
 
+/* True when the featured match was read from a different event than the one
+ * selected now. Match states written before the event id was recorded only
+ * have the title to go by. */
+function fromOtherEvent(m, eventId, title) {
+  if (m.eventId) return String(m.eventId) !== String(eventId || '');
+  return !!(m.eventTitle && title && m.eventTitle !== title);
+}
+
+// Forgets the featured match altogether: players, counters, the table chosen
+// and everything said about the event. The card on show is left alone.
+function clearFeatured() {
+  return patchMatch({
+    table: null, round: null,
+    p1: null, p2: null,
+    life:  { p1: null, p2: null },
+    start: { p1: null, p2: null },
+    ended: false, history: [],
+    matchKey: null, eventId: null, eventTitle: null, format: null,
+    roundLabel: null, roundStage: null, totalRounds: null,
+    warning: null
+  });
+}
+
 function setWarning(msg) {
   const m = getMatch();
   if (m.warning === msg) return m;
@@ -95,6 +118,11 @@ async function refreshFeatured({ force = false } = {}) {
   const session = getSession();
   const eventId = session?.eventId;
 
+  // Another event was selected: its table 3 is not this match. Without this
+  // the old players and event name would stay on screen — for good if the
+  // new event has no such table or GEM cannot be reached.
+  if (fromOtherEvent(m, eventId)) return clearFeatured();
+
   // The demo event needs no GEM session.
   if (!isDemo(eventId)) {
     if (!session?.sessionId) return setWarning('Not logged in to GEM');
@@ -118,6 +146,16 @@ async function refreshFeatured({ force = false } = {}) {
       : `GEM unreachable: ${err.message}`);
   }
 
+  if (fromOtherEvent(m, eventId, tdata.meta?.title)) return clearFeatured();
+
+  // What is known about the event, whether or not the table can be found.
+  const about = {
+    eventId:     String(eventId),
+    eventTitle:  tdata.meta?.title ?? null,
+    format:      tdata.meta?.format ?? null,
+    totalRounds: tdata.meta?.totalRounds ?? null
+  };
+
   const round = m.followRound
     ? tdata.rounds[tdata.rounds.length - 1]
     : tdata.rounds.find(r => r.round === m.round);
@@ -127,6 +165,7 @@ async function refreshFeatured({ force = false } = {}) {
   const pairing = round.pairings.find(p => tableNum(p) === m.table);
   if (!pairing) {
     const patch = {
+      ...about,
       round:      round.round,
       roundLabel: labelForRound(tdata, round),
       roundStage: stageForRound(tdata, round)
@@ -161,12 +200,10 @@ async function refreshFeatured({ force = false } = {}) {
   const matchKey = `${round.round}|${m.table}|${p1.gemId || p1.name}|${p2.gemId || p2.name}`;
 
   const patch = {
+    ...about,
     round:       round.round,
     roundLabel:  labelForRound(tdata, round),
     roundStage:  stageForRound(tdata, round),
-    totalRounds: tdata.meta?.totalRounds ?? null,
-    eventTitle:  tdata.meta?.title ?? null,
-    format:      tdata.meta?.format ?? null,
     p1, p2, matchKey,
     warning: null
   };
@@ -276,5 +313,6 @@ function startAutoRefresh(hasClients) {
 
 module.exports = {
   refreshFeatured, selectMatch, setManualMatch, startAutoRefresh,
-  tableNum, completedSwissRounds, labelForRound, stageForRound
+  tableNum, completedSwissRounds, labelForRound, stageForRound,
+  fromOtherEvent, clearFeatured
 };
