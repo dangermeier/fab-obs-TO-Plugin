@@ -79,6 +79,8 @@ The PIN is printed in the server console on every start and shown on the config 
 
 Large events work too: GEM's run page only counts the matches of a big round, so the tables are read from GEM's pairings export. Once a top cut has started, the Standings board shows the final Swiss standings.
 
+Heroes are looked up in the publisher's card database: the server downloads the list of all hero cards at start, renews it twice a day and keeps a copy in `data/heroes.json` for a start without internet. A hero name GEM has but the list does not (a typo, usually) is reported on the config page under the active event.
+
 Set your GEM account language to English. Hero names are matched against the card database by their English names.
 
 ## Overlays

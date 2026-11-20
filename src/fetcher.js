@@ -1,5 +1,8 @@
+const fs = require('fs');
+const path = require('path');
 const fetch = require('node-fetch');
 const { getCookieHeader } = require('./auth');
+const { DATA_DIR } = require('./paths');
 const {
   parseTournamentHtml, parseHeroesCsv, parseStandingsCsv,
   parseProfileEventsFromHtml, parseStoreEventsFromHtml, findMaxPage,
@@ -289,9 +292,12 @@ async function fetchHeroInfo(name, { young = false } = {}) {
   if (missed && Date.now() - missed < HERO_MISS_TTL) throw new Error(`No card found for "${name}"`);
 
   return cached(key, HERO_TTL, async () => {
-    let cards = ((await fetchCardByName(name)).data || []).filter(isHero);
-    // Heroes of the newest set reach the community database late, the
-    // publisher's own one has them from their reveal.
+    // The publisher's list of every hero comes first: it is complete and
+    // spells the names as GEM does. The searches are for a name it lacks
+    // (a typo in GEM, a hero revealed in the last hours).
+    const known = (await heroCatalogue()).get(String(name).trim().toLowerCase());
+    let cards = known ? [known] : [];
+    if (!cards.length) cards = ((await fetchCardByName(name).catch(() => ({}))).data || []).filter(isHero);
     if (!cards.length) cards = await officialHeroCards(name).catch(() => []);
     const card = pickHeroCard(cards, young, name);
     if (!card) {
@@ -322,6 +328,64 @@ function officialHeroCard(c) {
     types:        box.split(/[\s-]+/).filter(Boolean),
     imageUrls:    [img.large, img.normal, img.small].filter(Boolean)
   };
+}
+
+// --- hero catalogue ---
+// Every hero card the publisher has released: about 180 records in two
+// requests, renewed twice a day and kept in data/heroes.json so a restart
+// without internet still knows them.
+
+const CATALOGUE_TTL  = 12 * 60 * 60 * 1000;
+const CATALOGUE_FILE = path.join(DATA_DIR, 'heroes.json');
+let catalogue = null;            // { ts, byName: Map<lower-case name, card> }
+
+function catalogueFrom(cards, ts) {
+  return { ts, byName: new Map(cards.map(c => [c.name.toLowerCase(), c])) };
+}
+
+async function downloadHeroes() {
+  const cards = [];
+  let url = `${OFFICIAL_CARDS}/advanced-search/?type=Hero&page_size=100`;
+  for (let page = 0; url && page < 20; page++) {
+    const res = await fetch(url, { headers: { Accept: 'application/json' }, timeout: 15000 });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    cards.push(...(json.results || []));
+    url = json.next;
+  }
+  return cards
+    .filter(c => !/^[A-Z]{2}_/.test(c.print_id || ''))
+    .map(officialHeroCard)
+    .filter(c => c.name && isHero(c) && c.imageUrls.length);
+}
+
+async function heroCatalogue() {
+  if (catalogue && Date.now() - catalogue.ts < CATALOGUE_TTL) return catalogue.byName;
+  return cached('hero-catalogue', 60 * 1000, async () => {
+    try {
+      const cards = await downloadHeroes();
+      if (!cards.length) throw new Error('empty list');
+      catalogue = catalogueFrom(cards, Date.now());
+      try { fs.writeFileSync(CATALOGUE_FILE, JSON.stringify({ ts: catalogue.ts, cards })); } catch { /* cache only */ }
+    } catch (err) {
+      if (!catalogue) {
+        try {
+          const stored = JSON.parse(fs.readFileSync(CATALOGUE_FILE, 'utf8'));
+          // ts 0: try the download again on the next lookup
+          catalogue = catalogueFrom(stored.cards || [], 0);
+        } catch { catalogue = catalogueFrom([], 0); }
+      }
+      console.warn(`[heroes] Hero list not renewed (${err.message}), ${catalogue.byName.size} heroes known`);
+    }
+    return catalogue.byName;
+  }, true);
+}
+
+// Hero names of an event that no card is known for, e.g. a typo in GEM.
+async function unknownHeroes(names) {
+  const known = await heroCatalogue();
+  if (!known.size) return [];
+  return [...new Set(names.filter(Boolean))].filter(n => !known.has(n.trim().toLowerCase())).sort();
 }
 
 async function officialHeroCards(name) {
@@ -476,5 +540,6 @@ module.exports = {
   fetchTournamentData, fetchHeroesCsv, fetchStandingsCsv,
   fetchCardByName, fetchHeroImage, fetchAllEvents,
   fetchHeroInfo, isYoungFormat, searchCards,
-  pickHeroCard, printingImageUrls, roundsMissing, standingsRoundId, officialHeroCard
+  pickHeroCard, printingImageUrls, roundsMissing, standingsRoundId, officialHeroCard,
+  heroCatalogue, unknownHeroes
 };

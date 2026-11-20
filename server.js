@@ -7,6 +7,7 @@ const { loadSession, saveSession, canBrowserLogin } = require('./src/auth');
 const demo = require('./src/demo');
 const { loadState, flushMatch } = require('./src/state');
 const { lanAddresses, needsPublicHost } = require('./src/lan');
+const { heroCatalogue } = require('./src/fetcher');
 const routes = require('./src/routes');
 
 const PORT = process.env.PORT || 3000;
@@ -118,6 +119,9 @@ app.listen(PORT, HOST, () => {
   }
   process.exit(1);
 });
+
+// Have the hero list ready before the first overlay asks for a card.
+heroCatalogue().then(list => console.log(`  ${list.size} heroes known\n`)).catch(() => {});
 
 // Runs unattended all day: log a stray rejection, don't take the server down.
 process.on('unhandledRejection', err => {

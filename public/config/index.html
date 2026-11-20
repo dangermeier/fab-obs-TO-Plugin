@@ -672,11 +672,18 @@
             <div class="ae-num"><b>${OV.esc(s.roundsSeen)}${s.totalRounds ? ' / ' + OV.esc(s.totalRounds) : ''}</b><span>Rounds</span></div>
             <div class="ae-num"><b>${OV.esc(s.currentRound || '–')}</b><span>Current</span></div>
             <div class="ae-num"><b>${OV.esc(s.tables)}</b><span>Tables</span></div>
+            <div class="ae-num"><b>${OV.esc(s.heroesSet ?? '–')}</b><span>Heroes set</span></div>
           </div>
         </div>
         <span class="ae-state ${cls}">${OV.esc(s.status || 'unknown')}</span>
       </div>
       ${hint}
+      ${(s.unknownHeroes || []).length ? `
+      <div class="alert err" style="margin-top:14px">
+        <strong>No card found for:</strong> ${s.unknownHeroes.map(OV.esc).join(' · ')}.
+        These heroes show without a picture and start at the default life total.
+        Check the spelling in GEM.
+      </div>` : ''}
       <div class="ae-checked" id="ae-checked"></div>`;
 
     aeLastChecked = Date.now();

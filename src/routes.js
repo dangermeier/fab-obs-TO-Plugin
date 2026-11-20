@@ -4,7 +4,10 @@ const {
   launchGemLogin, setSessionCookie, checkAuth,
   clearSession, getSession, saveSession, isLoginInProgress, canBrowserLogin
 } = require('./auth');
-const { fetchTournamentData, fetchHeroesCsv, fetchStandingsCsv, fetchCardByName, fetchHeroImage, fetchAllEvents, searchCards } = require('./fetcher');
+const {
+  fetchTournamentData, fetchHeroesCsv, fetchStandingsCsv, fetchCardByName, fetchHeroImage,
+  fetchAllEvents, searchCards, unknownHeroes
+} = require('./fetcher');
 const {
   bus, getSettings, publicSettings, setNameMode, setLang, setTheme, setPin, regeneratePin,
   matchView, adjustLife, setLife, swapSides, undo, setEnded, setCard, recentCards
@@ -184,6 +187,7 @@ router.get('/event/summary', async (req, res) => {
     const rounds  = t.rounds || [];
     const last    = rounds[rounds.length - 1] || null;
     const tables  = rounds.reduce((n, r) => n + (r.total || 0), 0);
+    const heroes  = await fetchHeroesCsv(eventId).catch(() => []);
 
     res.json({
       eventId,
@@ -199,6 +203,8 @@ router.get('/event/summary', async (req, res) => {
       roundsSeen:  rounds.length,
       currentRound: last ? last.round : 0,
       tables,
+      heroesSet:     heroes.filter(h => h.hero).length,
+      unknownHeroes: await unknownHeroes(heroes.map(h => h.hero)).catch(() => []),
       hasData: rounds.length > 0 && tables > 0
     });
   } catch (err) {
