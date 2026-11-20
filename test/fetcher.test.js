@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { isYoungFormat, pickHeroCard, printingImageUrls, roundsMissing } = require('../src/fetcher');
+const { isYoungFormat, pickHeroCard, printingImageUrls, roundsMissing, standingsRoundId } = require('../src/fetcher');
 
 const BUCKET = 'https://legendstory-production-s3-public.s3.amazonaws.com/media/cards';
 
@@ -88,4 +88,16 @@ test('roundsMissing: asks for the export only when the page left tables out', ()
   assert.equal(roundsMissing({ roundInfo: info, rounds: [{ round: 2, total: 1 }] }), true);
   assert.equal(roundsMissing({ roundInfo: info, rounds: [{ round: 1, total: 1 }, { round: 2, total: 1 }] }), true);
   assert.equal(roundsMissing({ rounds: [] }), false);
+});
+
+test('standingsRoundId: the last finished Swiss round', () => {
+  const round = (n, done, total, elimination = false) => ({ round: n, done, total, elimination });
+  const info  = [1, 2, 3, 4].map(n => ({ round: n, roundId: String(900 + n) }));
+
+  assert.equal(standingsRoundId({ roundInfo: info, rounds: [round(1, 3, 8)] }), null);
+  assert.equal(standingsRoundId({ roundInfo: info, rounds: [round(1, 8, 8), round(2, 1, 8)] }), '901');
+  assert.equal(standingsRoundId({ roundInfo: info, rounds: [round(1, 8, 8), round(2, 8, 8)] }), '902');
+  // in the top cut it stays on the Swiss standings
+  assert.equal(standingsRoundId({ roundInfo: info, rounds: [round(1, 8, 8), round(2, 8, 8), round(3, 4, 4, true), round(4, 0, 2, true)] }), '902');
+  assert.equal(standingsRoundId(null), null);
 });

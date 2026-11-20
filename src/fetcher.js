@@ -84,14 +84,20 @@ function roundsMissing(tdata) {
     !onPage.has(r.round) || (r.total != null && r.total !== onPage.get(r.round)));
 }
 
-// With a top cut GEM's current standings list nearly everyone as dropped, so
-// the board shows the standings after the last Swiss round instead.
+// The export id of the last finished Swiss round, null before round 1 is over.
+// GEM's plain standings export belongs to the round that is running (nothing
+// but the drops until it ends) and, in a top cut, to the playoff round.
+function standingsRoundId(tdata) {
+  const ids = new Map((tdata?.roundInfo || []).map(r => [r.round, r.roundId]));
+  const finished = (tdata?.rounds || [])
+    .filter(r => !r.elimination && r.total > 0 && r.done >= r.total && ids.get(r.round));
+  return finished.length ? ids.get(finished[finished.length - 1].round) : null;
+}
+
 async function standingsUrl(eventId) {
   const base = `${GEM_BASE}/gem/${eventId}/coverage/standings`;
-  const info = (await fetchTournamentData(eventId).catch(() => null))?.roundInfo || [];
-  if (!info.some(r => r.elimination)) return base;
-  const swiss = info.filter(r => !r.elimination && r.roundId);
-  return swiss.length ? `${base}/${swiss[swiss.length - 1].roundId}` : base;
+  const id = standingsRoundId(await fetchTournamentData(eventId).catch(() => null));
+  return id ? `${base}/${id}` : base;
 }
 
 async function fetchHeroesCsv(eventId, { force = false } = {}) {
@@ -417,5 +423,5 @@ module.exports = {
   fetchTournamentData, fetchHeroesCsv, fetchStandingsCsv,
   fetchCardByName, fetchHeroImage, fetchAllEvents,
   fetchHeroInfo, isYoungFormat, searchCards,
-  pickHeroCard, printingImageUrls, roundsMissing
+  pickHeroCard, printingImageUrls, roundsMissing, standingsRoundId
 };
