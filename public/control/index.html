@@ -673,7 +673,7 @@
       selRound.innerHTML = tdata.rounds
         .map(r => '<option value="' + r.round + '">' + (r.elimination ? 'Top Cut · ' : '') + 'Runde ' + r.round + '</option>')
         .join('') || '<option value="">—</option>';
-      if (server && server.round) selRound.value = String(server.round);
+      if (server && server.round && tdata.rounds.some(r => r.round === server.round)) selRound.value = String(server.round);
       else if (tdata.rounds.length) selRound.value = String(tdata.rounds[tdata.rounds.length - 1].round);
       fillTables();
     } catch (err) {

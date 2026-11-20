@@ -184,6 +184,13 @@ test('heroes CSV: a player GEM lists twice is kept once', () => {
   assert.deepEqual(rows, [{ name: 'A B', gemId: '1', hero: 'Fai' }, { name: 'C D', gemId: '2', hero: 'Dash' }]);
 });
 
+test('run page: a dash in the result column is a match that is still running', () => {
+  const t = parseTournamentHtml('<h1>x</h1>' + roundCard(10, 'Elimination Playoffs', 5,
+    matchRow(1, 'Ash, Ann (11)', 'Birch, Bo (12)', '-') + matchRow(2, 'Cedar, Cy (13)', 'Dorn, Di (14)', 'Player 2 Win')), '1');
+  assert.deepEqual(t.rounds[0].pairings.map(p => [p.done, p.winner]), [[false, null], [true, 'p2']]);
+  assert.deepEqual([t.rounds[0].live, t.rounds[0].done, t.rounds[0].total], [1, 1, 2]);
+});
+
 test('run page: a bye is called Bye there too', () => {
   const t = parseTournamentHtml('<h1>x</h1>' + roundCard(1, 'Swiss', 1, matchRow(3, 'Ash, Ann (11)', 'None', 'Player 1 Win')), '1');
   assert.deepEqual([t.rounds[0].pairings[0].p2, t.rounds[0].pairings[0].p2GemId], ['Bye', '']);

@@ -121,12 +121,13 @@ function parseTournamentHtml(html, eventId) {
         result:   resultRaw,
         winner:   p2Win ? 'p2' : p1Win ? 'p1' : null,
         bothLose: /double loss|loss.?all/i.test(resultRaw),
-        done:     !!resultRaw && !resultRaw.toLowerCase().includes('live')
+        done:     /[a-z]/i.test(resultRaw) && !resultRaw.toLowerCase().includes('live')
       });
     }
 
     if (pairings.length > 0) {
-      const liveCount = liveM ? parseInt(liveM[1]) : 0;
+      // small rounds and the top cut print no counts
+      const liveCount = liveM ? parseInt(liveM[1]) : pairings.filter(p => !p.done).length;
       result.rounds.push({
         round: roundNum,
         elimination: isElimination,

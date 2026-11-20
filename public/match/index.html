@@ -214,6 +214,7 @@
 <script>
   const $ = id => document.getElementById(id);
   let match = null, tdata = null, formDirty = false;
+  let picked = false;      // the operator chose a round or table that is not on stream yet
 
   // Writes need the PIN: ask once, then repeat the call.
   function guarded(path, body) {
@@ -304,8 +305,12 @@
   }
 
   function syncPicker() {
-    if (!tdata || !match || document.activeElement === $('sel-round') || document.activeElement === $('sel-table')) return;
-    if (match.round && tdata.rounds.some(r => r.round === match.round)) $('sel-round').value = String(match.round);
+    if (!tdata || !match || picked) return;
+    // the match is already in a round this page has not loaded yet
+    if (match.round && !tdata.rounds.some(r => r.round === match.round)) { loadTournament(); return; }
+    const last = tdata.rounds[tdata.rounds.length - 1];
+    const round = match.round || (last && last.round);
+    if (round) $('sel-round').value = String(round);
     fillTables();
     if (match.table) $('sel-table').value = String(match.table);
     $('follow').checked = match.followRound !== false;
@@ -321,9 +326,10 @@
         .map(r => `<option value="${r.round}">${r.elimination ? 'Top cut · ' : ''}Round ${r.round}</option>`)
         .join('') || '<option value="">—</option>';
       const last = tdata.rounds[tdata.rounds.length - 1];
-      if (keep && tdata.rounds.some(r => String(r.round) === keep)) $('sel-round').value = keep;
+      if (picked && keep && tdata.rounds.some(r => String(r.round) === keep)) $('sel-round').value = keep;
       else if (last) $('sel-round').value = String(last.round);
       fillTables();
+      syncPicker();
       alertIn('gem-alert', tdata.rounds.length ? '' : 'This event has no pairings yet.', 'warn');
       return true;
     } catch (err) {
@@ -332,14 +338,15 @@
     }
   }
 
-  $('sel-round').addEventListener('change', fillTables);
+  $('sel-round').addEventListener('change', () => { picked = true; fillTables(); });
+  $('sel-table').addEventListener('change', () => { picked = true; });
 
   $('gem-apply').addEventListener('click', () => {
     const table = parseInt($('sel-table').value, 10);
     if (!Number.isFinite(table)) return alertIn('gem-alert', 'Choose a table first.');
     run('/api/match/select', {
       round: parseInt($('sel-round').value, 10), table, followRound: $('follow').checked
-    }, 'gem-alert');
+    }, 'gem-alert').then(ok => { if (ok) picked = false; });
   });
 
   $('swap').addEventListener('click', () => run('/api/match/swap', {}, 'gem-alert'));
