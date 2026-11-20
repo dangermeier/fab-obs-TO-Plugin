@@ -112,7 +112,7 @@ async function fetchHeroesCsv(eventId, { force = false } = {}) {
     const heroes = parseHeroesCsv(await res.text());
 
     // A hero assigned for the current match is the more exact one.
-    const perMatch = await fetchMatchHeroes(eventId).catch(() => ({}));
+    const perMatch = matchHeroes(eventId);
     for (const row of heroes) {
       if (perMatch[row.gemId]) row.hero = perMatch[row.gemId];
     }
@@ -139,6 +139,24 @@ async function fetchMatchHeroes(eventId) {
     }).catch(() => ({})));
   }
   return heroes;
+}
+
+// What is known right now, without waiting: nine rounds are nine large pages,
+// and no board should stay empty for that. The pages are read in the
+// background and the heroes are there on the next refresh.
+const matchHeroesKnown = new Map();   // eventId -> { heroes, loading }
+
+function matchHeroes(eventId) {
+  let entry = matchHeroesKnown.get(eventId);
+  if (!entry) matchHeroesKnown.set(eventId, entry = { heroes: {}, loading: false });
+  if (!entry.loading) {
+    entry.loading = true;
+    fetchMatchHeroes(eventId)
+      .then(heroes => { entry.heroes = heroes; })
+      .catch(() => {})
+      .finally(() => { entry.loading = false; });
+  }
+  return entry.heroes;
 }
 
 async function fetchStandingsCsv(eventId, { force = false } = {}) {
