@@ -3,7 +3,8 @@ const assert = require('node:assert/strict');
 
 const {
   parseStandingsCsv, parseHeroesCsv, parseTournamentHtml, findMaxPage,
-  parseEventDate, parseStoreName, sortEvents
+  parseEventDate, parseStoreName, sortEvents,
+  parseRoundInfo, parsePairingsCsv, applyPairingsCsv, parseStoreEventsFromHtml
 } = require('../src/parser');
 
 test('standings CSV: quoted names with commas and escaped quotes', () => {
@@ -77,4 +78,97 @@ test('store name: read from the heading of the tournament list', () => {
   assert.equal(parseStoreName('<h2>Switch profile</h2><h1> Tournaments for\n 1A Gamer Lounge </h1>'), '1A Gamer Lounge');
   assert.equal(parseStoreName('<h1>Choose a store</h1>'), null);
   assert.equal(parseStoreName(''), null);
+});
+
+// The run page as GEM writes it: a large round is a count only, a small one
+// lists its tables.
+const roundCard = (n, kind, id, body) => `
+  <div class="content-card">
+    <div class="${kind === 'Swiss' ? 'swiss' : 'playoff'}">
+      <h3 class="mb-3">
+              Round ${n} (${kind})
+      </h3>
+      ${body}
+      <div class="btn-group mt-3"><span>Export:</span>
+        <a href="/gem/1/coverage/standings/${id}">Standings.csv</a>
+        <a href="/gem/1/coverage/results/${id}">Results.csv</a>
+      </div>
+    </div>
+  </div>`;
+const counts = (live, done, total) => `<b>Matches</b><table><tr><th>Live</th><th>Done</th><th>Total</th></tr>
+  <tr class="win1"><td><span>${live}</span></td><td><span>${done}</span></td><td><span>${total}</span></td></tr></table>`;
+const matchRow = (table, p1, p2, result) => `<div class="row match-row">
+  <div class="col-2 py-3">Table ${table}</div><div class="col-4 py-3">${p1}</div>
+  <div class="col-4 py-3">${p2}</div><div class="col-2 py-3">${result}</div></div>`;
+
+const bigEvent = '<h1>Big Open</h1>' +
+  roundCard(3, 'Elimination Playoffs', 903, matchRow(1, 'Ash, Ann (11)', 'Birch, Bo (12)', 'Player 2 Win')) +
+  roundCard(2, 'Swiss', 902, counts(1, 1, 2)) +
+  roundCard(1, 'Swiss', 901, counts(0, 2, 2));
+
+const bigExport = [
+  'Round,Table,Player 1 Name,Player 1 ID,Player 2 Name,Player 2 ID,Result',
+  '1,2,"Cedar, Cy",13,None,,1WIN',
+  '1,1,"Ash, Ann",11,"Birch, Bo",12,DRAW',
+  '2,1,"Ash, Ann",11,"Cedar, Cy",13,2WIN',
+  '2,2,"Birch, Bo",12,"Dorn, Di",14,',
+  '3,1,"Ash, Ann",11,"Birch, Bo",12,2WIN'
+].join('\n');
+
+test('round info: number, kind, export id and counts of every round on the page', () => {
+  assert.deepEqual(parseRoundInfo(bigEvent), [
+    { round: 1, elimination: false, roundId: '901', live: 0, total: 2 },
+    { round: 2, elimination: false, roundId: '902', live: 1, total: 2 },
+    { round: 3, elimination: true,  roundId: '903', live: null, total: null }
+  ]);
+});
+
+test('pairings export: fills in the rounds the page only counts', () => {
+  const t = parseTournamentHtml(bigEvent, '1');
+  assert.deepEqual(t.rounds.map(r => r.round), [3]);
+
+  applyPairingsCsv(t, parsePairingsCsv(bigExport));
+  assert.deepEqual(t.rounds.map(r => [r.round, r.elimination, r.done, r.total]),
+    [[1, false, 2, 2], [2, false, 1, 2], [3, true, 1, 1]]);
+  assert.equal(t.currentRound, 3);
+
+  const [r1, r2, r3] = t.rounds;
+  assert.deepEqual(r1.pairings.map(p => p.table), [1, 2]);
+  assert.deepEqual([r1.pairings[0].result, r1.pairings[0].winner, r1.pairings[0].done], ['Draw', null, true]);
+  // a bye: named so, no id, a win for the player
+  assert.deepEqual([r1.pairings[1].p2, r1.pairings[1].p2GemId, r1.pairings[1].winner], ['Bye', '', 'p1']);
+  assert.deepEqual([r2.pairings[0].p2, r2.pairings[0].p2GemId, r2.pairings[0].winner], ['Cedar, Cy', '13', 'p2']);
+  assert.deepEqual([r2.pairings[1].done, r2.pairings[1].winner], [false, null]);
+  // the round that was on the page reads the same from the export
+  assert.deepEqual([r3.pairings[0].result, r3.pairings[0].winner], ['Player 2 Win', 'p2']);
+});
+
+test('run page: a bye is called Bye there too', () => {
+  const t = parseTournamentHtml('<h1>x</h1>' + roundCard(1, 'Swiss', 1, matchRow(3, 'Ash, Ann (11)', 'None', 'Player 1 Win')), '1');
+  assert.deepEqual([t.rounds[0].pairings[0].p2, t.rounds[0].pairings[0].p2GemId], ['Bye', '']);
+});
+
+test('standings CSV: dropped rows, and players GEM lists twice', () => {
+  const rows = parseStandingsCsv([
+    'Rank,Name,Player ID,Wins',
+    '1,"Ash, Ann",11,3',
+    '2,"Birch, Bo",12,2',
+    'Dropped,"Birch, Bo",12,2',
+    'Dropped,"Cedar, Cy",13,1',
+    'Dropped,"Ash, Ann",11,3'
+  ].join('\n'));
+  assert.deepEqual(rows.map(r => [r.rank, r.gemId, r.wins, !!r.dropped]),
+    [[1, '11', 3, false], [2, '12', 2, false], [3, '13', 1, true]]);
+});
+
+test('store list: a type that names a format is not taken for the format', () => {
+  const html = `<div class="event" id="7"><h4 class="event__title">PQ</h4>
+    <div class="event__when ">x</div>
+    <div class="event__meta">
+      <div class="event__meta-item"><span>October 10, 2026, 10:00 AM</span></div>
+      <div class="event__meta-item"><span>Pro Quest: London (Classic Constructed)</span></div>
+      <div class="event__meta-item"><span>Classic Constructed</span></div>
+    </div><div class="btn-group"></div></div>`;
+  const [ev] = parseStoreEventsFromHtml(html);
+  assert.deepEqual([ev.eventType, ev.format, ev.date], ['Pro Quest: London (Classic Constructed)', 'Classic Constructed', '2026-10-10']);
 });

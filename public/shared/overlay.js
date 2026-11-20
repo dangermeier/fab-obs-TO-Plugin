@@ -159,6 +159,7 @@
   OV.fmtName = function (n, mode) {
     var s = normalizeName(n);
     if (!s) return '–';
+    if (s === 'Bye') return OV.t('bye');      // the server's name for a bye
 
     var m = mode || OV.nameMode;
     if (m === 'full') return s;
@@ -260,7 +261,7 @@
       round: 'Round {n}', table: 'Table {n}', pairings: 'Pairings', standings: 'Standings',
       afterRound: 'after round {n}', topCut: 'Top Cut', breakdown: 'Hero Breakdown',
       'stage.r16': 'Round of 16', 'stage.qf': 'Quarterfinals', 'stage.sf': 'Semifinals', 'stage.f': 'Finals',
-      running: 'running', finished: 'finished', completed: 'completed', vs: 'vs',
+      running: 'running', finished: 'finished', completed: 'completed', vs: 'vs', bye: 'Bye',
       tablesDone: 'tables finished', players: 'players', heroes: 'heroes',
       champion: 'Champion', others: 'Other heroes ({n})',
       noPairings: 'No pairings yet', noStandings: 'No standings yet',
@@ -274,7 +275,7 @@
       round: 'Runde {n}', table: 'Tisch {n}', pairings: 'Paarungen', standings: 'Tabelle',
       afterRound: 'nach Runde {n}', topCut: 'Top Cut', breakdown: 'Helden-Verteilung',
       'stage.r16': 'Achtelfinale', 'stage.qf': 'Viertelfinale', 'stage.sf': 'Halbfinale', 'stage.f': 'Finale',
-      running: 'l\u00e4uft', finished: 'beendet', completed: 'abgeschlossen', vs: 'vs',
+      running: 'l\u00e4uft', finished: 'beendet', completed: 'abgeschlossen', vs: 'vs', bye: 'Freilos',
       tablesDone: 'Tische fertig', players: 'Spieler', heroes: 'Helden',
       champion: 'Sieger', others: 'Weitere Helden ({n})',
       noPairings: 'Noch keine Paarungen', noStandings: 'Noch keine Tabelle',
@@ -337,7 +338,7 @@
   // Young heroes (Blitz, Draft, Sealed, Commoner) have their own artwork,
   // Classic Constructed uses the adult one.
   OV.setFormat = function (format) {
-    OV.young = /blitz|draft|sealed|versiegelt|booster|commoner|limited/i.test(String(format || ''));
+    OV.young = /blitz|silver age|draft|sealed|versiegelt|booster|commoner|limited/i.test(String(format || ''));
   };
 
   OV.heroImageUrl = function (name, young) {

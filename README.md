@@ -77,6 +77,8 @@ The PIN is printed in the server console on every start and shown on the config 
 3. Pick the event from the list. The **Judge / Scorekeeper** and **Store** buttons switch between event types. The list shows the three most current events (running, then the next upcoming, then the latest past); **Show all** opens the rest. The search field filters by name, date, format or store, and with more than one store on your account a dropdown limits the list to one of them. You can also enter the event ID by hand; it is the number in the run URL, `gem.fabtcg.com/gem/12345/run/`.
 4. In OBS add a Browser Source per overlay (**Sources, +, Browser Source**), paste the URL and set width and height to your stream resolution, e.g. 1920 x 1080. The config page lists all URLs with a copy button.
 
+Large events work too: GEM's run page only counts the matches of a big round, so the tables are read from GEM's pairings export. Once a top cut has started, the Standings board shows the final Swiss standings.
+
 Set your GEM account language to English. Hero names are matched against the card database by their English names.
 
 ## Overlays

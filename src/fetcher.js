@@ -3,7 +3,7 @@ const { getCookieHeader } = require('./auth');
 const {
   parseTournamentHtml, parseHeroesCsv, parseStandingsCsv,
   parseProfileEventsFromHtml, parseStoreEventsFromHtml, findMaxPage,
-  parseStoreName, sortEvents
+  parseStoreName, sortEvents, parsePairingsCsv, applyPairingsCsv
 } = require('./parser');
 
 const demo = require('./demo');
@@ -62,8 +62,36 @@ async function fetchTournamentData(eventId, { force = false } = {}) {
     const res = await gemFetch(`${GEM_BASE}/gem/${eventId}/run/`);
     assertSession(res);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return parseTournamentHtml(await res.text(), eventId);
+    const tdata = parseTournamentHtml(await res.text(), eventId);
+
+    // Large rounds are on the page as a count only. Their tables are in the
+    // pairings export.
+    if (roundsMissing(tdata)) {
+      try {
+        const csv = await gemFetch(`${GEM_BASE}/gem/${eventId}/coverage/pairings`);
+        if (csv.ok) applyPairingsCsv(tdata, parsePairingsCsv(await csv.text()));
+      } catch (err) {
+        console.warn('[gem] Pairings export failed:', err.message);
+      }
+    }
+    return tdata;
   }, force);
+}
+
+function roundsMissing(tdata) {
+  const onPage = new Map(tdata.rounds.map(r => [r.round, r.total]));
+  return (tdata.roundInfo || []).some(r =>
+    !onPage.has(r.round) || (r.total != null && r.total !== onPage.get(r.round)));
+}
+
+// With a top cut GEM's current standings list nearly everyone as dropped, so
+// the board shows the standings after the last Swiss round instead.
+async function standingsUrl(eventId) {
+  const base = `${GEM_BASE}/gem/${eventId}/coverage/standings`;
+  const info = (await fetchTournamentData(eventId).catch(() => null))?.roundInfo || [];
+  if (!info.some(r => r.elimination)) return base;
+  const swiss = info.filter(r => !r.elimination && r.roundId);
+  return swiss.length ? `${base}/${swiss[swiss.length - 1].roundId}` : base;
 }
 
 async function fetchHeroesCsv(eventId, { force = false } = {}) {
@@ -79,8 +107,9 @@ async function fetchHeroesCsv(eventId, { force = false } = {}) {
 async function fetchStandingsCsv(eventId, { force = false } = {}) {
   if (demo.isDemo(eventId)) return demo.standings();
   return cached(`standings:${eventId}`, GEM_TTL, async () => {
-    const res = await gemFetch(`${GEM_BASE}/gem/${eventId}/coverage/standings`);
+    const res = await gemFetch(await standingsUrl(eventId));
     assertSession(res);
+    if (res.status === 404) return [];          // no round yet
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return parseStandingsCsv(await res.text());
   }, force);
@@ -167,15 +196,21 @@ async function searchCards(query) {
 
 // Blitz, Draft, Sealed, Commoner: young heroes (20 life). CC and LL: adult.
 function isYoungFormat(format) {
-  return /blitz|draft|sealed|versiegelt|booster|commoner|limited/i.test(String(format || ''));
+  return /blitz|silver age|draft|sealed|versiegelt|booster|commoner|limited/i.test(String(format || ''));
 }
 
 // GoAgain returns every name match, e.g. "Fai" gives the young and the adult
 // hero in arbitrary order. Don't trust data[0].
-function pickHeroCard(cards, wantYoung) {
+function pickHeroCard(cards, wantYoung, name) {
   const heroes = cards.filter(c => (c.types || []).includes('Hero'));
-  const pool   = heroes.length ? heroes : cards;
+  let pool     = heroes.length ? heroes : cards;
   if (!pool.length) return null;
+
+  // GEM gives the card's own name ("Fai" is the young hero, "Fai, Rising
+  // Rebellion" the adult): an exact match settles it whatever the format.
+  const wanted = String(name || '').trim().toLowerCase();
+  const exact  = wanted ? pool.filter(c => String(c.name || '').toLowerCase() === wanted) : [];
+  if (exact.length) pool = exact;
 
   const young = pool.filter(c =>  (c.types || []).includes('Young'));
   const adult = pool.filter(c => !(c.types || []).includes('Young'));
@@ -226,7 +261,7 @@ async function fetchHeroInfo(name, { young = false } = {}) {
 
   return cached(key, HERO_TTL, async () => {
     const json = await fetchCardByName(name);
-    const card = pickHeroCard(json.data || [], young);
+    const card = pickHeroCard(json.data || [], young, name);
     if (!card) {
       heroMisses.set(key, Date.now());
       throw new Error(`No card found for "${name}"`);
@@ -302,6 +337,8 @@ async function fetchJudgeEvents() {
   return sortEvents(results);
 }
 
+const STORE_HISTORY_PAGES = 8;   // 25 events each
+
 // "1a-gamer-lounge-28672113" -> "1a gamer lounge", if the page has no heading
 function storeNameFromSlug(slug) {
   return slug.replace(/-\d+$/, '').replace(/-/g, ' ');
@@ -339,8 +376,15 @@ async function fetchStoreEvents() {
         add(activeEvs, store);
         await sleep(200);
 
-        const histHtml = await gemFetch(`${GEM_BASE}/store/${slug}/tournaments/history/`).then(r => r.text());
+        const histUrl  = `${GEM_BASE}/store/${slug}/tournaments/history/`;
+        const histHtml = await gemFetch(histUrl).then(r => r.text());
         const histEvs  = parseStoreEventsFromHtml(histHtml);
+        const pages    = Math.min(findMaxPage(histHtml), STORE_HISTORY_PAGES);
+        for (let page = 2; page <= pages; page++) {
+          await sleep(200);
+          const html = await gemFetch(`${histUrl}?page=${page}`).then(r => r.text());
+          histEvs.push(...parseStoreEventsFromHtml(html));
+        }
         console.log(`[events]   ${slug}: ${histEvs.length} past`);
         add(histEvs, store);
         await sleep(200);
@@ -373,5 +417,5 @@ module.exports = {
   fetchTournamentData, fetchHeroesCsv, fetchStandingsCsv,
   fetchCardByName, fetchHeroImage, fetchAllEvents,
   fetchHeroInfo, isYoungFormat, searchCards,
-  pickHeroCard, printingImageUrls
+  pickHeroCard, printingImageUrls, roundsMissing
 };

@@ -10,8 +10,33 @@ function stripTags(html) {
     .trim();
 }
 
+// GEM lists a bye as a player called "None" without an id.
+function seatName(name, gemId) {
+  return !gemId && /^none$/i.test(name) ? 'Bye' : name;
+}
+
+// One "content-card" per round: number, kind, the id its exports are filed
+// under, and the match counts where the page prints them.
+function parseRoundInfo(html) {
+  const info = [];
+  html.split(/(?=<div class="content-card">)/).forEach(block => {
+    const head = block.match(/<h3[^>]*>\s*(?:Runde|Round)\s+(\d+)\s*(?:\(([^)]*)\))?/);
+    if (!head) return;
+    const idM  = block.match(/coverage\/results\/(\d+)/);
+    const cntM = block.match(/<th>Live<\/th>[\s\S]*?<td><span>(\d+)<\/span><\/td>\s*<td><span>(\d+)<\/span><\/td>\s*<td><span>(\d+)<\/span><\/td>/);
+    info.push({
+      round:       parseInt(head[1]),
+      elimination: /elimination|playoff/i.test(head[2] || ''),
+      roundId:     idM ? idM[1] : null,
+      live:        cntM ? parseInt(cntM[1]) : null,
+      total:       cntM ? parseInt(cntM[3]) : null
+    });
+  });
+  return info.sort((a, b) => a.round - b.round);
+}
+
 function parseTournamentHtml(html, eventId) {
-  const result = { eventId, rounds: [], players: [], meta: {} };
+  const result = { eventId, rounds: [], roundInfo: parseRoundInfo(html), players: [], meta: {} };
 
   const titleM = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/);
   if (titleM) result.meta.title = stripTags(titleM[1]).trim();
@@ -85,9 +110,9 @@ function parseTournamentHtml(html, eventId) {
 
       pairings.push({
         table:    parseInt(table.replace(/[^0-9]/g, '')) || table,
-        p1:       p1M ? p1M[1].trim() : p1raw,
+        p1:       p1M ? p1M[1].trim() : seatName(p1raw, ''),
         p1GemId:  p1M ? p1M[2] : '',
-        p2:       p2M ? p2M[1].trim() : p2raw,
+        p2:       p2M ? p2M[1].trim() : seatName(p2raw, ''),
         p2GemId:  p2M ? p2M[2] : '',
         result:   resultRaw,
         winner:   p2Win ? 'p2' : p1Win ? 'p1' : null,
@@ -136,22 +161,101 @@ function parseCsvLine(line) {
   return fields;
 }
 
+// The coverage export of all rounds: Round, Table, Player 1 Name, Player 1 ID,
+// Player 2 Name, Player 2 ID, Result (1WIN, 2WIN, DRAW, empty while running).
+// The run page leaves the match rows out for large rounds, this file has them.
+const RESULT_TEXT = { '1WIN': 'Player 1 Win', '2WIN': 'Player 2 Win', 'DRAW': 'Draw' };
+
+function parsePairingsCsv(csv) {
+  const lines = String(csv || '').trim().split(/\r?\n/);
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const c = parseCsvLine(lines[i]).map(v => v.trim());
+    const round = parseInt(c[0]);
+    if (c.length < 7 || !round || !c[2] || !c[4]) continue;
+    const code = c[6].toUpperCase();
+    rows.push({
+      round,
+      table:   parseInt(c[1]) || c[1],
+      p1:      seatName(c[2], c[3]),
+      p1GemId: c[3],
+      p2:      seatName(c[4], c[5]),
+      p2GemId: c[5],
+      result:  RESULT_TEXT[code] || c[6],
+      winner:  code.startsWith('1WIN') ? 'p1' : code.startsWith('2WIN') ? 'p2' : null,
+      done:    !!code && !/LIVE|PENDING|PROGRESS/.test(code)
+    });
+  }
+  return rows;
+}
+
+// Rounds from the export replace what the page had, unless the page shows
+// more rows for a round. Round kind and live count come from the page.
+function applyPairingsCsv(tdata, rows) {
+  const info   = new Map((tdata.roundInfo || []).map(r => [r.round, r]));
+  const rounds = new Map(tdata.rounds.map(r => [r.round, r]));
+
+  const byRound = new Map();
+  rows.forEach(({ round, ...pairing }) => {
+    if (!byRound.has(round)) byRound.set(round, []);
+    byRound.get(round).push(pairing);
+  });
+
+  for (const [n, pairings] of byRound) {
+    const onPage = rounds.get(n);
+    if (onPage && onPage.pairings.length > pairings.length) continue;
+    pairings.sort((a, b) => (parseInt(a.table) || 0) - (parseInt(b.table) || 0));
+
+    const known = info.get(n);
+    const open  = pairings.filter(p => !p.done).length;
+    const live  = known && known.live != null && known.total === pairings.length ? known.live : open;
+    rounds.set(n, {
+      round: n,
+      elimination: known ? known.elimination : !!(onPage && onPage.elimination),
+      live,
+      done: pairings.length - live,
+      total: pairings.length,
+      pairings
+    });
+  }
+
+  tdata.rounds = [...rounds.values()].sort((a, b) => a.round - b.round);
+  tdata.currentRound = tdata.rounds.length ? tdata.rounds[tdata.rounds.length - 1].round : 0;
+  return tdata;
+}
+
+// Rank, Name, Player ID, Wins. GEM writes "Dropped" for the rank of a player
+// who left, and from the last Swiss round on lists most players twice (ranked
+// and dropped). Ranked rows win, players who only appear as dropped follow.
 function parseStandingsCsv(csv) {
   const lines = csv.trim().split(/\r?\n/);
-  const standings = [];
+  const ranked = [], dropped = [];
   for (let i = 1; i < lines.length; i++) {
     if (!lines[i].trim()) continue;
     const parts = parseCsvLine(lines[i]);
     if (parts.length < 3) continue;
-    standings.push({
-      rank:   parseInt(parts[0]) || i,
+    const rank = parseInt(parts[0]);
+    const row = {
+      rank,
       name:   parts[1].trim(),
       gemId:  parts[2].trim(),
       wins:   parseInt(parts[3]) || 0,
       losses: parseInt(parts[4]) || 0
-    });
+    };
+    if (Number.isFinite(rank)) ranked.push(row);
+    else dropped.push({ ...row, dropped: true });
   }
-  return standings.sort((a, b) => a.rank - b.rank);
+  ranked.sort((a, b) => a.rank - b.rank);
+
+  const seen = new Set();
+  const out = [];
+  for (const row of [...ranked, ...dropped]) {
+    const key = row.gemId || row.name;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(row.dropped ? { ...row, rank: out.length + 1 } : row);
+  }
+  return out;
 }
 
 function parseHeroesCsv(csv) {
@@ -287,13 +391,20 @@ function parseStoreEventsFromHtml(html) {
       }
     }
 
-    const knownFormats = ['Classic Constructed', 'Silver Age', 'Sealed Deck', 'Blitz', 'Draft'];
+    const knownFormats = ['Classic Constructed', 'Silver Age', 'Living Legend', 'Sealed Deck', 'Booster Draft', 'Blitz', 'Commoner', 'Draft'];
     const monthRe = /January|February|March|April|May|June|July|August|September|October|November|December/;
     let dateText = '', eventType = null, format = null;
+    const rest = [];
     for (const s of metaSpans) {
-      if (!dateText && (monthRe.test(s) || /\d{4}/.test(s))) { dateText = s; continue; }
-      if (!format && knownFormats.some(f => s.includes(f)))   { format = s; continue; }
-      if (!eventType && s.length > 3 && !s.match(/^\d/))      eventType = s;
+      if (!dateText && (monthRe.test(s) || /\d{4}/.test(s))) dateText = s;
+      else rest.push(s);
+    }
+    // "Pro Quest: London (Classic Constructed)" is a type that names a format:
+    // the span that is nothing but a format wins.
+    const exact = rest.find(s => knownFormats.includes(s));
+    for (const s of rest) {
+      if (!format && (exact ? s === exact : knownFormats.some(f => s.includes(f)))) { format = s; continue; }
+      if (!eventType && s.length > 3 && !s.match(/^\d/)) eventType = s;
     }
 
     const runM   = block.match(/href="(\/gem\/\d+\/run\/)"/);
@@ -307,5 +418,6 @@ function parseStoreEventsFromHtml(html) {
 module.exports = {
   parseTournamentHtml, parseStandingsCsv, parseHeroesCsv,
   parseProfileEventsFromHtml, parseStoreEventsFromHtml, findMaxPage,
-  parseEventDate, parseStoreName, sortEvents
+  parseEventDate, parseStoreName, sortEvents,
+  parseRoundInfo, parsePairingsCsv, applyPairingsCsv
 };

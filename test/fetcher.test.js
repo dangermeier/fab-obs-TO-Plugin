@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { isYoungFormat, pickHeroCard, printingImageUrls } = require('../src/fetcher');
+const { isYoungFormat, pickHeroCard, printingImageUrls, roundsMissing } = require('../src/fetcher');
 
 const BUCKET = 'https://legendstory-production-s3-public.s3.amazonaws.com/media/cards';
 
@@ -66,4 +66,26 @@ test('printingImageUrls: clean scans before other renditions, card backs last', 
     'https://img.example/media/width-450/WTR001.png',
     `${BUCKET}/large/WTR001_BACK.webp`
   ]);
+});
+
+test('pickHeroCard: the card with exactly that name, whatever the format', () => {
+  const adult = { name: 'Fai, Rising Rebellion', types: ['Hero', 'Ninja'] };
+  const young = { name: 'Fai',                   types: ['Hero', 'Ninja', 'Young'] };
+
+  assert.equal(pickHeroCard([adult, young], false, 'Fai'), young);
+  assert.equal(pickHeroCard([young, adult], true, 'fai, rising rebellion'), adult);
+  // no card of that exact name: the format decides as before
+  assert.equal(pickHeroCard([adult, young], true, 'Fai the Ninja'), young);
+});
+
+test('isYoungFormat: Silver Age plays young heroes', () => {
+  assert.ok(isYoungFormat('Silver Age'));
+});
+
+test('roundsMissing: asks for the export only when the page left tables out', () => {
+  const info = [{ round: 1, total: 2 }, { round: 2, total: null }];
+  assert.equal(roundsMissing({ roundInfo: info, rounds: [{ round: 1, total: 2 }, { round: 2, total: 1 }] }), false);
+  assert.equal(roundsMissing({ roundInfo: info, rounds: [{ round: 2, total: 1 }] }), true);
+  assert.equal(roundsMissing({ roundInfo: info, rounds: [{ round: 1, total: 1 }, { round: 2, total: 1 }] }), true);
+  assert.equal(roundsMissing({ rounds: [] }), false);
 });

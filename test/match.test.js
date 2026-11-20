@@ -9,7 +9,7 @@ test.after(() => fs.rmSync(process.env.DATA_DIR, { recursive: true, force: true 
 
 const {
   tableNum, completedSwissRounds, labelForRound, stageForRound,
-  fromOtherEvent, clearFeatured, setManualMatch
+  fromOtherEvent, clearFeatured, setManualMatch, recordOf
 } = require('../src/match');
 const state = require('../src/state');
 
@@ -151,4 +151,21 @@ test('free mode: switched off with no table to return to, the match is empty', a
   await free({ eventTitle: 'Showmatch' });
   const m = await setManualMatch({ enabled: false });
   assert.deepEqual([m.manual, m.p1, m.p2, m.eventTitle, m.roundLabel], [false, null, null, null, null]);
+});
+
+test('recordOf: Swiss wins and losses off the pairings', () => {
+  const row = (p1GemId, p2GemId, winner, done = true) => ({ p1: 'a', p1GemId, p2: 'b', p2GemId, winner, done });
+  const tdata = { rounds: [
+    { round: 1, elimination: false, pairings: [row('1', '2', 'p1'), row('3', '', 'p1')] },
+    { round: 2, elimination: false, pairings: [row('2', '1', null), row('3', '4', 'p2')] },
+    { round: 3, elimination: false, pairings: [row('1', '3', null, false)] },
+    { round: 4, elimination: true,  pairings: [row('1', '3', 'p2')] }
+  ] };
+  assert.deepEqual(recordOf(tdata, '1', 'a'), { wins: 1, losses: 0 });   // win, draw, running, cut
+  assert.deepEqual(recordOf(tdata, '2', 'b'), { wins: 0, losses: 1 });
+  assert.deepEqual(recordOf(tdata, '3', 'x'), { wins: 1, losses: 1 });   // bye counts as a win
+  assert.deepEqual(recordOf(tdata, '9', 'nobody'), { wins: 0, losses: 0 });
+  // the empty seat of a bye has no record
+  assert.deepEqual(recordOf({ rounds: [{ pairings: [{ p1: 'a', p1GemId: '1', p2: 'Bye', p2GemId: '', winner: 'p1', done: true }] }] }, '', 'Bye'),
+    { wins: 0, losses: 0 });
 });

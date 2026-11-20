@@ -1,7 +1,6 @@
 const { getSession } = require('./auth');
 const {
-  fetchTournamentData, fetchHeroesCsv, fetchStandingsCsv,
-  fetchHeroInfo, isYoungFormat
+  fetchTournamentData, fetchHeroesCsv, fetchHeroInfo, isYoungFormat
 } = require('./fetcher');
 const { getMatch, patchMatch } = require('./state');
 const { nameKey } = require('./name');
@@ -88,6 +87,23 @@ function setWarning(msg) {
   return patchMatch({ warning: msg });
 }
 
+// Swiss record counted off the pairings. Draws count for neither side.
+function recordOf(tdata, gemId, name) {
+  if (!gemId && name === 'Bye') return { wins: 0, losses: 0 };
+  const key = nameKey(name);
+  const is  = (id, n) => (gemId ? id === gemId : !!key && nameKey(n) === key);
+  let wins = 0, losses = 0;
+  for (const round of tdata.rounds) {
+    if (round.elimination) continue;
+    for (const p of round.pairings) {
+      const seat = is(p.p1GemId, p.p1) ? 'p1' : is(p.p2GemId, p.p2) ? 'p2' : null;
+      if (!seat || !p.done || !p.winner) continue;
+      if (p.winner === seat) wins++; else losses++;
+    }
+  }
+  return { wins, losses };
+}
+
 async function buildPlayer(name, gemId, ctx) {
   const key  = nameKey(name);
   const hero = ctx.heroById[gemId] || (key && ctx.heroByName[key]) || null;
@@ -101,16 +117,13 @@ async function buildPlayer(name, gemId, ctx) {
     }
   }
 
-  const wins = ctx.winsById[gemId] ?? (key ? ctx.winsByName[key] : undefined) ?? 0;
-
   return {
     name:      name || '',
     gemId:     gemId || '',
     hero,
     heroInfo,
     startLife: heroInfo?.health || (ctx.young ? 20 : 40),
-    wins,
-    losses:    Math.max(0, ctx.roundsDone - wins)
+    ...recordOf(ctx.tdata, gemId, name)
   };
 }
 
@@ -133,13 +146,12 @@ async function refreshFeatured({ force = false } = {}) {
     if (!eventId) return setWarning('No event selected');
   }
 
-  let tdata, heroes, standings;
+  let tdata, heroes;
   try {
     [tdata, heroes] = await Promise.all([
       fetchTournamentData(eventId, { force }),
       fetchHeroesCsv(eventId, { force }).catch(() => [])
     ]);
-    standings = await fetchStandingsCsv(eventId, { force }).catch(() => []);
   } catch (err) {
     // 4xx from GEM is nearly always an expired session, not an outage
     if (err.sessionExpired) return setWarning(err.message);
@@ -189,17 +201,7 @@ async function refreshFeatured({ force = false } = {}) {
     if (h.name  && h.hero) heroByName[nameKey(h.name)] = h.hero;
   });
 
-  const winsById = {}, winsByName = {};
-  standings.forEach(s => {
-    if (s.gemId) winsById[s.gemId] = s.wins || 0;
-    if (s.name)  winsByName[nameKey(s.name)] = s.wins || 0;
-  });
-
-  const ctx = {
-    heroById, heroByName, winsById, winsByName,
-    young: isYoungFormat(tdata.meta?.format),
-    roundsDone: completedSwissRounds(tdata)
-  };
+  const ctx = { heroById, heroByName, tdata, young: isYoungFormat(tdata.meta?.format) };
 
   const [p1, p2] = await Promise.all([
     buildPlayer(pairing.p1, pairing.p1GemId, ctx),
@@ -369,5 +371,5 @@ function startAutoRefresh(hasClients) {
 module.exports = {
   refreshFeatured, selectMatch, setManualMatch, startAutoRefresh,
   tableNum, completedSwissRounds, labelForRound, stageForRound,
-  fromOtherEvent, clearFeatured
+  fromOtherEvent, clearFeatured, recordOf
 };
