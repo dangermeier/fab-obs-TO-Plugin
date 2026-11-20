@@ -156,7 +156,7 @@ Open `/cards/` (link on the config page), type at least two letters and click a 
 
 Open `/match/` (link on the config page, also printed in the server console). It shows what is on stream and sets it from any device in the network; changes need the PIN.
 
-- **Table from GEM:** pick round and table. With **Stay on this table in the following rounds** ticked, the players are reloaded every round.
+- **Table from GEM:** pick round and table. With **Stay on this table in the following rounds** ticked, the same table is loaded again in every new round; without it a new round puts table 1 on stream.
 - **Free mode:** for a match that is not in GEM, such as a showmatch. Tick **Use free mode**, type players, heroes and round, and confirm. Record, table, format and event name are optional. Names appear exactly as typed, life is read from the hero card when left empty. Free mode only replaces the featured match (Featured Match, Life Counter, Broadcast frame, Winner); pairings, standings and the other boards keep showing the event. It stays on until you switch it off, which brings back the table that was selected before.
 
 ## Life counter on a tablet
@@ -177,7 +177,7 @@ Both players appear with hero, name and record. Life starts at each hero's print
 | **Match** | Pick round and table, or start free mode (**Freier Modus**) |
 | Fullscreen button (top right) | Hides the browser bars |
 
-With **Diesem Tisch jede Runde folgen** ticked, the counter reloads the players and resets the life totals when a new round starts. Untick it to stay on one match.
+With **Diesem Tisch jede Runde folgen** ticked, the counter reloads the players and resets the life totals when a new round starts. Unticked, a new round switches to table 1.
 
 **When a player reaches 0** the tablet asks "Ist das laufende Match beendet?".
 

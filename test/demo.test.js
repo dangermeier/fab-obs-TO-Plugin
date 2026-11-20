@@ -117,6 +117,34 @@ test('featured match: the table is kept when another event is selected', async (
   assert.equal(m.p1, null);
   assert.match(m.warning, /Table 99 not found/);
 
+
+  const nextRound = () => { demo.reportResults(); demo.finishRound(); demo.nextRound(); };
+
+  // new round with "stay on this table": the same table again
+  demo.goTo('r2');
+  m = await selectMatch({ table: 5, followRound: true });
+  nextRound();
+  m = await refreshFeatured({ force: true });
+  assert.deepEqual([m.round, m.table], [3, 5]);
+
+  // without it: table 1 of the new round
+  m = await selectMatch({ round: 3, table: 7, followRound: false });
+  assert.deepEqual([m.round, m.table], [3, 7]);
+  m = await refreshFeatured({ force: true });
+  assert.deepEqual([m.round, m.table], [3, 7]);
+  nextRound();
+  m = await refreshFeatured({ force: true });
+  assert.deepEqual([m.round, m.table, m.followRound], [4, 1, false]);
+  assert.equal(m.life.p1, m.p1.startLife);
+
+  // an older round picked by hand stays until the next round starts
+  m = await selectMatch({ round: 2, table: 6, followRound: false });
+  m = await refreshFeatured({ force: true });
+  assert.deepEqual([m.round, m.table], [2, 6]);
+  nextRound();
+  m = await refreshFeatured({ force: true });
+  assert.deepEqual([m.round, m.table], [5, 1]);
+
   state.flushMatch();
   fs.rmSync(dir, { recursive: true, force: true });
 });

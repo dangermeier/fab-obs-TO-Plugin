@@ -48,7 +48,8 @@ const DEFAULT_SETTINGS = {
 const DEFAULT_MATCH = {
   table:       null,
   round:       null,
-  followRound: true,   // re-resolve the same table every round
+  followRound: true,   // new round: same table again, otherwise table 1
+  lastRound:   null,   // latest round seen, to notice a new one
   manual:      false,  // free mode: everything typed by hand, GEM not used
   resume:      null,   // { round, table, followRound } to go back to after free mode
   swapped:     false,  // seating is mirrored vs. GEM's p1/p2

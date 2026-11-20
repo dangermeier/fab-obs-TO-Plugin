@@ -68,7 +68,7 @@ function clearFields() {
     ended: false, history: [],
     matchKey: null, eventId: null, eventTitle: null, format: null,
     roundLabel: null, roundStage: null, totalRounds: null,
-    warning: null
+    lastRound: null, warning: null
   };
 }
 
@@ -159,13 +159,19 @@ async function refreshFeatured({ force = false } = {}) {
     totalRounds: tdata.meta?.totalRounds ?? null
   };
 
-  const round = m.followRound
-    ? tdata.rounds[tdata.rounds.length - 1]
+  // A new round: the same table again with followRound, table 1 without.
+  const last     = tdata.rounds[tdata.rounds.length - 1];
+  const newRound = !!last && m.lastRound != null && last.round > m.lastRound;
+  const table    = newRound && !m.followRound ? 1 : m.table;
+  const round    = m.followRound || newRound || m.round == null
+    ? last
     : tdata.rounds.find(r => r.round === m.round);
 
-  if (!round) return setWarning(m.followRound ? 'No rounds yet' : `Round ${m.round} not found`);
+  if (!round) return setWarning(last ? `Round ${m.round} not found` : 'No rounds yet');
+  about.table     = table;
+  about.lastRound = last.round;
 
-  const pairing = round.pairings.find(p => tableNum(p) === m.table);
+  const pairing = round.pairings.find(p => tableNum(p) === table);
   if (!pairing) {
     const patch = {
       ...about,
@@ -174,7 +180,7 @@ async function refreshFeatured({ force = false } = {}) {
       roundStage: stageForRound(tdata, round)
     };
     if (hasChanges(patch)) patchMatch(patch);
-    return setWarning(`Table ${m.table} not found in round ${round.round}`);
+    return setWarning(`Table ${table} not found in round ${round.round}`);
   }
 
   const heroById = {}, heroByName = {};
@@ -200,7 +206,7 @@ async function refreshFeatured({ force = false } = {}) {
     buildPlayer(pairing.p2, pairing.p2GemId, ctx)
   ]);
 
-  const matchKey = `${round.round}|${m.table}|${p1.gemId || p1.name}|${p2.gemId || p2.name}`;
+  const matchKey = `${round.round}|${table}|${p1.gemId || p1.name}|${p2.gemId || p2.name}`;
 
   const patch = {
     ...about,
@@ -234,7 +240,7 @@ async function refreshFeatured({ force = false } = {}) {
 }
 
 async function selectMatch({ round, table, followRound }) {
-  const patch = { manual: false, resume: null, matchKey: null, warning: null, ended: false };
+  const patch = { manual: false, resume: null, matchKey: null, lastRound: null, warning: null, ended: false };
 
   if (table !== undefined) {
     patch.table = table === null || table === '' ? null : parseInt(table, 10) || null;
