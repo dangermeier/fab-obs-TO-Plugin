@@ -76,6 +76,12 @@ function clearFeatured() {
   return patchMatch(clearFields());
 }
 
+// Another event was selected: the players go, the table number stays and is
+// looked up in the new event's current round.
+function moveToNewEvent(m) {
+  return patchMatch({ ...clearFields(), table: m.table, followRound: true });
+}
+
 function setWarning(msg) {
   const m = getMatch();
   if (m.warning === msg) return m;
@@ -111,15 +117,15 @@ async function buildPlayer(name, gemId, ctx) {
 // Only place where GEM data becomes featured-match state. No failure path may
 // touch the life totals.
 async function refreshFeatured({ force = false } = {}) {
-  const m = getMatch();
+  let m = getMatch();
   if (m.manual || m.table == null) return m;
 
   const session = getSession();
   const eventId = session?.eventId;
 
-  // Event changed: clear first, or the old players stay on screen if the new
-  // event has no such table or GEM is down.
-  if (fromOtherEvent(m, eventId)) return clearFeatured();
+  // Event changed: drop the players first, or the old ones stay on screen if
+  // the new event has no such table or GEM is down.
+  if (fromOtherEvent(m, eventId)) m = moveToNewEvent(m);
 
   // demo needs no GEM session
   if (!isDemo(eventId)) {
@@ -143,7 +149,7 @@ async function refreshFeatured({ force = false } = {}) {
       : `GEM unreachable: ${err.message}`);
   }
 
-  if (fromOtherEvent(m, eventId, tdata.meta?.title)) return clearFeatured();
+  if (fromOtherEvent(m, eventId, tdata.meta?.title)) m = moveToNewEvent(m);
 
   // event info, set even if the table is not found
   const about = {

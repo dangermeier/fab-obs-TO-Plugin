@@ -86,3 +86,37 @@ test('demo: switched off unless DEMO_MODE says so', () => {
     process.env.DEMO_MODE = was;
   }
 });
+
+test('featured match: the table is kept when another event is selected', async () => {
+  const fs = require('fs'), os = require('os'), path = require('path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fab-demo-'));
+  process.env.DATA_DIR = dir;
+  const state = require('../src/state');
+  const { saveSession } = require('../src/auth');
+  const { selectMatch, refreshFeatured } = require('../src/match');
+  state.loadState();
+  saveSession({ eventId: demo.DEMO_ID });
+  demo.goTo('r3');
+
+  let m = await selectMatch({ table: 3, followRound: true });
+  assert.deepEqual([m.eventId, m.round, m.table], ['demo', 3, 3]);
+  const players = [m.p1.name, m.p2.name];
+  state.adjustLife('p1', -9);
+
+  // as if the match had been read from another event
+  state.patchMatch({ eventId: '12345', p1: { ...m.p1, name: 'Somebody Else' }, matchKey: 'old' });
+  m = await refreshFeatured({ force: true });
+  assert.deepEqual([m.eventId, m.round, m.table], ['demo', 3, 3]);
+  assert.deepEqual([m.p1.name, m.p2.name], players);
+  assert.equal(m.life.p1, m.p1.startLife);
+  assert.equal(m.warning, null);
+
+  // a table the new event does not have: no players, and a warning says why
+  state.patchMatch({ eventId: '12345', table: 99 });
+  m = await refreshFeatured({ force: true });
+  assert.equal(m.p1, null);
+  assert.match(m.warning, /Table 99 not found/);
+
+  state.flushMatch();
+  fs.rmSync(dir, { recursive: true, force: true });
+});
