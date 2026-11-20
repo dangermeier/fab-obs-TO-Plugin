@@ -120,20 +120,25 @@ async function fetchHeroesCsv(eventId, { force = false } = {}) {
   }, force);
 }
 
-// Heroes can also be set per match, on the latest round's results page, and
-// only there. It is a large page, so it is read once a minute at most, and
-// not at all for accounts that may not open it.
-const MATCH_HERO_TTL = 60 * 1000;
+// Heroes can also be set per match, on a round's results page, and only
+// there. A player keeps the hero of an earlier round until a later one says
+// otherwise. The pages are large: the running round is read once a minute at
+// most, earlier rounds every ten minutes.
+const MATCH_HERO_TTL     = 60 * 1000;
+const MATCH_HERO_OLD_TTL = 10 * 60 * 1000;
 
 async function fetchMatchHeroes(eventId) {
-  const info = (await fetchTournamentData(eventId))?.roundInfo || [];
-  const last = info[info.length - 1];
-  if (!last?.roundId) return {};
-  return cached(`matchheroes:${eventId}:${last.roundId}`, MATCH_HERO_TTL, async () => {
-    const res = await gemFetch(`${GEM_BASE}/gem/${eventId}/run/${last.roundId}/report/`);
-    if (!res.ok || res.redirected) return {};
-    return parseMatchHeroes(await res.text());
-  });
+  const info = ((await fetchTournamentData(eventId))?.roundInfo || []).filter(r => r.roundId);
+  const heroes = {};
+  for (const [i, round] of info.entries()) {
+    const ttl = i === info.length - 1 ? MATCH_HERO_TTL : MATCH_HERO_OLD_TTL;
+    Object.assign(heroes, await cached(`matchheroes:${eventId}:${round.roundId}`, ttl, async () => {
+      const res = await gemFetch(`${GEM_BASE}/gem/${eventId}/run/${round.roundId}/report/`);
+      if (!res.ok || res.redirected) return {};
+      return parseMatchHeroes(await res.text());
+    }).catch(() => ({})));
+  }
+  return heroes;
 }
 
 async function fetchStandingsCsv(eventId, { force = false } = {}) {
