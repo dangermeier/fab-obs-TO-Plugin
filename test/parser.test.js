@@ -143,6 +143,37 @@ test('pairings export: fills in the rounds the page only counts', () => {
   assert.deepEqual([r3.pairings[0].result, r3.pairings[0].winner], ['Player 2 Win', 'p2']);
 });
 
+test('round info: a running round takes its id from the report link', () => {
+  const running = '<div class="content-card"><div class="swiss"><h3 class="mb-3"> Round 1 (Swiss) </h3>' +
+    counts(37, 0, 37) + '<a href="/gem/1/run/1422412/report/" class="fab-btn">Enter Results</a></div></div>';
+  assert.deepEqual(parseRoundInfo(running), [{ round: 1, elimination: false, roundId: '1422412', live: 37, total: 37 }]);
+
+  const t = parseTournamentHtml('<h1>x</h1>' + running, '1');
+  applyPairingsCsv(t, parsePairingsCsv('Round,Table,Player 1 Name,Player 1 ID,Player 2 Name,Player 2 ID,Result\n1,1,A B,1,C D,2,\n1,2,E F,3,G H,4,1WIN'));
+  // the page's own count of running matches is not overruled by a shorter export
+  assert.deepEqual([t.rounds[0].live, t.rounds[0].done, t.rounds[0].total], [1, 1, 2]);
+  assert.deepEqual(t.rounds[0].pairings.map(p => p.done), [false, true]);
+});
+
+test('run page: the player list without the organiser\'s links and repeats', () => {
+  const t = parseTournamentHtml(`<h1>x</h1><h3>Registered Players</h3><ol>
+    <li>Ash, Ann (11) <a href="#">Fai, Rising Rebellion &nbsp; (change)</a></li>
+    <li>Birch, Bo (12) <a href="#">Assign Hero</a></li>
+    <li>Birch, Bo (12) <a href="#">Assign Hero</a></li>
+    <li>Cedar, Cy (13) <a href="#">Rhinar (LL) &nbsp; (change)</a></li>
+  </ol>`, '1');
+  assert.deepEqual(t.players, [
+    { name: 'Ash, Ann',  gemId: '11', hero: 'Fai, Rising Rebellion' },
+    { name: 'Birch, Bo', gemId: '12', hero: null },
+    { name: 'Cedar, Cy', gemId: '13', hero: 'Rhinar' }
+  ]);
+});
+
+test('heroes CSV: a player GEM lists twice is kept once', () => {
+  const rows = parseHeroesCsv('Player Name,Player ID,Country/Region,Hero\nA B,1,,\nA B,1,,Fai\nC D,2,DE,Dash\nC D,2,DE,');
+  assert.deepEqual(rows, [{ name: 'A B', gemId: '1', hero: 'Fai' }, { name: 'C D', gemId: '2', hero: 'Dash' }]);
+});
+
 test('run page: a bye is called Bye there too', () => {
   const t = parseTournamentHtml('<h1>x</h1>' + roundCard(1, 'Swiss', 1, matchRow(3, 'Ash, Ann (11)', 'None', 'Player 1 Win')), '1');
   assert.deepEqual([t.rounds[0].pairings[0].p2, t.rounds[0].pairings[0].p2GemId], ['Bye', '']);

@@ -5,6 +5,7 @@ function stripTags(html) {
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
+    .replace(/&nbsp;/g, ' ')
     .replace(/&#\d+;/g, '')
     .replace(/\s+/g, ' ')
     .trim();
@@ -22,7 +23,8 @@ function parseRoundInfo(html) {
   html.split(/(?=<div class="content-card">)/).forEach(block => {
     const head = block.match(/<h3[^>]*>\s*(?:Runde|Round)\s+(\d+)\s*(?:\(([^)]*)\))?/);
     if (!head) return;
-    const idM  = block.match(/coverage\/results\/(\d+)/);
+    // a running round has no export links yet, only its report and print ones
+    const idM  = block.match(/coverage\/results\/(\d+)/) || block.match(/\/run\/(\d+)\/(?:report|print|edit)/);
     const cntM = block.match(/<th>Live<\/th>[\s\S]*?<td><span>(\d+)<\/span><\/td>\s*<td><span>(\d+)<\/span><\/td>\s*<td><span>(\d+)<\/span><\/td>/);
     info.push({
       round:       parseInt(head[1]),
@@ -63,8 +65,10 @@ function parseTournamentHtml(html, eventId) {
     while ((lm = liRe.exec(playerListM[1])) !== null) {
       const row = stripTags(lm[1]).replace(/\s+/g, ' ').trim();
       const playerM = row.match(/^(.+?)\s*\((\d+)\)\s*(.*)/);
-      if (playerM) {
-        const heroRaw = playerM[3].trim();
+      // GEM lists some players twice
+      if (playerM && !result.players.some(p => p.gemId === playerM[2])) {
+        // the organiser's view adds "(change)" to a hero and "Assign Hero" where there is none
+        const heroRaw = playerM[3].replace(/\(change\)/i, '').replace(/^Assign Hero$/i, '').trim();
         result.players.push({
           name: playerM[1].trim(),
           gemId: playerM[2],
@@ -261,6 +265,7 @@ function parseStandingsCsv(csv) {
 function parseHeroesCsv(csv) {
   const lines = csv.trim().split(/\r?\n/);
   const heroes = [];
+  const seen = new Map();
 
   for (let i = 1; i < lines.length; i++) {
     if (!lines[i].trim()) continue;
@@ -269,7 +274,12 @@ function parseHeroesCsv(csv) {
     const gemId  = (parts[1] || '').trim();
     const heroRaw = (parts[3] || '').trim();
     const hero   = heroRaw.replace(/\s*\([A-Z]{1,4}\)\s*$/, '').trim();
-    if (name) heroes.push({ name, gemId, hero });
+    // GEM repeats some players; keep one row, the one with a hero if any
+    const key  = gemId || name;
+    const prev = seen.get(key);
+    if (!name || (prev && (prev.hero || !hero))) continue;
+    if (prev) Object.assign(prev, { name, hero });
+    else { const row = { name, gemId, hero }; seen.set(key, row); heroes.push(row); }
   }
   return heroes;
 }
