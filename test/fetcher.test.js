@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { isYoungFormat, pickHeroCard, printingImageUrls, roundsMissing, standingsRoundId } = require('../src/fetcher');
+const { isYoungFormat, pickHeroCard, printingImageUrls, roundsMissing, standingsRoundId, officialHeroCard } = require('../src/fetcher');
 
 const BUCKET = 'https://legendstory-production-s3-public.s3.amazonaws.com/media/cards';
 
@@ -100,4 +100,19 @@ test('standingsRoundId: the last finished Swiss round', () => {
   // in the top cut it stays on the Swiss standings
   assert.equal(standingsRoundId({ roundInfo: info, rounds: [round(1, 8, 8), round(2, 8, 8), round(3, 4, 4, true), round(4, 0, 2, true)] }), '902');
   assert.equal(standingsRoundId(null), null);
+});
+
+test('officialHeroCard: the publisher\'s record in the shape the hero choice reads', () => {
+  const record = (name, box, life, id) => ({
+    printed_name: name, printed_typebox: box, printed_life: life, printed_intellect: '4',
+    faces: [{ image: { small: `https://img.example/small/${id}.webp`, large: `https://img.example/large/${id}.webp` } }]
+  });
+  const young = officialHeroCard(record('Dr. Mortimer', 'Assassin Hero - Young', '20', 'MPA003'));
+  const adult = officialHeroCard(record('Dr. Mortimer, Blight of the Pits', 'Assassin Hero', '40', 'MPA001'));
+
+  assert.deepEqual(young.types, ['Assassin', 'Hero', 'Young']);
+  assert.deepEqual(adult.imageUrls, ['https://img.example/large/MPA001.webp', 'https://img.example/small/MPA001.webp']);
+  assert.equal(pickHeroCard([young, adult], false, 'Dr. Mortimer, Blight of the Pits'), adult);
+  assert.equal(pickHeroCard([young, adult], false, 'Dr. Mortimer'), young);
+  assert.equal(adult.health, '40');
 });

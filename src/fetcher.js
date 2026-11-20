@@ -3,7 +3,7 @@ const { getCookieHeader } = require('./auth');
 const {
   parseTournamentHtml, parseHeroesCsv, parseStandingsCsv,
   parseProfileEventsFromHtml, parseStoreEventsFromHtml, findMaxPage,
-  parseStoreName, sortEvents, parsePairingsCsv, applyPairingsCsv
+  parseStoreName, sortEvents, parsePairingsCsv, applyPairingsCsv, parseMatchHeroes
 } = require('./parser');
 
 const demo = require('./demo');
@@ -106,8 +106,31 @@ async function fetchHeroesCsv(eventId, { force = false } = {}) {
     const res = await gemFetch(`${GEM_BASE}/gem/${eventId}/coverage/heroes`);
     assertSession(res);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return parseHeroesCsv(await res.text());
+    const heroes = parseHeroesCsv(await res.text());
+
+    // A hero assigned for the current match is the more exact one.
+    const perMatch = await fetchMatchHeroes(eventId).catch(() => ({}));
+    for (const row of heroes) {
+      if (perMatch[row.gemId]) row.hero = perMatch[row.gemId];
+    }
+    return heroes;
   }, force);
+}
+
+// Heroes can also be set per match, on the latest round's results page, and
+// only there. It is a large page, so it is read once a minute at most, and
+// not at all for accounts that may not open it.
+const MATCH_HERO_TTL = 60 * 1000;
+
+async function fetchMatchHeroes(eventId) {
+  const info = (await fetchTournamentData(eventId))?.roundInfo || [];
+  const last = info[info.length - 1];
+  if (!last?.roundId) return {};
+  return cached(`matchheroes:${eventId}:${last.roundId}`, MATCH_HERO_TTL, async () => {
+    const res = await gemFetch(`${GEM_BASE}/gem/${eventId}/run/${last.roundId}/report/`);
+    if (!res.ok || res.redirected) return {};
+    return parseMatchHeroes(await res.text());
+  });
 }
 
 async function fetchStandingsCsv(eventId, { force = false } = {}) {
@@ -266,8 +289,11 @@ async function fetchHeroInfo(name, { young = false } = {}) {
   if (missed && Date.now() - missed < HERO_MISS_TTL) throw new Error(`No card found for "${name}"`);
 
   return cached(key, HERO_TTL, async () => {
-    const json = await fetchCardByName(name);
-    const card = pickHeroCard(json.data || [], young, name);
+    let cards = ((await fetchCardByName(name)).data || []).filter(isHero);
+    // Heroes of the newest set reach the community database late, the
+    // publisher's own one has them from their reveal.
+    if (!cards.length) cards = await officialHeroCards(name).catch(() => []);
+    const card = pickHeroCard(cards, young, name);
     if (!card) {
       heroMisses.set(key, Date.now());
       throw new Error(`No card found for "${name}"`);
@@ -278,9 +304,36 @@ async function fetchHeroInfo(name, { young = false } = {}) {
       intelligence: parseInt(card.intelligence, 10) || null,
       young:        (card.types || []).includes('Young'),
       types:        card.types || [],
-      imageUrls:    printingImageUrls(card)
+      imageUrls:    card.imageUrls || printingImageUrls(card)
     };
   });
+}
+
+const isHero = card => (card.types || []).includes('Hero');
+
+// Hero cards from the publisher's database, in the shape pickHeroCard reads.
+function officialHeroCard(c) {
+  const img = c.faces?.[0]?.image || {};
+  const box = String(c.printed_typebox || '');
+  return {
+    name:         c.printed_name || '',
+    health:       c.printed_life,
+    intelligence: c.printed_intellect,
+    types:        box.split(/[\s-]+/).filter(Boolean),
+    imageUrls:    [img.large, img.normal, img.small].filter(Boolean)
+  };
+}
+
+async function officialHeroCards(name) {
+  const res = await fetch(`${OFFICIAL_CARDS}/advanced-search/?page_size=30&name=${encodeURIComponent(name)}`, {
+    headers: { Accept: 'application/json' },
+    timeout: 8000
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return ((await res.json()).results || [])
+    .filter(c => !/^[A-Z]{2}_/.test(c.print_id || ''))        // skip translations
+    .map(officialHeroCard)
+    .filter(c => isHero(c) && c.imageUrls.length);
 }
 
 // Portrait bytes: { buffer, contentType }. Tries the candidates until one is
@@ -423,5 +476,5 @@ module.exports = {
   fetchTournamentData, fetchHeroesCsv, fetchStandingsCsv,
   fetchCardByName, fetchHeroImage, fetchAllEvents,
   fetchHeroInfo, isYoungFormat, searchCards,
-  pickHeroCard, printingImageUrls, roundsMissing, standingsRoundId
+  pickHeroCard, printingImageUrls, roundsMissing, standingsRoundId, officialHeroCard
 };

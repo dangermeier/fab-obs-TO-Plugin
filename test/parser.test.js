@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const {
   parseStandingsCsv, parseHeroesCsv, parseTournamentHtml, findMaxPage,
   parseEventDate, parseStoreName, sortEvents,
-  parseRoundInfo, parsePairingsCsv, applyPairingsCsv, parseStoreEventsFromHtml
+  parseRoundInfo, parsePairingsCsv, applyPairingsCsv, parseStoreEventsFromHtml, parseMatchHeroes
 } = require('../src/parser');
 
 test('standings CSV: quoted names with commas and escaped quotes', () => {
@@ -212,4 +212,23 @@ test('store list: a type that names a format is not taken for the format', () =>
     </div><div class="btn-group"></div></div>`;
   const [ev] = parseStoreEventsFromHtml(html);
   assert.deepEqual([ev.eventType, ev.format, ev.date], ['Pro Quest: London (Classic Constructed)', 'Classic Constructed', '2026-10-10']);
+});
+
+test('match heroes: read off the results page, unassigned seats left out', () => {
+  const seat = (table, n, name, id, hero) => `<div id="match-${table}-player${n}" class="match-element width-25">
+    <span> ${name} (${id})
+      <span class="d-block pt-2">
+        <a href="/gem/tournament/1/round/2/match/3/player/${id}/hero/">
+                ${hero}
+        </a>
+      </span>
+    </span></div>`;
+  const html = '<div class="match-row">' + seat(1, 1, 'Ash, Ann', 11, 'Arakni, 5L!p3d 7hRu 7h3 cR4X') + seat(1, 2, 'Birch, Bo', 12, 'Assign Match Hero') + '</div>' +
+               '<div class="match-row">' + seat(2, 1, 'Cedar, Cy', 13, 'Rhinar (LL)') + seat(2, 2, 'Dorn, Di', 14, 'Dr. Mortimer, Blight of the Pits') + '</div>';
+  assert.deepEqual(parseMatchHeroes(html), {
+    11: 'Arakni, 5L!p3d 7hRu 7h3 cR4X',
+    13: 'Rhinar',
+    14: 'Dr. Mortimer, Blight of the Pits'
+  });
+  assert.deepEqual(parseMatchHeroes(''), {});
 });

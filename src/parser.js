@@ -289,6 +289,19 @@ function parseHeroesCsv(csv) {
   return heroes;
 }
 
+// Heroes assigned per match on a round's "Enter Results" page: gemId -> hero.
+// They are in no export. A seat without one reads "Assign Match Hero".
+function parseMatchHeroes(html) {
+  const heroes = {};
+  const re = /id="match-\d+-player[12]"[\s\S]*?\((\d+)\)[\s\S]*?<a href="[^"]*\/hero\/">([\s\S]*?)<\/a>/g;
+  let m;
+  while ((m = re.exec(String(html || ''))) !== null) {
+    const hero = stripTags(m[2]).replace(/\s*\([A-Z]{1,4}\)\s*$/, '').trim();
+    if (hero && !/^assign\b/i.test(hero)) heroes[m[1]] = hero;
+  }
+  return heroes;
+}
+
 // --- event lists ---
 
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
@@ -434,5 +447,5 @@ module.exports = {
   parseTournamentHtml, parseStandingsCsv, parseHeroesCsv,
   parseProfileEventsFromHtml, parseStoreEventsFromHtml, findMaxPage,
   parseEventDate, parseStoreName, sortEvents,
-  parseRoundInfo, parsePairingsCsv, applyPairingsCsv
+  parseRoundInfo, parsePairingsCsv, applyPairingsCsv, parseMatchHeroes
 };
