@@ -333,7 +333,7 @@ function sortEvents(events) {
     .map(x => x.ev);
 }
 
-// The heading of a store's tournament list: "Tournaments for 1A Gamer Lounge".
+// The heading of a store's tournament list: "Tournaments for Dragons Den".
 function parseStoreName(html) {
   const h1 = String(html || '').match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
   const m  = h1 && stripTags(h1[1]).match(/Tournaments for\s+(.+)/i);

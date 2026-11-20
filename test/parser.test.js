@@ -75,7 +75,7 @@ test('event order: running, then the next upcoming, then the latest past', () =>
 });
 
 test('store name: read from the heading of the tournament list', () => {
-  assert.equal(parseStoreName('<h2>Switch profile</h2><h1> Tournaments for\n 1A Gamer Lounge </h1>'), '1A Gamer Lounge');
+  assert.equal(parseStoreName('<h2>Switch profile</h2><h1> Tournaments for\n Dragons Den </h1>'), 'Dragons Den');
   assert.equal(parseStoreName('<h1>Choose a store</h1>'), null);
   assert.equal(parseStoreName(''), null);
 });

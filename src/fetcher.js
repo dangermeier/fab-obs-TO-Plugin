@@ -485,7 +485,7 @@ async function fetchJudgeEvents() {
 
 const STORE_HISTORY_PAGES = 8;   // 25 events each
 
-// "1a-gamer-lounge-28672113" -> "1a gamer lounge", if the page has no heading
+// "dragons-den-12345678" -> "dragons den", if the page has no heading
 function storeNameFromSlug(slug) {
   return slug.replace(/-\d+$/, '').replace(/-/g, ' ');
 }
