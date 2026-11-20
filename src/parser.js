@@ -120,6 +120,7 @@ function parseTournamentHtml(html, eventId) {
         p2GemId:  p2M ? p2M[2] : '',
         result:   resultRaw,
         winner:   p2Win ? 'p2' : p1Win ? 'p1' : null,
+        bothLose: /double loss|loss.?all/i.test(resultRaw),
         done:     !!resultRaw && !resultRaw.toLowerCase().includes('live')
       });
     }
@@ -166,9 +167,10 @@ function parseCsvLine(line) {
 }
 
 // The coverage export of all rounds: Round, Table, Player 1 Name, Player 1 ID,
-// Player 2 Name, Player 2 ID, Result (1WIN, 2WIN, DRAW, empty while running).
+// Player 2 Name, Player 2 ID, Result (1WIN, 2WIN, DRAW, LOSSALL for a double
+// loss, empty while the match is running).
 // The run page leaves the match rows out for large rounds, this file has them.
-const RESULT_TEXT = { '1WIN': 'Player 1 Win', '2WIN': 'Player 2 Win', 'DRAW': 'Draw' };
+const RESULT_TEXT = { '1WIN': 'Player 1 Win', '2WIN': 'Player 2 Win', 'DRAW': 'Draw', 'LOSSALL': 'Double Loss' };
 
 function parsePairingsCsv(csv) {
   const lines = String(csv || '').trim().split(/\r?\n/);
@@ -187,6 +189,7 @@ function parsePairingsCsv(csv) {
       p2GemId: c[5],
       result:  RESULT_TEXT[code] || c[6],
       winner:  code.startsWith('1WIN') ? 'p1' : code.startsWith('2WIN') ? 'p2' : null,
+      bothLose: code === 'LOSSALL',
       done:    !!code && !/LIVE|PENDING|PROGRESS/.test(code)
     });
   }
@@ -250,6 +253,8 @@ function parseStandingsCsv(csv) {
     else dropped.push({ ...row, dropped: true });
   }
   ranked.sort((a, b) => a.rank - b.rank);
+  // Before the first round is finished GEM lists nothing but the drops.
+  if (!ranked.length) return [];
 
   const seen = new Set();
   const out = [];

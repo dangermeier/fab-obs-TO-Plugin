@@ -97,8 +97,9 @@ function recordOf(tdata, gemId, name) {
     if (round.elimination) continue;
     for (const p of round.pairings) {
       const seat = is(p.p1GemId, p.p1) ? 'p1' : is(p.p2GemId, p.p2) ? 'p2' : null;
-      if (!seat || !p.done || !p.winner) continue;
-      if (p.winner === seat) wins++; else losses++;
+      if (!seat || !p.done) continue;
+      if (p.bothLose) losses++;
+      else if (p.winner) { if (p.winner === seat) wins++; else losses++; }
     }
   }
   return { wins, losses };

@@ -232,6 +232,7 @@
         if (!p.done) return;
         if (p.winner === 'p1')      { a.w++; b.l++; }
         else if (p.winner === 'p2') { b.w++; a.l++; }
+        else if (p.bothLose)        { a.l++; b.l++; }
         else                        { a.d++; b.d++; }
       });
     });

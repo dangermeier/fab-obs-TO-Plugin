@@ -89,25 +89,24 @@
     return tdata.rounds.filter(r => !r.elimination && r.total > 0 && r.done >= r.total).length;
   }
 
-  // fallback when the coverage CSV is empty: count wins off the run page
+  // No standings from GEM yet (round 1 still running): count them off the
+  // pairings. Players are matched by id, the two lists spell names differently.
   function calcStandings(tdata) {
-    const wins = {}, gids = {};
-    tdata.rounds.filter(r => !r.elimination).forEach(r => r.pairings.forEach(p => {
-      if (!p.done) return;
-      wins[p.p1] = wins[p.p1] || 0;
-      wins[p.p2] = wins[p.p2] || 0;
-      if (p.p1GemId) gids[p.p1] = p.p1GemId;
-      if (p.p2GemId) gids[p.p2] = p.p2GemId;
-      if (p.winner === 'p1') wins[p.p1]++;
-      else if (p.winner === 'p2') wins[p.p2]++;
-    }));
-    const players = tdata.players.length
-      ? tdata.players
-      : Object.keys(wins).map(n => ({ name: n, gemId: gids[n] || '', hero: null }));
+    const recOf = OV.records(tdata);
+    let players = tdata.players;
+    if (!players.length) {
+      const seen = new Map();
+      tdata.rounds.forEach(r => r.pairings.forEach(p => {
+        [[p.p1, p.p1GemId], [p.p2, p.p2GemId]].forEach(([name, gemId]) => {
+          if (gemId && !seen.has(gemId)) seen.set(gemId, { name, gemId, hero: null });
+        });
+      }));
+      players = [...seen.values()];
+    }
     return players
-      .map(p => ({ ...p, wins: wins[p.name] || 0 }))
-      .sort((a, b) => b.wins - a.wins)
-      .map((p, i) => ({ ...p, rank: i + 1 }));
+      .map(p => ({ ...p, rec: recOf(p.gemId, p.name) || { w: 0, l: 0, d: 0 } }))
+      .sort((x, y) => y.rec.w - x.rec.w || x.rec.l - y.rec.l || y.rec.d - x.rec.d)
+      .map((p, i) => ({ name: p.name, gemId: p.gemId, hero: p.hero, wins: p.rec.w, rank: i + 1 }));
   }
 
   function rowsHtml(rows) {

@@ -165,6 +165,9 @@ test('recordOf: Swiss wins and losses off the pairings', () => {
   assert.deepEqual(recordOf(tdata, '2', 'b'), { wins: 0, losses: 1 });
   assert.deepEqual(recordOf(tdata, '3', 'x'), { wins: 1, losses: 1 });   // bye counts as a win
   assert.deepEqual(recordOf(tdata, '9', 'nobody'), { wins: 0, losses: 0 });
+  // a double loss is a loss for both
+  const both = { rounds: [{ pairings: [{ p1: 'a', p1GemId: '1', p2: 'b', p2GemId: '2', winner: null, bothLose: true, done: true }] }] };
+  assert.deepEqual([recordOf(both, '1', 'a'), recordOf(both, '2', 'b')], [{ wins: 0, losses: 1 }, { wins: 0, losses: 1 }]);
   // the empty seat of a bye has no record
   assert.deepEqual(recordOf({ rounds: [{ pairings: [{ p1: 'a', p1GemId: '1', p2: 'Bye', p2GemId: '', winner: 'p1', done: true }] }] }, '', 'Bye'),
     { wins: 0, losses: 0 });

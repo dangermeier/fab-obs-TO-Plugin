@@ -169,6 +169,16 @@ test('run page: the player list without the organiser\'s links and repeats', () 
   ]);
 });
 
+test('pairings export: a double loss is finished, with no winner', () => {
+  const [row] = parsePairingsCsv('Round,Table,Player 1 Name,Player 1 ID,Player 2 Name,Player 2 ID,Result\n1,4,A B,1,C D,2,LOSSALL');
+  assert.deepEqual([row.result, row.winner, row.bothLose, row.done], ['Double Loss', null, true, true]);
+});
+
+test('standings CSV: nothing but drops is no standings yet', () => {
+  assert.deepEqual(parseStandingsCsv('Rank,Name,Player ID,Wins\nDropped,A B,1,0\nDropped,C D,2,0'), []);
+  assert.deepEqual(parseStandingsCsv('Rank,Name,Player ID,Wins\n'), []);
+});
+
 test('heroes CSV: a player GEM lists twice is kept once', () => {
   const rows = parseHeroesCsv('Player Name,Player ID,Country/Region,Hero\nA B,1,,\nA B,1,,Fai\nC D,2,DE,Dash\nC D,2,DE,');
   assert.deepEqual(rows, [{ name: 'A B', gemId: '1', hero: 'Fai' }, { name: 'C D', gemId: '2', hero: 'Dash' }]);
