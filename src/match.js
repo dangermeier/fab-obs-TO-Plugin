@@ -45,6 +45,13 @@ function stageForRound(tdata, round) {
   return i < 0 ? null : ROUND_STAGES[i];
 }
 
+// "Round 5 / 3" would be nonsense: an event can run longer than GEM planned.
+function plannedRounds(tdata) {
+  const planned = tdata.meta?.totalRounds ?? null;
+  const swiss = tdata.rounds.filter(r => !r.elimination).length;
+  return planned && planned >= swiss ? planned : null;
+}
+
 // The 20 s refresh must not re-broadcast identical data to every overlay.
 function hasChanges(patch) {
   const cur = getMatch();
@@ -169,7 +176,7 @@ async function refreshFeatured({ force = false } = {}) {
     eventId:     String(eventId),
     eventTitle:  tdata.meta?.title ?? null,
     format:      tdata.meta?.format ?? null,
-    totalRounds: tdata.meta?.totalRounds ?? null
+    totalRounds: plannedRounds(tdata)
   };
 
   // A new round: the same table again with followRound, table 1 without.
