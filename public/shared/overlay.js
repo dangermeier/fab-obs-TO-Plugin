@@ -521,6 +521,7 @@
     var pos = 0, size = 0, measuring = false, prev = null;
     var current = null, currentCount = null, queued = null;
     var first = true;      // only the first list gets .fresh
+    var gen = 0;           // counts set() calls, a late measurement of an old list is dropped
 
     function natural() { return horiz ? track.scrollWidth : track.scrollHeight; }
     function room()    { return horiz ? viewport.clientWidth : viewport.clientHeight; }
@@ -545,7 +546,11 @@
       pos = 0; size = 0; place();
       track.classList.remove('fit');            // measure the natural size
       track.innerHTML = html;
-      requestAnimationFrame(function () { requestAnimationFrame(function () {
+
+      var mine = ++gen, done = false;
+      function measure() {
+        if (done || mine !== gen) return;
+        done = true;
         var n = natural();
         if (n <= room()) {
           if (o.fit) track.classList.add('fit');
@@ -557,7 +562,12 @@
         track.classList.add('quiet');
         measuring = false;
         if (queued) { var q = queued; queued = null; show(q.html, q.count); }
-      }); });
+      }
+      requestAnimationFrame(function () { requestAnimationFrame(measure); });
+      // A page that is not on screen (a background tab, an OBS source in
+      // another scene) gets no animation frames. Without this the list
+      // would stay on its old rows until the page is shown again.
+      setTimeout(measure, 400);
     }
 
     // Same number of rows: replace both copies where they stand.
