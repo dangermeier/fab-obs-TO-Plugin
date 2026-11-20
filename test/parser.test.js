@@ -1,7 +1,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { parseStandingsCsv, parseHeroesCsv, parseTournamentHtml, findMaxPage } = require('../src/parser');
+const {
+  parseStandingsCsv, parseHeroesCsv, parseTournamentHtml, findMaxPage,
+  parseEventDate, parseStoreName, sortEvents
+} = require('../src/parser');
 
 test('standings CSV: quoted names with commas and escaped quotes', () => {
   const csv = [
@@ -45,4 +48,33 @@ test('run page: a page without rounds parses as an empty event, not an error', (
 test('findMaxPage reads the highest page link', () => {
   assert.equal(findMaxPage('<a href="?page=2">2</a><a href="?page=7">7</a>'), 7);
   assert.equal(findMaxPage('<p>no pager</p>'), 1);
+});
+
+test('event dates: both spellings GEM uses, null without a date', () => {
+  assert.equal(parseEventDate('Wed Nov. 25th, 2026'), '2026-11-25');
+  assert.equal(parseEventDate('November 21, 2026, 11:00 AM'), '2026-11-21');
+  assert.equal(parseEventDate('Feb. 2, 2026'), '2026-02-02');
+  assert.equal(parseEventDate('tomorrow'), null);
+  assert.equal(parseEventDate(''), null);
+});
+
+test('event order: running, then the next upcoming, then the latest past', () => {
+  const ev = (id, status, date) => ({ id, status, date });
+  const sorted = sortEvents([
+    ev('old', 'past', '2026-01-10'),
+    ev('later', 'upcoming', '2026-12-02'),
+    ev('undated', 'past', null),
+    ev('recent', 'past', '2026-11-18'),
+    ev('live', 'active', '2026-11-20'),
+    ev('next', 'upcoming', '2026-11-21')
+  ]);
+  assert.deepEqual(sorted.map(e => e.id).slice(0, 3), ['live', 'next', 'later']);
+  assert.ok(sorted.findIndex(e => e.id === 'recent') < sorted.findIndex(e => e.id === 'old'));
+  assert.equal(sorted.length, 6);
+});
+
+test('store name: read from the heading of the tournament list', () => {
+  assert.equal(parseStoreName('<h2>Switch profile</h2><h1> Tournaments for\n 1A Gamer Lounge </h1>'), '1A Gamer Lounge');
+  assert.equal(parseStoreName('<h1>Choose a store</h1>'), null);
+  assert.equal(parseStoreName(''), null);
 });

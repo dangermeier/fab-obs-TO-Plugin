@@ -173,6 +173,11 @@
     return parts[0] + ' ' + initials(parts.slice(1));
   };
 
+  // A featured-match player. Names typed in free mode are shown as typed.
+  OV.playerName = function (p) {
+    return OV.fmtName(p && p.name, p && p.asTyped ? 'full' : undefined);
+  };
+
   // Join key that ignores word order, nicknames, punctuation and accents.
   // Keep in sync with nameKey in src/name.js, the tests run both on the same cases.
   var FOLD = { '\u0131': 'i', '\u0130': 'i', '\u00f8': 'o', '\u0153': 'oe', '\u00e6': 'ae',

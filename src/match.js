@@ -59,8 +59,8 @@ function fromOtherEvent(m, eventId, title) {
 }
 
 // Drops players, counters, table and event info. The shown card stays.
-function clearFeatured() {
-  return patchMatch({
+function clearFields() {
+  return {
     table: null, round: null,
     p1: null, p2: null,
     life:  { p1: null, p2: null },
@@ -69,7 +69,11 @@ function clearFeatured() {
     matchKey: null, eventId: null, eventTitle: null, format: null,
     roundLabel: null, roundStage: null, totalRounds: null,
     warning: null
-  });
+  };
+}
+
+function clearFeatured() {
+  return patchMatch(clearFields());
 }
 
 function setWarning(msg) {
@@ -224,7 +228,7 @@ async function refreshFeatured({ force = false } = {}) {
 }
 
 async function selectMatch({ round, table, followRound }) {
-  const patch = { manual: false, matchKey: null, warning: null, ended: false };
+  const patch = { manual: false, resume: null, matchKey: null, warning: null, ended: false };
 
   if (table !== undefined) {
     patch.table = table === null || table === '' ? null : parseInt(table, 10) || null;
@@ -238,52 +242,101 @@ async function selectMatch({ round, table, followRound }) {
   return refreshFeatured({ force: true });
 }
 
-// Hand-typed names, for when GEM is down or the match is not in the event.
-async function setManualMatch({ enabled, p1, p2, swapped }) {
-  if (!enabled) {
-    patchMatch({ manual: false, matchKey: null });
+const text = (v, max) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
+
+function count(v) {
+  const n = parseInt(v, 10);
+  return Number.isFinite(n) && n > 0 ? Math.min(n, 99) : 0;
+}
+
+// "3" is round 3, anything else ("Finals", "Showmatch") is shown as typed.
+function freeRound(value) {
+  const label = text(value, 40);
+  const n = /^\d{1,2}$/.test(label) ? parseInt(label, 10) : null;
+  return {
+    round:       n || null,
+    roundLabel:  n ? `Round ${n}` : (label || null),
+    roundStage:  null,
+    totalRounds: null
+  };
+}
+
+async function freePlayer(src, prev, format) {
+  const given = key => src && src[key] !== undefined;
+  const hero  = given('hero') ? (text(src.hero, 80) || null) : (prev?.hero || null);
+
+  let startLife = parseInt(src?.startLife, 10);
+  if (!Number.isFinite(startLife) || startLife <= 0) {
+    startLife = 0;
+    if (hero) {
+      try {
+        startLife = (await fetchHeroInfo(hero, { young: isYoungFormat(format) })).health || 0;
+      } catch {
+        // unknown hero name, the default below applies
+      }
+    }
+    if (!startLife) startLife = (hero === prev?.hero && prev?.startLife) || (isYoungFormat(format) ? 20 : 40);
+  }
+
+  return {
+    name:     given('name') ? text(src.name, 80) : (prev?.name || ''),
+    gemId:    '',
+    asTyped:  true,
+    hero,
+    heroInfo: null,
+    startLife,
+    // a record belongs to the GEM players, never carried over
+    wins:     count(src?.wins),
+    losses:   count(src?.losses)
+  };
+}
+
+// Free mode: players, heroes, round and the other texts are typed by hand and
+// GEM is left alone until it is switched off again. Only the featured match is
+// affected, the boards keep showing the event.
+async function setManualMatch(input = {}) {
+  const m = getMatch();
+
+  if (!input.enabled) {
+    if (!m.manual) return m;
+    const back = m.resume || {};
+    if (back.table == null) return patchMatch({ ...clearFields(), manual: false, resume: null });
+    // The typed players go at once, even if GEM cannot be reached right now.
+    patchMatch({
+      ...clearFields(), manual: false, resume: null, eventId: m.eventId,
+      table: back.table, round: back.round ?? null, followRound: back.followRound !== false
+    });
     return refreshFeatured({ force: true });
   }
 
-  const m = getMatch();
-
-  async function build(src, prev) {
-    const hero = src?.hero !== undefined ? (src.hero || null) : (prev?.hero || null);
-
-    let startLife = parseInt(src?.startLife, 10);
-    if (!Number.isFinite(startLife) || startLife <= 0) {
-      startLife = 0;
-      if (hero) {
-        try {
-          const info = await fetchHeroInfo(hero, { young: isYoungFormat(m.format) });
-          startLife = info.health || 0;
-        } catch {}
-      }
-      if (!startLife) startLife = prev?.startLife || 40;
-    }
-
-    return {
-      name:      src?.name !== undefined ? String(src.name || '') : (prev?.name || ''),
-      gemId:     '',
-      hero,
-      heroInfo:  null,
-      startLife,
-      wins:      prev?.wins   ?? 0,
-      losses:    prev?.losses ?? 0
-    };
-  }
-
-  const np1 = await build(p1, m.p1);
-  const np2 = await build(p2, m.p2);
+  const format = input.format !== undefined ? (text(input.format, 40) || null) : m.format;
+  const [p1, p2] = await Promise.all([
+    freePlayer(input.p1, m.manual ? m.p1 : null, format),
+    freePlayer(input.p2, m.manual ? m.p2 : null, format)
+  ]);
 
   const patch = {
     manual: true, matchKey: null, warning: null, ended: false,
-    p1: np1, p2: np2,
-    start: { p1: np1.startLife, p2: np2.startLife },
-    life:  { p1: np1.startLife, p2: np2.startLife },
+    // first switch only: what to return to
+    resume: m.manual ? m.resume : { round: m.round, table: m.table, followRound: m.followRound },
+    p1, p2, format,
+    start: { p1: p1.startLife, p2: p2.startLife },
+    life:  { p1: p1.startLife, p2: p2.startLife },
     history: []
   };
-  if (swapped !== undefined) patch.swapped = !!swapped;
+
+  // A correction during the game (a typo, the round) keeps the counters.
+  const same = k => m.manual && m[k]?.hero === patch[k].hero && m.start?.[k] === patch[k].startLife;
+  if (same('p1') && same('p2')) {
+    patch.life    = m.life;
+    patch.history = m.history;
+    patch.ended   = m.ended;
+  }
+
+  if (input.round !== undefined || !m.manual) Object.assign(patch, freeRound(input.round));
+  if (input.table !== undefined || !m.manual) patch.table = count(input.table) || null;
+  if (input.eventTitle !== undefined) patch.eventTitle = text(input.eventTitle, 80) || null;
+  if (input.swapped !== undefined) patch.swapped = !!input.swapped;
 
   return patchMatch(patch);
 }

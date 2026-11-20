@@ -121,6 +121,14 @@
     .badge-scorekeeper{ background: #5b3fa822; color: #5b3fa8;  border: 1px solid #5b3fa844; }
     .badge-store      { background: #a8621b22; color: #a8621b;  border: 1px solid #a8621b44; }
 
+    .event-tools { display: flex; gap: 8px; margin-bottom: 10px; }
+    .event-tools input { flex: 1; font-family: inherit; }
+    .event-tools select {
+      max-width: 45%; padding: 8px 10px; border-radius: 3px; border: 1px solid #2456c744;
+      background: #f2f4f8; color: #14181f; font-size: 13px; font-family: inherit;
+    }
+    .event-more { width: 100%; margin-top: 8px; }
+
     .events-loading { color: #6d7581; font-size: 13px; display: flex; align-items: center; gap: 8px; padding: 8px 0; }
     .events-empty   { color: #6d7581; font-size: 13px; padding: 8px 0; }
     .manual-id-row  { display: flex; gap: 8px; align-items: flex-end; margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(20,24,31,0.08); }
@@ -315,6 +323,10 @@
       <button class="mode-btn" data-mode="judge">Judge / Scorekeeper</button>
       <button class="mode-btn" data-mode="store">Store</button>
     </div>
+    <div class="event-tools" id="event-tools" style="display:none">
+      <input type="text" id="event-search" placeholder="Search events" autocomplete="off">
+      <select id="event-store" aria-label="Store"></select>
+    </div>
     <div id="event-list-body">
       <div class="events-loading"><div class="spinner" style="width:16px;height:16px;border-width:2px"></div> Loading events…</div>
     </div>
@@ -457,6 +469,14 @@
       Open that address on the tablet, enter the PIN once, and pick the table you
       are streaming. Life totals start at each hero's own life value and appear in
       the Life Counter overlay instantly. It keeps working even if GEM goes down.
+    </div>
+
+    <label class="mt" style="margin-top:20px">Featured match</label>
+    <div><a class="btn btn-ghost" href="/match/" target="_blank" rel="noopener" style="text-decoration:none">Open match page</a></div>
+    <div class="tip">
+      Choose the table that is on stream, or switch to free mode and type
+      players, heroes and round yourself. The same page under
+      <strong>/match/</strong> works from any device in the network.
     </div>
 
     <label class="mt" style="margin-top:20px">Player names — GDPR</label>
@@ -1106,15 +1126,53 @@
   }
 
   let lastEventList = [];
+  const EVENTS_SHOWN = 3;          // the rest is behind "Show all"
+  let eventsExpanded = false;
+  let storeFilter = localStorage.getItem('fab-event-store') || '';
 
-  function renderEventList(events) {
-    lastEventList = events;
+  // Store dropdown: only when the account runs more than one store.
+  function fillStoreFilter(events) {
+    const stores = new Map();
+    events.forEach(ev => { if (ev.store) stores.set(ev.store.slug, ev.store.name); });
+    const sel = document.getElementById('event-store');
+    sel.style.display = stores.size > 1 ? '' : 'none';
+    if (!stores.has(storeFilter)) storeFilter = '';
+    sel.innerHTML = '<option value="">All stores</option>' +
+      [...stores].sort((a, b) => a[1].localeCompare(b[1]))
+        .map(([slug, name]) => `<option value="${OV.esc(slug)}">${OV.esc(name)}</option>`).join('');
+    sel.value = storeFilter;
+  }
+
+  function matchingEvents() {
+    const words = document.getElementById('event-search').value.toLowerCase().split(/\s+/).filter(Boolean);
+    return lastEventList.filter(ev => {
+      if (storeFilter && (!ev.store || ev.store.slug !== storeFilter)) return false;
+      const hay = [ev.title, ev.id, ev.dateText, ev.eventType, ev.format, ev.store && ev.store.name]
+        .filter(Boolean).join(' ').toLowerCase();
+      return words.every(w => hay.includes(w));
+    });
+  }
+
+  function renderEventList(all) {
+    if (all !== lastEventList) { lastEventList = all; fillStoreFilter(all); }
     const body = document.getElementById('event-list-body');
-    if (!events.length) {
+    document.getElementById('event-tools').style.display = all.length ? '' : 'none';
+    if (!all.length) {
       const modeLabel = currentMode === 'store' ? 'store' : 'judge / scorekeeper';
       body.innerHTML = `<div class="events-empty">No ${modeLabel} events found. Try switching mode or check your GEM account.</div>`;
       return;
     }
+
+    const found = matchingEvents();
+    if (!found.length) {
+      body.innerHTML = '<div class="events-empty">No event matches the search.</div>';
+      return;
+    }
+    // A search shows everything it finds.
+    const searching = !!document.getElementById('event-search').value.trim();
+    const events = eventsExpanded || searching ? found : found.slice(0, EVENTS_SHOWN);
+    const hidden = found.length - events.length;
+    const showStore = !storeFilter && document.getElementById('event-store').style.display !== 'none';
 
     body.innerHTML = '<div class="event-list">' +
       events.map(ev => {
@@ -1125,7 +1183,7 @@
                           : ev.role === 'scorekeeper' ? '<span class="badge badge-scorekeeper">Scorekeeper</span>'
                           :                             '<span class="badge badge-store">Store</span>';
         const selected    = ev.id === currentEventId ? ' selected' : '';
-        const meta        = [ev.dateText, ev.eventType, ev.format].filter(Boolean).join(' · ');
+        const meta        = [ev.dateText, ev.eventType, ev.format, showStore && ev.store && ev.store.name].filter(Boolean).join(' · ');
         return `<div class="event-row${selected}" data-id="${OV.esc(ev.id)}">
           <div class="event-info">
             <div class="event-title">${OV.esc(ev.title)}</div>
@@ -1134,12 +1192,24 @@
           <div class="event-badges">${statusBadge}${roleBadge}</div>
         </div>`;
       }).join('') +
-    '</div>';
+    '</div>' +
+    (hidden > 0 ? `<button class="btn btn-ghost btn-small event-more" id="event-more">Show all ${found.length} events</button>`
+     : eventsExpanded && !searching && found.length > EVENTS_SHOWN ? '<button class="btn btn-ghost btn-small event-more" id="event-more">Show fewer</button>'
+     : '');
 
     body.querySelectorAll('.event-row').forEach(row => {
       row.addEventListener('click', () => saveEventId(row.dataset.id));
     });
+    const more = document.getElementById('event-more');
+    if (more) more.addEventListener('click', () => { eventsExpanded = !eventsExpanded; renderEventList(lastEventList); });
   }
+
+  document.getElementById('event-search').addEventListener('input', () => renderEventList(lastEventList));
+  document.getElementById('event-store').addEventListener('change', e => {
+    storeFilter = e.target.value;
+    localStorage.setItem('fab-event-store', storeFilter);
+    renderEventList(lastEventList);
+  });
 
   async function loadEventList() {
     document.getElementById('event-list-body').innerHTML =

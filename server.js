@@ -59,6 +59,7 @@ app.listen(PORT, HOST, () => {
 
   console.log('');
   console.log('  Config page:  ' + base + '/config/');
+  console.log('  Match page:   ' + base + '/match/');
   console.log('  Pairings:     ' + base + '/overlays/pairings.html');
   console.log('  Standings:    ' + base + '/overlays/standings.html');
   console.log('  Bracket:      ' + base + '/overlays/bracket.html');

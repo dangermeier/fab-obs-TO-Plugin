@@ -49,7 +49,8 @@ const DEFAULT_MATCH = {
   table:       null,
   round:       null,
   followRound: true,   // re-resolve the same table every round
-  manual:      false,  // names/heroes typed by hand, GEM not used
+  manual:      false,  // free mode: everything typed by hand, GEM not used
+  resume:      null,   // { round, table, followRound } to go back to after free mode
   swapped:     false,  // seating is mirrored vs. GEM's p1/p2
 
   p1: null,            // { name, gemId, hero, heroInfo, startLife, wins, losses }

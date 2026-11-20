@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FAB OBS TO Plugin — Featured Match</title>
+  <style>
+    /* Config page colours, copied. overlay.css cannot be linked: its body is a
+       fixed frame and this page scrolls. */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #f2f4f8;
+      color: #14181f;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 14px;
+      min-height: 100vh;
+      padding: 32px 16px;
+    }
+    .container { max-width: 760px; margin: 0 auto; }
+
+    .header { display: flex; align-items: baseline; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+    .header h1 {
+      font-family: 'Bahnschrift', 'Segoe UI Semibold', 'Franklin Gothic Medium', system-ui, sans-serif;
+      font-size: 28px; font-weight: 600; margin-right: auto;
+    }
+    .header a { font-size: 13px; color: #2456c7; text-decoration: none; }
+    .header a:hover { text-decoration: underline; }
+
+    .card {
+      background: #fff;
+      border: 1px solid rgba(20,24,31,0.11);
+      border-top: 3px solid #2456c7;
+      border-radius: 3px;
+      padding: 20px 24px; margin-bottom: 20px;
+      box-shadow: 0 2px 10px rgba(20,24,31,0.06);
+    }
+    .card h2 {
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.08em; color: #2456c7; margin-bottom: 14px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .card.free    { border-top-color: #a8621b; }
+    .card.free h2 { color: #a8621b; }
+    .card.off > :not(h2):not(.off-note) { opacity: 0.45; pointer-events: none; }
+    .off-note { display: none; font-size: 12.5px; color: #a8621b; margin-bottom: 12px; }
+    .card.off .off-note { display: block; }
+
+    label { display: block; font-size: 12px; color: #6d7581; margin-bottom: 5px; }
+    input[type="text"], input[type="number"], select {
+      width: 100%; min-height: 36px;
+      background: #f2f4f8; border: 1px solid #2456c744; border-radius: 3px;
+      color: #14181f; padding: 7px 10px; font-size: 13px; font-family: inherit; outline: none;
+    }
+    input:focus, select:focus { border-color: #2456c7; }
+    .check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #14181f; margin: 14px 0 0; cursor: pointer; }
+    .check input { width: 16px; height: 16px; }
+
+    .grid  { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+    .grid3 { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; }
+    .side-h {
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+      color: #14181f; margin-bottom: 8px;
+    }
+    .side { display: flex; flex-direction: column; gap: 10px; }
+    .record { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+    .sep { border: 0; border-top: 1px solid rgba(20,24,31,0.08); margin: 18px 0; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 9px 18px; border-radius: 3px; border: none;
+      font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
+    }
+    .btn:hover:not(:disabled) { opacity: 0.85; }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-primary { background: #2456c7; color: #f2f4f8; }
+    .btn-free    { background: #a8621b; color: #fff; }
+    .btn-ghost   { background: #2456c711; color: #2456c7; border: 1px solid #2456c733; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+
+    .pill {
+      padding: 3px 10px; border-radius: 10px; margin-left: auto;
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+    }
+    .pill.gem  { background: #1d7a4a22; color: #1d7a4a; border: 1px solid #1d7a4a44; }
+    .pill.free { background: #a8621b22; color: #a8621b; border: 1px solid #a8621b44; }
+    .pill.none { background: rgba(20,24,31,0.05); color: #6d7581; border: 1px solid rgba(20,24,31,0.12); }
+
+    /* On stream now */
+    .now { display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: center; }
+    .now-p.r { text-align: right; }
+    .now-name {
+      font-family: 'Bahnschrift', 'Segoe UI Semibold', system-ui, sans-serif;
+      font-size: 20px; font-weight: 600; overflow-wrap: anywhere;
+    }
+    .now-name.none { color: #6d7581; font-style: italic; font-weight: 400; }
+    .now-hero { font-size: 12.5px; color: #6d7581; margin-top: 2px; }
+    .now-mid  { text-align: center; font-size: 12px; color: #6d7581; line-height: 1.5; }
+    .now-mid b { display: block; font-size: 13px; color: #14181f; }
+
+    .alert { padding: 10px 14px; border-radius: 3px; font-size: 13px; margin-top: 12px; }
+    .alert.err  { background: #c0392f22; color: #c0392f; border: 1px solid #c0392f44; }
+    .alert.warn { background: #a8621b18; color: #a8621b; border: 1px solid #a8621b44; }
+    .tip { font-size: 12px; color: #6d7581; line-height: 1.6; margin-top: 12px; }
+
+    @media (max-width: 560px) {
+      .grid, .grid3 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <div class="header">
+    <h1>Featured Match</h1>
+    <a href="/control/">Life counter</a>
+    <a href="/cards/">Cards</a>
+    <a href="/config/">Config</a>
+  </div>
+
+  <div class="card">
+    <h2>On stream now <span class="pill none" id="mode">–</span></h2>
+    <div class="now" id="now"></div>
+    <div id="now-warn"></div>
+    <div class="actions">
+      <button class="btn btn-ghost" id="swap">Swap sides</button>
+      <button class="btn btn-ghost" id="reload">Reload from GEM</button>
+    </div>
+  </div>
+
+  <div class="card" id="gem-card">
+    <h2>Table from GEM</h2>
+    <div class="off-note">Free mode is on. Choosing a table here switches it off.</div>
+    <div class="grid">
+      <div><label for="sel-round">Round</label><select id="sel-round"></select></div>
+      <div><label for="sel-table">Table</label><select id="sel-table"></select></div>
+    </div>
+    <label class="check"><input type="checkbox" id="follow"> Stay on this table in the following rounds</label>
+    <div id="gem-alert"></div>
+    <div class="actions">
+      <button class="btn btn-primary" id="gem-apply">Put this table on stream</button>
+    </div>
+  </div>
+
+  <div class="card free" id="free-card">
+    <h2>Free mode <span class="pill none" id="free-pill">Off</span></h2>
+    <div class="tip" style="margin:0 0 14px">
+      For a match that is not in GEM. Players, heroes and round are typed here
+      and replace the GEM match on the Featured Match, Life Counter and Winner
+      overlays until free mode is switched off. Pairings, standings and the
+      other boards keep showing the event.
+    </div>
+
+    <label class="check" style="margin:0 0 16px"><input type="checkbox" id="free-on"> Use free mode</label>
+
+    <div id="free-body" hidden>
+      <div class="grid">
+        <div class="side">
+          <div class="side-h">Left player</div>
+          <div><label for="n1">Name</label><input type="text" id="n1" maxlength="80" autocomplete="off"></div>
+          <div><label for="h1">Hero</label><input type="text" id="h1" maxlength="80" list="heroes" autocomplete="off"></div>
+          <div class="record">
+            <div><label for="l1">Life</label><input type="number" id="l1" min="1" max="999" placeholder="auto"></div>
+            <div><label for="w1">Wins</label><input type="number" id="w1" min="0" max="99"></div>
+            <div><label for="x1">Losses</label><input type="number" id="x1" min="0" max="99"></div>
+          </div>
+        </div>
+        <div class="side">
+          <div class="side-h">Right player</div>
+          <div><label for="n2">Name</label><input type="text" id="n2" maxlength="80" autocomplete="off"></div>
+          <div><label for="h2">Hero</label><input type="text" id="h2" maxlength="80" list="heroes" autocomplete="off"></div>
+          <div class="record">
+            <div><label for="l2">Life</label><input type="number" id="l2" min="1" max="999" placeholder="auto"></div>
+            <div><label for="w2">Wins</label><input type="number" id="w2" min="0" max="99"></div>
+            <div><label for="x2">Losses</label><input type="number" id="x2" min="0" max="99"></div>
+          </div>
+        </div>
+      </div>
+      <datalist id="heroes"></datalist>
+
+      <hr class="sep">
+
+      <div class="grid3">
+        <div><label for="f-round">Round</label><input type="text" id="f-round" maxlength="40" placeholder="3, Finals, Showmatch"></div>
+        <div><label for="f-table">Table</label><input type="number" id="f-table" min="1" max="99"></div>
+        <div>
+          <label for="f-format">Format</label>
+          <input type="text" id="f-format" maxlength="40" list="formats" autocomplete="off">
+          <datalist id="formats">
+            <option value="Classic Constructed"><option value="Blitz"><option value="Silver Age">
+            <option value="Living Legend"><option value="Booster Draft"><option value="Sealed Deck">
+          </datalist>
+        </div>
+      </div>
+      <div style="margin-top:12px"><label for="f-event">Event name</label><input type="text" id="f-event" maxlength="80"></div>
+
+      <div class="tip">
+        Names appear exactly as typed. Life is read from the hero card when left
+        empty. The format decides between the young and the adult hero.
+      </div>
+      <div id="free-alert"></div>
+      <div class="actions">
+        <button class="btn btn-free" id="free-apply">Start free mode</button>
+        <button class="btn btn-ghost" id="free-off" hidden>Switch off, back to GEM</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="/shared/overlay.js"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  let match = null, tdata = null, formDirty = false;
+
+  // Writes need the PIN: ask once, then repeat the call.
+  function guarded(path, body) {
+    return OV.post(path, body, () => {
+      const pin = prompt('PIN (printed in the server console):');
+      if (!pin) return;
+      OV.login(pin.trim()).then(() => guarded(path, body)).then(r => adopt(r.match)).catch(err => alert(err.message));
+    });
+  }
+
+  function alertIn(id, msg, kind) {
+    $(id).innerHTML = msg ? `<div class="alert ${kind || 'err'}">${OV.esc(msg)}</div>` : '';
+  }
+
+  async function run(path, body, alertId) {
+    alertIn(alertId, '');
+    try {
+      adopt((await guarded(path, body)).match);
+      return true;
+    } catch (err) {
+      if (!err.denied) alertIn(alertId, err.message);
+      return false;
+    }
+  }
+
+  // --- on stream now ---
+
+  function playerHtml(p, right) {
+    if (!p || !(p.name || p.hero)) {
+      return `<div class="now-p${right ? ' r' : ''}"><div class="now-name none">–</div></div>`;
+    }
+    const rec = p.wins || p.losses ? ` · ${p.wins}–${p.losses}` : '';
+    return `<div class="now-p${right ? ' r' : ''}">
+      <div class="now-name">${OV.esc(OV.playerName(p))}</div>
+      <div class="now-hero">${OV.esc(p.hero || 'no hero')}${rec}</div>
+    </div>`;
+  }
+
+  function adopt(m) {
+    if (!m || (match && m.rev < match.rev)) return;
+    match = m;
+    const [l, r] = m.swapped ? ['p2', 'p1'] : ['p1', 'p2'];
+    const any = !!(m.p1 || m.p2);
+
+    const mode = $('mode');
+    mode.className = 'pill ' + (m.manual ? 'free' : any ? 'gem' : 'none');
+    mode.textContent = m.manual ? 'Free mode' : any ? 'GEM' : 'Nothing selected';
+
+    const life = k => (Number.isFinite(m.life && m.life[k]) ? m.life[k] : '–');
+    const mid = [
+      OV.matchRoundName(m) ? `<b>${OV.esc(OV.matchRoundName(m))}</b>` : '',
+      m.table ? OV.esc('Table ' + m.table) : '',
+      any ? `${life(l)} : ${life(r)}` : ''
+    ].filter(Boolean).join('<br>');
+    $('now').innerHTML = playerHtml(m[l], false) + `<div class="now-mid">${mid || 'vs'}</div>` + playerHtml(m[r], true);
+    $('now-warn').innerHTML = m.warning ? `<div class="alert warn">${OV.esc(m.warning)}</div>` : '';
+
+    $('gem-card').classList.toggle('off', !!m.manual);
+    $('reload').hidden = !!m.manual;
+
+    const pill = $('free-pill');
+    pill.className = 'pill ' + (m.manual ? 'free' : 'none');
+    pill.textContent = m.manual ? 'On' : 'Off';
+    $('free-apply').textContent = m.manual ? 'Update' : 'Start free mode';
+    $('free-off').hidden = !m.manual;
+    if (m.manual) { $('free-on').checked = true; $('free-body').hidden = false; }
+
+    if (!formDirty) fillFree(m);
+    if (!m.manual) syncPicker();
+  }
+
+  // --- table from GEM ---
+
+  const tableOf = p => (typeof p.table === 'number' ? p.table : parseInt(String(p.table).replace(/\D/g, ''), 10));
+
+  function fillTables() {
+    const round = tdata && tdata.rounds.find(r => r.round === parseInt($('sel-round').value, 10));
+    const rows = (round ? round.pairings : [])
+      .map(p => ({ n: tableOf(p), text: `${OV.fmtName(p.p1)} vs ${OV.fmtName(p.p2)}` }))
+      .filter(t => Number.isFinite(t.n))
+      .sort((a, b) => a.n - b.n);
+    const keep = $('sel-table').value;
+    $('sel-table').innerHTML = rows.length
+      ? rows.map(t => `<option value="${t.n}">Table ${t.n} — ${OV.esc(t.text)}</option>`).join('')
+      : '<option value="">—</option>';
+    if (rows.some(t => String(t.n) === keep)) $('sel-table').value = keep;
+    else if (match && rows.some(t => t.n === match.table)) $('sel-table').value = String(match.table);
+  }
+
+  function syncPicker() {
+    if (!tdata || !match || document.activeElement === $('sel-round') || document.activeElement === $('sel-table')) return;
+    if (match.round && tdata.rounds.some(r => r.round === match.round)) $('sel-round').value = String(match.round);
+    fillTables();
+    if (match.table) $('sel-table').value = String(match.table);
+    $('follow').checked = match.followRound !== false;
+  }
+
+  async function loadTournament() {
+    try {
+      const res = await fetch('/api/tournament');
+      if (!res.ok) throw new Error(res.status === 401 ? 'Not logged in to GEM' : (await res.json()).error || 'HTTP ' + res.status);
+      tdata = await res.json();
+      const keep = $('sel-round').value;
+      $('sel-round').innerHTML = tdata.rounds
+        .map(r => `<option value="${r.round}">${r.elimination ? 'Top cut · ' : ''}Round ${r.round}</option>`)
+        .join('') || '<option value="">—</option>';
+      const last = tdata.rounds[tdata.rounds.length - 1];
+      if (keep && tdata.rounds.some(r => String(r.round) === keep)) $('sel-round').value = keep;
+      else if (last) $('sel-round').value = String(last.round);
+      fillTables();
+      alertIn('gem-alert', tdata.rounds.length ? '' : 'This event has no pairings yet.', 'warn');
+      return true;
+    } catch (err) {
+      alertIn('gem-alert', err.message + '. Free mode works without GEM.', 'warn');
+      return false;
+    }
+  }
+
+  $('sel-round').addEventListener('change', fillTables);
+
+  $('gem-apply').addEventListener('click', () => {
+    const table = parseInt($('sel-table').value, 10);
+    if (!Number.isFinite(table)) return alertIn('gem-alert', 'Choose a table first.');
+    run('/api/match/select', {
+      round: parseInt($('sel-round').value, 10), table, followRound: $('follow').checked
+    }, 'gem-alert');
+  });
+
+  $('swap').addEventListener('click', () => run('/api/match/swap', {}, 'gem-alert'));
+  $('reload').addEventListener('click', async () => {
+    try { adopt(await fetch('/api/match?refresh=1').then(r => r.json())); } catch {}
+    loadTournament();
+  });
+
+  // --- free mode ---
+
+  const FREE_FIELDS = ['n1', 'h1', 'l1', 'w1', 'x1', 'n2', 'h2', 'l2', 'w2', 'x2', 'f-round', 'f-table', 'f-format', 'f-event'];
+  FREE_FIELDS.forEach(id => $(id).addEventListener('input', () => { formDirty = true; }));
+
+  // What is on stream, as a starting point. Left and right as the viewer sees them.
+  function fillFree(m) {
+    const [l, r] = m.swapped ? ['p2', 'p1'] : ['p1', 'p2'];
+    const put = (id, v) => { $(id).value = v == null || v === 0 ? '' : v; };
+    [[l, '1'], [r, '2']].forEach(([k, n]) => {
+      const p = m[k] || {};
+      put('n' + n, p.name ? OV.playerName(p) : '');
+      put('h' + n, p.hero);
+      put('l' + n, m.manual ? p.startLife : '');
+      put('w' + n, m.manual ? p.wins : '');
+      put('x' + n, m.manual ? p.losses : '');
+    });
+    put('f-round', m.manual ? (m.round || m.roundLabel) : '');
+    put('f-table', m.manual ? m.table : '');
+    put('f-format', m.format);
+    put('f-event', m.eventTitle);
+  }
+
+  $('free-on').addEventListener('change', e => {
+    if (!e.target.checked && match && match.manual) {
+      e.target.checked = true;          // leaving is the button below, not this box
+      return;
+    }
+    $('free-body').hidden = !e.target.checked;
+  });
+
+  $('free-apply').addEventListener('click', async () => {
+    const v = id => $(id).value.trim();
+    const starting = !(match && match.manual);
+    if (starting && !confirm('Free mode replaces the GEM match on stream until you switch it off again. Start it?')) return;
+
+    const player = n => ({ name: v('n' + n), hero: v('h' + n), startLife: v('l' + n), wins: v('w' + n), losses: v('x' + n) });
+    // The form is left and right as on stream; an update keeps the seating.
+    const [left, right] = !starting && match.swapped ? ['p2', 'p1'] : ['p1', 'p2'];
+    const ok = await run('/api/match/manual', {
+      enabled: true, ...(starting ? { swapped: false } : {}),
+      [left]: player('1'), [right]: player('2'),
+      round: v('f-round'), table: v('f-table'), format: v('f-format'), eventTitle: v('f-event')
+    }, 'free-alert');
+    if (ok) { formDirty = false; fillFree(match); }
+  });
+
+  $('free-off').addEventListener('click', async () => {
+    const ok = await run('/api/match/manual', { enabled: false }, 'free-alert');
+    if (!ok) return;
+    formDirty = false;
+    $('free-on').checked = false;
+    $('free-body').hidden = true;
+    loadTournament().then(syncPicker);
+  });
+
+  // Heroes played at the event, as suggestions.
+  fetch('/api/heroes').then(r => (r.ok ? r.json() : [])).then(rows => {
+    const names = [...new Set(rows.map(h => h.hero).filter(Boolean))].sort();
+    $('heroes').innerHTML = names.map(n => `<option value="${OV.esc(n)}">`).join('');
+  }).catch(() => {});
+
+  // --- boot ---
+
+  OV.onMatch(adopt);
+  OV.onRefresh(() => loadTournament().then(syncPicker));
+  fetch('/api/match').then(r => r.json()).then(adopt).catch(() => {});
+  loadTournament().then(syncPicker);
+  setInterval(loadTournament, 30000);
+</script>
+</body>
+</html>

@@ -172,6 +172,41 @@ function parseHeroesCsv(csv) {
 
 // --- event lists ---
 
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+
+// "Wed Nov. 25th, 2026" -> "2026-11-25", null if there is no date in the text.
+function parseEventDate(text) {
+  const m = String(text || '').match(/([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})/);
+  const month = m ? MONTHS.indexOf(m[1].toLowerCase()) : -1;
+  if (month < 0) return null;
+  return `${m[3]}-${String(month + 1).padStart(2, '0')}-${m[2].padStart(2, '0')}`;
+}
+
+// Running first, then upcoming (the next one first), then past (latest first).
+// Events without a date keep the order GEM listed them in.
+function sortEvents(events) {
+  const rank = { active: 0, upcoming: 1 };
+  return events
+    .map((ev, i) => ({ ev, i }))
+    .sort((a, b) => {
+      const ra = rank[a.ev.status] ?? 2, rb = rank[b.ev.status] ?? 2;
+      if (ra !== rb) return ra - rb;
+      if (a.ev.date && b.ev.date && a.ev.date !== b.ev.date) {
+        const later = a.ev.date > b.ev.date ? 1 : -1;
+        return ra === 2 ? -later : later;
+      }
+      return a.i - b.i;
+    })
+    .map(x => x.ev);
+}
+
+// The heading of a store's tournament list: "Tournaments for 1A Gamer Lounge".
+function parseStoreName(html) {
+  const h1 = String(html || '').match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+  const m  = h1 && stripTags(h1[1]).match(/Tournaments for\s+(.+)/i);
+  return m ? m[1].trim() : null;
+}
+
 function findMaxPage(html) {
   const matches = [...html.matchAll(/[?&]page=(\d+)/g)];
   return matches.length ? Math.max(...matches.map(m => parseInt(m[1]))) : 1;
@@ -216,7 +251,7 @@ function parseProfileEventsFromHtml(html) {
       }
     }
 
-    events.push({ id: eventId, title, dateText, status: isActive ? 'active' : 'past', role, runUrl, eventType, format });
+    events.push({ id: eventId, title, dateText, date: parseEventDate(dateText), status: isActive ? 'active' : 'past', role, runUrl, eventType, format });
   }
   return events;
 }
@@ -264,12 +299,13 @@ function parseStoreEventsFromHtml(html) {
     const runM   = block.match(/href="(\/gem\/\d+\/run\/)"/);
     const runUrl = runM ? runM[1] : null;
 
-    events.push({ id, title, dateText, status, role: 'store-owner', runUrl, eventType, format });
+    events.push({ id, title, dateText, date: parseEventDate(dateText), status, role: 'store-owner', runUrl, eventType, format });
   }
   return events;
 }
 
 module.exports = {
   parseTournamentHtml, parseStandingsCsv, parseHeroesCsv,
-  parseProfileEventsFromHtml, parseStoreEventsFromHtml, findMaxPage
+  parseProfileEventsFromHtml, parseStoreEventsFromHtml, findMaxPage,
+  parseEventDate, parseStoreName, sortEvents
 };

@@ -9,7 +9,7 @@ test.after(() => fs.rmSync(process.env.DATA_DIR, { recursive: true, force: true 
 
 const {
   tableNum, completedSwissRounds, labelForRound, stageForRound,
-  fromOtherEvent, clearFeatured
+  fromOtherEvent, clearFeatured, setManualMatch
 } = require('../src/match');
 const state = require('../src/state');
 
@@ -88,4 +88,67 @@ test('clearFeatured: nothing of the old match is left, the card stays', () => {
   assert.deepEqual(m.history, []);
   assert.deepEqual(m.card, card);
   state.flushMatch();
+});
+
+// Free mode. Start life is always given, so no card lookup goes out.
+const free = (extra = {}) => setManualMatch({
+  enabled: true,
+  p1: { name: 'Team Red', hero: 'Arakni', startLife: 40, wins: 2, losses: 1 },
+  p2: { name: 'Mustermann, Max', hero: 'Fai', startLife: 20 },
+  ...extra
+});
+
+test('free mode: typed players replace the match and are marked as typed', async () => {
+  clearFeatured();
+  const m = await free({ round: 'Showmatch', eventTitle: '  Store   Open ', format: 'Blitz' });
+
+  assert.equal(m.manual, true);
+  assert.deepEqual([m.p1.name, m.p1.hero, m.p1.wins, m.p1.losses], ['Team Red', 'Arakni', 2, 1]);
+  assert.ok(m.p1.asTyped && m.p2.asTyped);
+  assert.deepEqual([m.p2.wins, m.p2.losses], [0, 0]);
+  assert.deepEqual(m.life, { p1: 40, p2: 20 });
+  assert.deepEqual([m.round, m.roundLabel, m.roundStage], [null, 'Showmatch', null]);
+  assert.equal(m.eventTitle, 'Store Open');
+  assert.equal(m.format, 'Blitz');
+});
+
+test('free mode: a number is a round, anything else a label', async () => {
+  let m = await free({ round: '3', table: '5' });
+  assert.deepEqual([m.round, m.roundLabel, m.table], [3, 'Round 3', 5]);
+  m = await free({ round: 'Finals', table: '' });
+  assert.deepEqual([m.round, m.roundLabel, m.table], [null, 'Finals', null]);
+});
+
+test('free mode: a correction keeps the life totals, another hero resets them', async () => {
+  await free();
+  state.adjustLife('p1', -7);
+
+  let m = await free({ p1: { name: 'Team Rot', hero: 'Arakni', startLife: 40 } });
+  assert.equal(m.p1.name, 'Team Rot');
+  assert.equal(m.life.p1, 33);
+  assert.equal(state.matchView().canUndo, true);
+
+  m = await free({ p1: { name: 'Team Rot', hero: 'Dash', startLife: 40 } });
+  assert.deepEqual(m.life, { p1: 40, p2: 20 });
+});
+
+test('free mode: remembers the GEM table and gives it back', async () => {
+  await setManualMatch({ enabled: false });
+  state.patchMatch({ table: 4, round: 2, followRound: false });
+  let m = await free();
+  assert.deepEqual(m.resume, { round: 2, table: 4, followRound: false });
+  // a second apply must not overwrite what to return to
+  m = await free({ table: '9' });
+  assert.deepEqual(m.resume, { round: 2, table: 4, followRound: false });
+
+  m = await setManualMatch({ enabled: false });
+  assert.deepEqual([m.manual, m.resume, m.table, m.round, m.followRound], [false, null, 4, 2, false]);
+  assert.equal(m.p1, null);
+});
+
+test('free mode: switched off with no table to return to, the match is empty', async () => {
+  state.patchMatch({ table: null });
+  await free({ eventTitle: 'Showmatch' });
+  const m = await setManualMatch({ enabled: false });
+  assert.deepEqual([m.manual, m.p1, m.p2, m.eventTitle, m.roundLabel], [false, null, null, null, null]);
 });

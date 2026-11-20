@@ -74,7 +74,7 @@ The PIN is printed in the server console on every start and shown on the config 
 
 1. Open <http://localhost:3000>. It redirects to the config page at `/config/`. Enter the PIN.
 2. Click **Login with GEM**. A browser window opens on gem.fabtcg.com; log in there and the session is saved. If that does not work, open **Manual session cookie** and paste the value of your `sessionid` cookie (DevTools, Application, Cookies, gem.fabtcg.com).
-3. Pick the event from the list. The **Judge / Scorekeeper** and **Store** buttons switch between event types. You can also enter the event ID by hand; it is the number in the run URL, `gem.fabtcg.com/gem/12345/run/`.
+3. Pick the event from the list. The **Judge / Scorekeeper** and **Store** buttons switch between event types. The list shows the three most current events (running, then the next upcoming, then the latest past); **Show all** opens the rest. The search field filters by name, date, format or store, and with more than one store on your account a dropdown limits the list to one of them. You can also enter the event ID by hand; it is the number in the run URL, `gem.fabtcg.com/gem/12345/run/`.
 4. In OBS add a Browser Source per overlay (**Sources, +, Browser Source**), paste the URL and set width and height to your stream resolution, e.g. 1920 x 1080. The config page lists all URLs with a copy button.
 
 Set your GEM account language to English. Hero names are matched against the card database by their English names.
@@ -152,6 +152,13 @@ Headings and numbers use Oswald, shipped in `public/shared/fonts/` under the SIL
 
 Open `/cards/` (link on the config page), type at least two letters and click a card. It appears in the card slot of the broadcast frame and in `card.html`, and stays until you hide it or pick another one. Recently used cards are listed below the search. Showing or hiding a card needs the PIN.
 
+## Featured match and free mode
+
+Open `/match/` (link on the config page, also printed in the server console). It shows what is on stream and sets it from any device in the network; changes need the PIN.
+
+- **Table from GEM:** pick round and table. With **Stay on this table in the following rounds** ticked, the players are reloaded every round.
+- **Free mode:** for a match that is not in GEM, such as a showmatch. Tick **Use free mode**, type players, heroes and round, and confirm. Record, table, format and event name are optional. Names appear exactly as typed, life is read from the hero card when left empty. Free mode only replaces the featured match (Featured Match, Life Counter, Broadcast frame, Winner); pairings, standings and the other boards keep showing the event. It stays on until you switch it off, which brings back the table that was selected before.
+
 ## Life counter on a tablet
 
 1. Start the server. The console prints the tablet address and the PIN. The config page lists the same addresses, labelled by network adapter. Use the one on your Wi-Fi, not a virtual one. In Docker the address comes from `PUBLIC_HOST`.
@@ -167,7 +174,7 @@ Both players appear with hero, name and record. Life starts at each hero's print
 | Tap the number | Type an exact life total |
 | **Rückgängig** | Undo the last change |
 | **Seiten tauschen** | Swap left and right so the tablet matches the camera |
-| **Match** | Pick round and table, or enter a match by hand |
+| **Match** | Pick round and table, or start free mode (**Freier Modus**) |
 | Fullscreen button (top right) | Hides the browser bars |
 
 With **Diesem Tisch jede Runde folgen** ticked, the counter reloads the players and resets the life totals when a new round starts. Untick it to stay on one match.

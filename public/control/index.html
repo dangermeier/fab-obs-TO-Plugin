@@ -375,7 +375,7 @@
     </div>
 
     <details id="manual-details">
-      <summary>Manuell überschreiben</summary>
+      <summary>Freier Modus</summary>
       <div class="hint">
         Für Matches, die nicht in GEM stehen — oder wenn GEM gerade nicht erreichbar ist.
         Leer gelassene Startleben werden aus dem Helden ermittelt.
@@ -392,7 +392,7 @@
         <div class="field"><label>Startleben links</label><input type="number" id="m-l1" inputmode="numeric"></div>
         <div class="field"><label>Startleben rechts</label><input type="number" id="m-l2" inputmode="numeric"></div>
       </div>
-      <button class="act accent" id="btn-manual" style="width:100%">Manuelles Match starten</button>
+      <button class="act accent" id="btn-manual" style="width:100%">Freien Modus starten</button>
     </details>
 
     <div class="row2" style="margin-top:16px">
@@ -555,7 +555,7 @@
     if (hero !== pan.lastHero) { pan.hero.innerHTML = OV.hw(hero, 44); pan.lastHero = hero; }
 
     const rec = p && (p.wins || p.losses) ? '  ·  ' + p.wins + '–' + p.losses : '';
-    pan.nm.textContent = p ? OV.fmtName(p.name) : '–';
+    pan.nm.textContent = p ? OV.playerName(p) : '–';
     pan.hr.textContent = (hero || '—') + rec;
 
     const v = shownLife(playerKey);
@@ -576,7 +576,7 @@
     else if (server && server.round)      bits.push('Runde ' + server.round);
     else if (server && server.roundLabel) bits.push(server.roundLabel);
     if (server && server.table)      bits.push('Tisch ' + server.table);
-    if (server && server.manual)     bits.push('manuell');
+    if (server && server.manual)     bits.push('Freier Modus');
     document.getElementById('sub').textContent = (server && server.warning) || bits.join(' · ') || 'Kein Match gewählt';
 
     document.getElementById('btn-undo').disabled = !(server && server.canUndo);
@@ -677,7 +677,7 @@
       fillTables();
     } catch (err) {
       document.getElementById('match-err').textContent =
-        err.message + ' — nutze „Manuell überschreiben".';
+        err.message + ' — nutze den freien Modus.';
       document.getElementById('manual-details').open = true;
     }
   }

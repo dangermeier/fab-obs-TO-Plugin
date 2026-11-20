@@ -292,7 +292,7 @@
       const hero = (p && p.hero) || null;
       // whole hero card; a new match turns it over
       s.stage.set(hero ? { images: [OV.heroImageUrl(hero)] } : null);
-      s.name.textContent = OV.fmtName(p && p.name);
+      s.name.textContent = OV.playerName(p);
       s.hero.textContent = hero || '';
 
       // record only: life and class are printed on the card right above.
@@ -347,7 +347,7 @@
       return `<div class="side${right ? ' r' : ''}">
         ${OV.hw(hero, HERO_PX)}
         <div class="info">
-          <div class="pname ov-pname">${OV.esc(OV.fmtName(p && p.name))}</div>
+          <div class="pname ov-pname">${OV.esc(OV.playerName(p))}</div>
           <div class="phero ov-phero">${OV.esc(hero || '—')}</div>
           ${rec}
         </div>

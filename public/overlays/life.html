@@ -450,7 +450,7 @@
         b.heroslot.innerHTML = OV.hw(hero, HERO_PX);
         b.lastHero = hero;
       }
-      b.pname.textContent = OV.fmtName(p && p.name);
+      b.pname.textContent = OV.playerName(p);
       b.phero.textContent = hero || '—';
       b.rec.textContent   = record(p);
       setLife(b, life, animate);
@@ -528,7 +528,7 @@
         if (s.art) s.art.innerHTML = OV.hw(hero, null);
         s.lastHero = hero;
       }
-      s.nm.textContent = OV.fmtName(p && p.name);
+      s.nm.textContent = OV.playerName(p);
       s.hr.textContent = hero || '';
       s.rc.textContent = record(p);
       setLife(s, lifeTotal, animate);

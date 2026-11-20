@@ -2,7 +2,8 @@ const fetch = require('node-fetch');
 const { getCookieHeader } = require('./auth');
 const {
   parseTournamentHtml, parseHeroesCsv, parseStandingsCsv,
-  parseProfileEventsFromHtml, parseStoreEventsFromHtml, findMaxPage
+  parseProfileEventsFromHtml, parseStoreEventsFromHtml, findMaxPage,
+  parseStoreName, sortEvents
 } = require('./parser');
 
 const demo = require('./demo');
@@ -266,11 +267,6 @@ async function fetchHeroImage(name, { young = false } = {}) {
 
 // --- event discovery ---
 
-function sortByStatus(results) {
-  const order = { active: 0, upcoming: 1, past: 2 };
-  results.sort((a, b) => (order[a.status] ?? 2) - (order[b.status] ?? 2));
-}
-
 async function fetchJudgeEvents() {
   const results = [];
   const seenIds = new Set();
@@ -303,17 +299,21 @@ async function fetchJudgeEvents() {
     add(parseProfileEventsFromHtml(html).map(e => ({ ...e, status: 'active' })));
   } catch {}
 
-  sortByStatus(results);
-  return results;
+  return sortEvents(results);
+}
+
+// "1a-gamer-lounge-28672113" -> "1a gamer lounge", if the page has no heading
+function storeNameFromSlug(slug) {
+  return slug.replace(/-\d+$/, '').replace(/-/g, ' ');
 }
 
 async function fetchStoreEvents() {
   const results = [];
   const seenIds = new Set();
 
-  function add(events) {
+  function add(events, store) {
     for (const ev of events) {
-      if (!seenIds.has(ev.id)) { results.push(ev); seenIds.add(ev.id); }
+      if (!seenIds.has(ev.id)) { results.push({ ...ev, store }); seenIds.add(ev.id); }
     }
   }
 
@@ -334,14 +334,15 @@ async function fetchStoreEvents() {
         console.log('[events] Fetching store:', slug);
         const activeHtml = await gemFetch(`${GEM_BASE}/store/${slug}/tournaments/`).then(r => r.text());
         const activeEvs  = parseStoreEventsFromHtml(activeHtml);
+        const store      = { slug, name: parseStoreName(activeHtml) || storeNameFromSlug(slug) };
         console.log(`[events]   ${slug}: ${activeEvs.length} active/upcoming`);
-        add(activeEvs);
+        add(activeEvs, store);
         await sleep(200);
 
         const histHtml = await gemFetch(`${GEM_BASE}/store/${slug}/tournaments/history/`).then(r => r.text());
         const histEvs  = parseStoreEventsFromHtml(histHtml);
         console.log(`[events]   ${slug}: ${histEvs.length} past`);
-        add(histEvs);
+        add(histEvs, store);
         await sleep(200);
       } catch (err) {
         console.warn(`[events] Store ${slug} failed:`, err.message);
@@ -351,8 +352,7 @@ async function fetchStoreEvents() {
     console.warn('[events] Store fetch failed:', err.message);
   }
 
-  sortByStatus(results);
-  return results;
+  return sortEvents(results);
 }
 
 async function fetchAllEvents(mode = 'judge') {
@@ -366,8 +366,7 @@ async function fetchAllEvents(mode = 'judge') {
   for (const ev of [...judgeEvs, ...storeEvs]) {
     if (!seenIds.has(ev.id)) { results.push(ev); seenIds.add(ev.id); }
   }
-  sortByStatus(results);
-  return results;
+  return sortEvents(results);
 }
 
 module.exports = {

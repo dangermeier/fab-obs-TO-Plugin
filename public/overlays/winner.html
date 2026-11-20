@@ -261,7 +261,7 @@
     fact('f-format', OV.t('lblFormat'), m.format);
     fact('f-round',  OV.t('lblRound'),  OV.matchRoundValue(m));
     $('word').textContent = OV.t('winner');
-    $('name').textContent = OV.fmtName(p.name);
+    $('name').textContent = OV.playerName(p);
     $('hero').textContent = hero || '';
 
     // hero card, plus the same picture as a soft wash behind it
