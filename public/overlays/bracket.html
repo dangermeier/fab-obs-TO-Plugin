@@ -97,6 +97,7 @@
     .pcard-name, .pcard-hero { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .pcard-name { font-size: 1.15em; line-height: 1.2; color: var(--text); }
     .pcard-hero { font-size: 0.75em; line-height: 1.25; color: var(--text-dim); }
+    .pcard.tbd { opacity: 0.4; }
     .pcard.winner .pcard-name { color: var(--win); font-weight: 700; }
     .pcard.loser  .pcard-name { color: var(--text-dim); }
 
@@ -160,6 +161,29 @@
     return rounds;
   }
 
+  // The rounds GEM has not paired yet, down to the final. A winner takes
+  // their place as soon as the result is in, the other seats stay empty.
+  const STAGE_OF = { 8: 'r16', 4: 'qf', 2: 'sf', 1: 'f' };
+
+  function upcoming(matches) {
+    const cols = [];
+    let prev = matches;
+    while (prev.length > 1 && prev.length % 2 === 0) {
+      const next = [];
+      for (let i = 0; i < prev.length; i += 2) {
+        const a = prev[i], b = prev[i + 1];
+        next.push({
+          p1: a.winner ? a[a.winner] : '', p1GemId: a.winner ? a[a.winner + 'GemId'] : '',
+          p2: b.winner ? b[b.winner] : '', p2GemId: b.winner ? b[b.winner + 'GemId'] : '',
+          winner: null, done: false
+        });
+      }
+      cols.push({ label: OV.t('stage.' + (STAGE_OF[next.length] || 'f')), matches: next, live: false });
+      prev = next;
+    }
+    return cols;
+  }
+
   function playerHtml(name, hero, cls, champ) {
     return `<div class="pcard${cls}">
       ${OV.hw(hero, '2.7em')}
@@ -187,25 +211,34 @@
       html = `<div class="board-empty">${OV.t('noBracket')}</div>`;
     } else {
       const rounds = orderRounds(elim);
-      const final  = elim.length - 1;
-      const halves = i => i < final && rounds[i].length === rounds[i + 1].length * 2;
+      const cols = elim.map((round, i) => ({
+        label:   OV.roundName(tdata, round),
+        matches: rounds[i],
+        live:    round.pairings.some(p => !p.done)
+      }));
+      upcoming(cols[cols.length - 1].matches).forEach(c => cols.push(c));
 
-      html = elim.map((round, ri) => {
-        const live = round.pairings.some(p => !p.done);
-        const cls  = (halves(ri) ? ' feeds' : '') + (ri > 0 && halves(ri - 1) ? ' fed' : '') +
-                     (live ? ' current' : '');
+      const final  = cols.length - 1;
+      const halves = i => i < final && cols[i].matches.length === cols[i + 1].matches.length * 2;
+      const seat   = (p, k, cls, champ) => (p[k]
+        ? playerHtml(p[k], heroOf(p[k + 'GemId'], p[k]), cls, champ)
+        : playerHtml('', null, ' tbd', false));
 
-        const slots = rounds[ri].map(p => {
+      html = cols.map((col, ri) => {
+        const cls = (halves(ri) ? ' feeds' : '') + (ri > 0 && halves(ri - 1) ? ' fed' : '') +
+                    (col.live ? ' current' : '');
+
+        const slots = col.matches.map(p => {
           const w1 = p.winner === 'p1', w2 = p.winner === 'p2';
-          const champ = ri === final && rounds[ri].length === 1 && p.done;
+          const champ = ri === final && col.matches.length === 1 && p.done;
           return `<div class="match-slot"><div class="match-card">
-            ${playerHtml(p.p1, heroOf(p.p1GemId, p.p1), w1 ? ' winner' : w2 ? ' loser' : '', champ && w1)}
-            ${playerHtml(p.p2, heroOf(p.p2GemId, p.p2), w2 ? ' winner' : w1 ? ' loser' : '', champ && w2)}
+            ${seat(p, 'p1', w1 ? ' winner' : w2 ? ' loser' : '', champ && w1)}
+            ${seat(p, 'p2', w2 ? ' winner' : w1 ? ' loser' : '', champ && w2)}
           </div></div>`;
         }).join('');
 
         return `<div class="round-col${cls}">
-          <div class="round-label">${OV.esc(OV.roundName(tdata, round))}</div>
+          <div class="round-label">${OV.esc(col.label)}</div>
           <div class="round-matches">${slots}</div>
         </div>`;
       }).join('');
