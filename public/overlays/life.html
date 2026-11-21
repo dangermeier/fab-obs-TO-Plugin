@@ -553,6 +553,21 @@
 
     return {
       hide() { frame.classList.remove('show'); },
+      // No match yet: the frame around the cameras stays up, the facts say why.
+      wait(m, text) {
+        sides.forEach(s => {
+          update(s, null, null, false);
+          s.nm.textContent = s.life.textContent = '';
+          s.lastLife = undefined;          // the next real total is written again
+        });
+        fact('f-event',  OV.t('lblEvent'), m.eventTitle);
+        fact('f-format', '', '');
+        fact('f-round',  OV.t('lblMatch'), text);
+        fact('f-table',  '', '');
+        drawCard(m.card || null);
+        frame.classList.add('show');
+        guides();
+      },
       draw(m, l, r, animate) {
         update(sides[0], m[l], m.life[l], animate);
         update(sides[1], m[r], m.life[r], animate);
@@ -581,8 +596,11 @@
 
   function render(m) {
     if (!m || (!m.p1 && !m.p2)) {
-      view.hide();
-      OV.badge(m && m.warning ? m.warning : 'No featured match', !!(m && m.warning));
+      // the badges float over the camera and stay away instead
+      const note = m && m.warning ? m.warning : 'No featured match';
+      if (view.wait) { view.wait(m || {}, OV.matchWaiting(m)); OV.badgeQuiet(note); }
+      else { view.hide(); OV.badge(note, !!(m && m.warning)); }
+      lastKey = null;
       return;
     }
 

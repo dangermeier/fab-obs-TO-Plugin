@@ -306,6 +306,15 @@
 
     return {
       hide() { frame.classList.remove('show'); },
+      // No match yet: the frame stays up and says what it is waiting for.
+      wait(m, text) {
+        sides.forEach(s => { update(s, null); s.name.textContent = ''; });
+        fact('f-event',  OV.t('lblEvent'), m.eventTitle);
+        fact('f-format', '', '');
+        fact('f-round',  OV.t('lblMatch'), text);
+        fact('f-table',  '', '');
+        frame.classList.add('show');
+      },
       draw(m, l, r) {
         update(sides[0], m[l], m.life[l]);
         update(sides[1], m[r], m.life[r]);
@@ -385,8 +394,10 @@
   function render() {
     const m = last;
     if (!m || (!m.p1 && !m.p2)) {
-      view.hide();
-      OV.badge(m && m.warning ? m.warning : 'No featured match', !!(m && m.warning));
+      // the banner floats over the camera and stays away instead
+      const note = m && m.warning ? m.warning : 'No featured match';
+      if (view.wait) { view.wait(m || {}, OV.matchWaiting(m)); OV.badgeQuiet(note); }
+      else { view.hide(); OV.badge(note, !!(m && m.warning)); }
       return;
     }
 

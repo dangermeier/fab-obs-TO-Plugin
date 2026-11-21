@@ -110,7 +110,7 @@
   }
 
   function rowsHtml(rows) {
-    if (!rows.length) return `<div class="board-empty">${OV.t('noStandings')}</div>`;
+    if (!rows.length) return started ? `<div class="board-empty">${OV.t('noStandings')}</div>` : OV.waitHtml(OV.t('waitStart'));
     return rows.map(p => `<div class="srow${p.rank <= 3 ? ' top' : ''}">
         <div class="rank">${p.rank}</div>
         ${OV.hw(p.hero, '2.5em')}
@@ -124,7 +124,7 @@
 
   // ticker cell: two places stacked, like a table in the pairings
   function tickerHtml(rows) {
-    if (!rows.length) return `<div class="tk-empty">${OV.t('noStandings')}</div>`;
+    if (!rows.length) return `<div class="tk-empty">${OV.t(started ? 'noStandings' : 'waitStart')}</div>`;
 
     const row = p => `<div class="tk-row">
         <span class="tk-rank">${p.rank}</span>
@@ -143,10 +143,12 @@
   }
 
   let last = null;
+  let started = true;      // false until the event has its first round
 
   function render() {
     if (!last) return;
     const { tdata, heroOf, standings } = last;
+    started = tdata.rounds.length > 0;
     const roundsDone = completedSwissRounds(tdata);
 
     const base = standings.length ? standings : calcStandings(tdata);
@@ -184,13 +186,22 @@
     list.show(ticker ? tickerHtml(rows) : rowsHtml(rows), ticker ? Math.ceil(rows.length / 2) : rows.length);
   }
 
+  function waiting(text) {
+    OV.headWaiting(OV.t('standings'));
+    list.show(ticker ? `<div class="tk-empty">${OV.esc(text)}</div>` : OV.waitHtml(text), 0);
+  }
+
   async function refresh() {
     try {
       last = await OV.loadEvent({ standings: true });
       render();
       OV.badgeOk(Math.round(REFRESH / 1000));
     } catch (err) {
-      OV.badge(err.message, true);
+      // Nothing to show yet, or the event was taken away: say what is missing.
+      // A hiccup while an event is on screen keeps the last good frame.
+      const text = OV.waitingFor(err);
+      if (text && (!last || err.code === 'noEvent')) { last = null; waiting(text); OV.badgeQuiet(err.message); }
+      else OV.badge(err.message, true);
     }
   }
 

@@ -81,6 +81,8 @@ Large events work too: GEM's run page only counts the matches of a big round, so
 
 Heroes are looked up in the publisher's card database: the server downloads the list of all hero cards at start, renews it twice a day and keeps a copy in `data/heroes.json` for a start without internet. A hero name GEM has but the list does not (a typo, usually) is reported on the config page under the active event.
 
+The boards, the tickers, the matchup screen and the broadcast frame are always on screen. While something is missing they say what: "No event selected", "Not connected to GEM", "Waiting for the event to start" or "No table selected". The overlays that float over a camera (banner, life badges, winner, round status) stay invisible until they have something to show.
+
 Set your GEM account language to English. Hero names are matched against the card database by their English names.
 
 ## Overlays

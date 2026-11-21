@@ -111,7 +111,7 @@
 
     let html;
     if (!kinds) {
-      html = `<div class="board-empty">${OV.t('noHeroes')}</div>`;
+      html = tdata.rounds.length || heroes.length ? `<div class="board-empty">${OV.t('noHeroes')}</div>` : OV.waitHtml(OV.t('waitStart'));
       bars.style.gridTemplateRows = '';
     } else {
       let rest = null;
@@ -136,13 +136,23 @@
     if (html !== shown) { bars.innerHTML = html; shown = html; }
   }
 
+  function waiting(text) {
+    OV.headWaiting(OV.t('breakdown'));
+    bars.style.gridTemplateRows = '';
+    bars.innerHTML = shown = OV.waitHtml(text);
+  }
+
   async function refresh() {
     try {
       last = await OV.loadEvent();
       render();
       OV.badgeOk(Math.round(REFRESH / 1000));
     } catch (err) {
-      OV.badge(err.message, true);
+      // Nothing to show yet, or the event was taken away: say what is missing.
+      // A hiccup while an event is on screen keeps the last good frame.
+      const text = OV.waitingFor(err);
+      if (text && (!last || err.code === 'noEvent')) { last = null; waiting(text); OV.badgeQuiet(err.message); }
+      else OV.badge(err.message, true);
     }
   }
 

@@ -109,7 +109,7 @@
       $('tag').textContent  = '';
       $('side').innerHTML   = '';
       $('fill').style.width = '0';
-      list.show(ticker ? tickerHtml([]) : `<div class="board-empty">${OV.t('noPairings')}</div>`, 0);
+      list.show(ticker ? `<div class="tk-empty">${OV.t('waitStart')}</div>` : OV.waitHtml(OV.t('waitStart')), 0);
       return;
     }
 
@@ -127,13 +127,22 @@
                      : rowsHtml(sorted, heroOf), sorted.length);
   }
 
+  function waiting(text) {
+    OV.headWaiting(OV.t('pairings'));
+    list.show(ticker ? `<div class="tk-empty">${OV.esc(text)}</div>` : OV.waitHtml(text), 0);
+  }
+
   async function refresh() {
     try {
       last = await OV.loadEvent();
       render();
       OV.badgeOk(Math.round(REFRESH / 1000));
     } catch (err) {
-      OV.badge(err.message, true);
+      // Nothing to show yet, or the event was taken away: say what is missing.
+      // A hiccup while an event is on screen keeps the last good frame.
+      const text = OV.waitingFor(err);
+      if (text && (!last || err.code === 'noEvent')) { last = null; waiting(text); OV.badgeQuiet(err.message); }
+      else OV.badge(err.message, true);
     }
   }
 

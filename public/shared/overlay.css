@@ -285,6 +285,14 @@ body.board { font-size: var(--u); }
   color: var(--text-dim);
   font-size: 1.1em;
 }
+/* what the board is waiting for: the one thing on screen, so it is large */
+.board-empty.wait {
+  font-family: var(--font-head);
+  font-size: 2em;
+  font-weight: 600;
+  color: var(--text);
+  opacity: 0.8;
+}
 
 /* Scroll container */
 .scroll-viewport { flex: 1; overflow: hidden; position: relative; }

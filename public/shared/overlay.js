@@ -267,6 +267,9 @@
       champion: 'Champion', others: 'Other heroes ({n})',
       noPairings: 'No pairings yet', noStandings: 'No standings yet',
       noBracket: 'No elimination rounds yet', noHeroes: 'No hero data yet', noRound: 'No round yet',
+      waitEvent: 'No event selected', waitLogin: 'Not connected to GEM',
+      waitStart: 'Waiting for the event to start', waitPairing: 'Waiting for the pairings',
+      waitGem: 'Waiting for GEM', waitTable: 'No table selected', lblMatch: 'Featured match',
       tournament: 'Tournament',
       lblEvent: 'Event', lblFormat: 'Format', lblRound: 'Round', lblTable: 'Table',
       places: 'Places {a}–{b}', place: 'Place {a}',
@@ -281,6 +284,9 @@
       champion: 'Sieger', others: 'Weitere Helden ({n})',
       noPairings: 'Noch keine Paarungen', noStandings: 'Noch keine Tabelle',
       noBracket: 'Noch keine K.-o.-Runden', noHeroes: 'Noch keine Heldendaten', noRound: 'Noch keine Runde',
+      waitEvent: 'Kein Event ausgew\u00e4hlt', waitLogin: 'Nicht mit GEM verbunden',
+      waitStart: 'Warten auf den Start des Events', waitPairing: 'Warten auf die Paarungen',
+      waitGem: 'Warten auf GEM', waitTable: 'Kein Tisch ausgew\u00e4hlt', lblMatch: 'Featured Match',
       tournament: 'Turnier',
       lblEvent: 'Event', lblFormat: 'Format', lblRound: 'Runde', lblTable: 'Tisch',
       places: 'Platz {a}–{b}', place: 'Platz {a}',
@@ -469,6 +475,16 @@
     sb.className = isError ? 'error' : '';
   };
 
+  // The page itself says what it is waiting for: the badge keeps the detail
+  // for ?debug=1 and stays off the stream.
+  OV.badgeQuiet = function (text) {
+    var sb = badgeEl();
+    if (!sb) return;
+    clearInterval(cdTimer);
+    sb.textContent = text;
+    sb.className = 'ok';
+  };
+
   // Healthy: hidden on stream unless ?debug=1. Errors (OV.badge) always show.
   OV.badgeOk = function (sec) {
     var sb = badgeEl();
@@ -479,6 +495,44 @@
   };
 
   // Event data
+
+  function coded(message, code) {
+    var err = new Error(message);
+    err.code = code;
+    return err;
+  }
+
+  // What a board says while it has nothing to show. Null for an error that is
+  // no waiting state (GEM down, a server fault): that one goes to the badge.
+  OV.waitingFor = function (err) {
+    if (err && err.code === 'noEvent') return OV.t('waitEvent');
+    if (err && err.code === 'login')   return OV.t('waitLogin');
+    return null;
+  };
+
+  // The same for the featured match, from the server's warning.
+  OV.matchWaiting = function (m) {
+    var w = (m && m.warning) || '';
+    if (/logged in|log in again|rejected|expired/i.test(w)) return OV.t('waitLogin');
+    if (/No event/i.test(w))      return OV.t('waitEvent');
+    if (/No rounds yet/i.test(w)) return OV.t('waitStart');
+    if (/not found/i.test(w))     return OV.t('waitPairing');
+    if (/unreachable/i.test(w))   return OV.t('waitGem');
+    return OV.t('waitTable');
+  };
+
+  OV.waitHtml = function (text) {
+    return '<div class="board-empty wait">' + OV.esc(text) + '</div>';
+  };
+
+  // Board head without an event: the board's own name, nothing else.
+  OV.headWaiting = function (title) {
+    var set = function (id, text) { var el = document.getElementById(id); if (el) el.textContent = text; };
+    set('ttl', title); set('tag', ''); set('sub', ''); set('side', '');
+    set('tk-ttl', title); set('tk-sub', '');
+    var fill = document.getElementById('fill');
+    if (fill) fill.style.width = '0';
+  };
 
   // Resolves to { tdata, heroes, heroOf(gemId, name), standings }.
   // Rejects with a readable message, the caller keeps its last good frame.
@@ -492,7 +546,9 @@
         return r.json().catch(function () { return null; });
       })).then(function (js) {
         var t = js[0];
-        if (rs[0].status === 401) throw new Error('Not logged in to GEM');
+        if (rs[0].status === 401) throw coded('Not logged in to GEM', 'login');
+        // 400: no event chosen. 404: the demo event with demo mode switched off.
+        if (rs[0].status === 400 || rs[0].status === 404) throw coded((t && t.error) || 'No event selected', 'noEvent');
         if (!rs[0].ok || !t || t.error) throw new Error((t && t.error) || ('HTTP ' + rs[0].status));
 
         OV.setFormat(t.meta && t.meta.format);
